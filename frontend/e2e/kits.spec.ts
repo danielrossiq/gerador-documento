@@ -18,35 +18,32 @@ test("fluxo de kit: campos compartilhados detectados automaticamente, geração 
     { label: "Cargo", type: "text_short", required: false },
   ]);
 
-  // ---- criar o kit
+  // ---- criar o kit numa etapa só: nome + quais geradores entram; os dados em comum são detectados na criação
   await page.goto("/kits");
-  await page.getByRole("link", { name: "Novo kit" }).click();
+  await page.getByRole("link", { name: "Novo kit" }).first().click();
   await page.getByLabel(/^Nome do kit/).fill("Kit de admissão E2E");
-  await page.getByRole("button", { name: "Continuar" }).click();
+  await page.locator("label", { hasText: "Contrato A - Kit E2E" }).click();
+  await page.locator("label", { hasText: "Contrato B - Kit E2E" }).click();
+  await expect(page.getByRole("checkbox", { name: "Contrato B - Kit E2E" })).toBeChecked();
+  await page.getByTestId("create-kit").click();
   await page.waitForURL(/\/kits\/.+\/edit/);
-
-  // ---- adicionar os dois documentos
-  for (const name of ["Contrato A - Kit E2E", "Contrato B - Kit E2E"]) {
-    await page.getByRole("button", { name: "Adicionar documento" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Adicionar documento ao kit" });
-    await dialog.getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: "Adicionar" }).click();
-    await expect(dialog).toBeHidden();
-  }
   await expect(page.getByRole("listitem").filter({ hasText: "Contrato A - Kit E2E" })).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "Contrato B - Kit E2E" })).toBeVisible();
 
-  // ---- detectar automaticamente: "Nome completo" e "CPF" viram campos do kit; "Cargo" fica só no documento B
+  // ---- "Nome completo" e "CPF" viram dados em comum; "Cargo" fica só no documento B
+  await expect(page.getByRole("listitem").filter({ hasText: "Nome completo" })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: /^CPF/ })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Cargo" })).toHaveCount(0);
+  // detectar de novo não duplica nada
   const [autoDetectResp] = await Promise.all([
     page.waitForResponse((r) => r.url().includes("/auto-detect") && r.request().method() === "POST"),
     page.getByRole("button", { name: "Detectar automaticamente" }).click(),
   ]);
   expect(autoDetectResp.ok()).toBeTruthy();
-  await expect(page.getByRole("listitem").filter({ hasText: "Nome completo" })).toBeVisible();
-  await expect(page.getByRole("listitem").filter({ hasText: /^CPF/ })).toBeVisible();
-  await expect(page.getByRole("listitem").filter({ hasText: "Cargo" })).toHaveCount(0);
+  await expect(page.getByRole("listitem").filter({ hasText: "Nome completo" })).toHaveCount(1);
 
   // ---- usar o kit
-  await page.getByRole("link", { name: "Usar agora" }).click();
+  await page.getByRole("link", { name: /Preencher kit/ }).click();
   await page.waitForURL(/\/kits\/.+\/use$/);
 
   await page.getByTestId("field-nome_completo").fill("Maria de Testes E2E");

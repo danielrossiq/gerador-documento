@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 // E2E contra uma stack já em execução (docker compose up) ou o modo local. Configure:
 //   E2E_BASE_URL=http://localhost:3000   E2E_CHANNEL=msedge (usa o Edge instalado; omita para o Chromium do Playwright)
+//   E2E_EXECUTABLE_PATH=/caminho/do/chromium (usa um Chromium já instalado, sem `playwright install`)
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 export default defineConfig({
@@ -19,6 +20,7 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     channel: process.env.E2E_CHANNEL || undefined,
+    launchOptions: process.env.E2E_EXECUTABLE_PATH ? { executablePath: process.env.E2E_EXECUTABLE_PATH } : undefined,
     viewport: { width: 1440, height: 900 },
     permissions: ["clipboard-read", "clipboard-write"],
   },

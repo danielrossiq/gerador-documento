@@ -9,6 +9,24 @@ async function pasteIntoGrid(page: Page, tsv: string) {
   }, tsv);
 }
 
+// Planilha vazia: explica como preencher e oferece uma linha de exemplo (válida) para começar.
+test("planilha vazia orienta e a linha de exemplo já sai pronta para gerar", async ({ page }) => {
+  await login(page);
+  const id = await demoGeneratorId(page);
+  await page.goto(`/generators/${id}/batch`);
+  await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("minuta:batch:")).forEach((k) => localStorage.removeItem(k)));
+  await page.reload();
+  await expect(page.getByText("Cada linha vira um documento; cada coluna é um campo")).toBeVisible();
+  await expect(page.getByTestId("open-run")).toBeDisabled();
+  await page.getByTestId("add-example-row").click();
+  await expect(page.getByTestId("valid-count")).toHaveText("1 pronta");
+  await expect(page.getByTestId("invalid-count")).toHaveText("0 com erro");
+  await expect(page.getByTestId("open-run")).toHaveText(/Gerar 1 documento/);
+  await page.getByTestId("rows-menu").click();
+  await page.getByRole("menuitem", { name: "Limpar a planilha" }).click();
+  await expect(page.getByTestId("open-run")).toBeDisabled();
+});
+
 // Fluxo 2 — lote: digitar na grade, colar do Excel, importar XLSX com mapeamento, corrigir célula inválida,
 // executar em background, acompanhar, baixar ZIP e relatório, consultar histórico.
 test("fluxo de lote completo na grade estilo planilha", async ({ page }) => {
@@ -48,7 +66,7 @@ test("fluxo de lote completo na grade estilo planilha", async ({ page }) => {
   await expect(page.getByLabel("Campo para a coluna Nome do contratante")).toHaveValue("nome_do_contratante"); // sugestão automática
   await page.getByLabel("Substituir as linhas atuais").check();
   await page.getByTestId("import-apply").click();
-  await expect(page.getByTestId("valid-count")).toHaveText("3 válidas");
+  await expect(page.getByTestId("valid-count")).toHaveText("3 prontas");
   await expect(page.getByTestId("invalid-count")).toHaveText("1 com erro");
 
   // ---- 4) identificar e corrigir a célula inválida pelo painel de erros
@@ -62,12 +80,14 @@ test("fluxo de lote completo na grade estilo planilha", async ({ page }) => {
   await page.keyboard.type("1500");
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("invalid-count")).toHaveText("0 com erro");
-  await expect(page.getByTestId("valid-count")).toHaveText("4 válidas");
+  await expect(page.getByTestId("valid-count")).toHaveText("4 prontas");
   await expect(page.getByTestId("cell-3-valor_mensal")).toContainText("1.500,00");
 
   // ---- 5) executar em background, acompanhar e baixar ZIP + relatório
+  await expect(page.getByTestId("open-run")).toHaveText(/Gerar 4 documentos/);
   await page.getByTestId("open-run").click();
   await page.getByTestId("fmt-both").check();
+  await expect(page.getByTestId("run-summary")).toContainText("8"); // 4 linhas × Word e PDF
   await page.getByTestId("run-start").click();
   const job = page.getByTestId("job-result");
   await expect(job).toBeVisible();
@@ -100,7 +120,8 @@ test("linhas inválidas bloqueiam o lote; gerar só as válidas exige confirmaç
   await pasteIntoGrid(page, "Ana Lima\t52998224725\tSuporte técnico mensal\t1000\t01/10/2026\tSim\nDiego\t12345678900\tSuporte técnico mensal\t1000\t01/10/2026\tSim\n");
   await expect(page.getByTestId("invalid-count")).toHaveText("1 com erro");
   await page.getByTestId("open-run").click();
-  await page.getByTestId("run-start").click(); // "Validar": o servidor confirma o erro e não cria job
+  await expect(page.getByTestId("run-summary")).toContainText("Com erro");
+  await page.getByTestId("run-start").click(); // "Conferir de novo": o servidor confirma o erro e não cria job
   await expect(page.getByText(/1 linha tem erro|1 linha com erro/).first()).toBeVisible();
   await page.getByTestId("only-valid").check();
   await page.getByTestId("run-start").click();
@@ -108,7 +129,7 @@ test("linhas inválidas bloqueiam o lote; gerar só as válidas exige confirmaç
   await expect(page.getByTestId("job-result")).toContainText("1 linha ignorada");
 });
 
-test("importação com valor novo na lista suspensa oferece adicionar a opção", async ({ page }) => {
+test("importação com valor novo na lista de opções oferece adicionar a opção", async ({ page }) => {
   await login(page);
   const gid = await createUsableGenerator(page, "Plano de teste - lote E2E", [
     { label: "Nome", type: "text_short", required: true },
@@ -126,7 +147,7 @@ test("importação com valor novo na lista suspensa oferece adicionar a opção"
   await page.getByTestId("import-apply").click();
 
   // valor "Enterprise" não existe na lista do campo "Plano" → diálogo pergunta se quer adicionar
-  await expect(page.getByRole("heading", { name: "Valores novos na lista suspensa" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Valores novos nas listas de opções" })).toBeVisible();
   await expect(page.getByText("Opções atuais:")).toBeVisible();
   await expect(page.getByText("Básico", { exact: true })).toBeVisible();
   const checkbox = page.getByLabel(/Adicionar .Enterprise. como nova opção/);
@@ -134,7 +155,7 @@ test("importação com valor novo na lista suspensa oferece adicionar a opção"
   await page.getByTestId("import-add-options").click();
 
   // depois de adicionada, a linha com "Enterprise" já entra válida (sem precisar corrigir na grade)
-  await expect(page.getByTestId("valid-count")).toHaveText("2 válidas");
+  await expect(page.getByTestId("valid-count")).toHaveText("2 prontas");
   await expect(page.getByTestId("invalid-count")).toHaveText("0 com erro");
   await expect(page.getByTestId("cell-0-plano")).toContainText("Enterprise");
 });

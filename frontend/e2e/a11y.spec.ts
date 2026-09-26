@@ -16,13 +16,17 @@ test("login e cadastro", async ({ page }) => {
   await scan(page, "cadastro");
 });
 
-test("telas autenticadas críticas", async ({ page }) => {
+test("telas autenticadas críticas (todas as etapas do gerador)", async ({ page }) => {
   await login(page);
-  await expect(page.getByRole("heading", { name: "Painel" })).toBeVisible();
-  await expect(page.getByRole("table")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Geradores", level: 1 })).toBeVisible();
+  await expect(page.getByTestId("generator-card").first()).toBeVisible();
   await scan(page, "painel");
 
   const id = await demoGeneratorId(page);
+
+  await page.goto(`/generators/${id}/template`);
+  await expect(page.getByTestId("current-file")).toBeVisible();
+  await scan(page, "etapa Modelo");
 
   await page.goto(`/generators/${id}/edit`);
   await expect(page.getByTestId("doc-page")).toContainText("CONTRATO");
@@ -31,6 +35,10 @@ test("telas autenticadas críticas", async ({ page }) => {
   await expect(page.getByRole("dialog")).toBeVisible();
   await scan(page, "diálogo de versões");
   await page.keyboard.press("Escape");
+
+  await page.goto(`/generators/${id}/review`);
+  await expect(page.getByTestId("review-checklist")).toBeVisible();
+  await scan(page, "revisão");
 
   await page.goto(`/generators/${id}/use`);
   await expect(page.getByTestId("generate-docx")).toBeVisible();
@@ -44,14 +52,27 @@ test("telas autenticadas críticas", async ({ page }) => {
   await scan(page, "histórico");
 });
 
-test("navegação por teclado no menu de ações e no diálogo", async ({ page }) => {
+test("navegação por teclado: etapas, menu de ações e diálogo", async ({ page }) => {
   await login(page);
-  const trigger = page.getByRole("button", { name: /^Ações de/ }).first();
+  const trigger = page.getByRole("button", { name: /^Mais ações de/ }).first();
   await trigger.focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("menuitem", { name: "Editar" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Editar campos" })).toBeVisible();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("menuitem", { name: "Editar" })).toBeHidden();
+  await expect(page.getByRole("menuitem", { name: "Editar campos" })).toBeHidden();
   await expect(trigger).toBeFocused(); // o foco volta ao gatilho
+
+  // um link com cara de botão é UMA parada de Tab (antes: <a><button> = duas)
+  const card = page.getByTestId("generator-card").first();
+  const action = card.getByRole("link", { name: /Gerar documento|Criar campos|Enviar documento/ });
+  await action.focus();
+  await page.keyboard.press("Tab");
+  await expect(action).not.toBeFocused();
+  await expect(card.locator("button:focus, a:focus")).toHaveCount(1);
+
+  // as etapas do gerador indicam a atual para leitores de tela
+  const id = await demoGeneratorId(page);
+  await page.goto(`/generators/${id}/review`);
+  await expect(page.getByRole("navigation", { name: "Etapas do gerador" }).locator('[aria-current="step"]')).toContainText("Revisão");
 });

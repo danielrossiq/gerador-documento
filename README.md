@@ -2,9 +2,12 @@
 
 Transforme documentos repetitivos (contratos, declarações, propostas, procurações, termos, recibos, formulários de RH) em **geradores reutilizáveis**.
 
-1. Envie um `.docx`.
-2. Ele aparece em um editor visual. **Selecione** um trecho como “João da Silva” e clique em **Transformar em campo** — sem escrever `{{placeholders}}`.
-3. O documento vira um gerador com **formulário automático** (máscaras e validações brasileiras) e **geração em lote** numa grade estilo Excel.
+Cada gerador passa por 4 etapas, sempre visíveis no topo da tela — **Modelo → Campos → Revisão → Gerar**:
+
+1. **Modelo**: envie um `.docx` que você já usa (dá para trocá-lo depois; os campos são reposicionados).
+2. **Campos**: no editor visual, **selecione** um trecho como “João da Silva” e clique em **Transformar em campo** — sem escrever `{{placeholders}}`. Sugestões automáticas (CPF, CNPJ, datas, valores…) e avisos de nome repetido, lista sem opções e campo fora do documento.
+3. **Revisão**: o documento com **dados de exemplo**, a lista do que falta ajustar e o nome dos arquivos gerados.
+4. **Gerar**: **um documento** num formulário automático (máscaras e validações brasileiras, prévia ao vivo, rascunho salvo sozinho) ou **vários** numa grade estilo Excel (colar do Excel, importar XLSX/CSV, erros por célula, resumo antes de gerar).
 4. Saída em **DOCX e PDF reais** (LibreOffice), com histórico, links temporários e ZIP + relatório CSV para lotes.
 5. **Kit de documentos**: agrupe geradores prontos que compartilham variáveis (nome, CPF, endereço…) — preencha uma vez e gere todos juntos, com download individual ou em ZIP.
 
@@ -63,13 +66,14 @@ API_INTERNAL_URL=http://127.0.0.1:8100 npm run dev      # PowerShell: $env:API_I
 
 Veja o passo a passo completo em [docs/DEMO.md](docs/DEMO.md). Resumo, com os arquivos em `demo/`:
 
-1. **Cadastro** → novo workspace. **Novo gerador** → nome → envie `demo/contrato_prestacao_servicos.docx`.
-2. No editor, **selecione “João da Silva”** → menu flutuante → **Transformar em campo** → “Nome do contratante”. Reutilize o campo em outra ocorrência.
-3. Selecione “consultoria em desenvolvimento de software” → tipo **Lista suspensa** → cole 3 opções (uma por linha).
-4. Aba **Sugestões** → **Aceitar alta confiança** (CPF, CNPJ, valor, datas).
-5. Sem etapa de publicação: **Usar agora** (formulário com prévia ao vivo) → gere **DOCX** e **PDF**.
-6. **Gerar em lote**: digite 3 linhas, cole intervalo do Excel, **Importar** `demo/lote_exemplo.xlsx` (mapeie colunas), corrija a célula inválida pelo painel de erros, **Gerar lote** → baixe **ZIP + relatório CSV**.
-7. **Histórico** → status, versão, erros, expiração, **Repetir**.
+1. **Cadastro** → **Criar meu primeiro gerador** → (etapa **Modelo**) nome opcional → envie `demo/contrato_prestacao_servicos.docx`.
+2. (etapa **Campos**) **Selecione “João da Silva”** → menu flutuante → **Transformar em campo** → “Nome do contratante”. Na outra ocorrência, o editor avisa que o nome já existe e oferece **usar o campo existente**.
+3. Selecione “consultoria em desenvolvimento de software” → tipo **Lista de opções** → cole 3 opções (uma por linha).
+4. Aba **Sugestões** → **Aceitar as recomendadas** (CPF, CNPJ, valor, datas).
+5. **Próximo: Revisão** → confira as pendências e a **prévia com dados de exemplo**.
+6. (etapa **Gerar** → **Um documento**) **Preencher com dados de exemplo** ou digite → gere **Word** e **PDF**.
+7. **Vários documentos**: digite 3 linhas, cole um intervalo do Excel, **Importar planilha** `demo/lote_exemplo.xlsx` (mapeie colunas), corrija a célula inválida pela lista de erros, **Gerar N documentos** (confira o resumo) → baixe **ZIP + relatório CSV**.
+8. **Histórico** → status, versão, erros, expiração, **Repetir**.
 
 ## Testes
 
@@ -80,17 +84,33 @@ cd backend && .venv/Scripts/python -m pytest
 TEST_DATABASE_URL=postgresql://usuario:senha@localhost:5432/teste .venv/Scripts/python -m pytest
 # Frontend: unidade (vetores compartilhados com o backend + grade) e tipos
 cd frontend && npm test && npm run typecheck
-# E2E + acessibilidade (stack já em execução em :3000; E2E_CHANNEL=msedge usa o Edge instalado)
+# E2E + acessibilidade (stack já em execução em :3000; E2E_CHANNEL=msedge usa o Edge instalado;
+# E2E_EXECUTABLE_PATH=/caminho/do/chromium usa um Chromium já instalado)
 cd frontend && npx playwright test
+# Recapturar docs/screenshots
+cd frontend && CAPTURE_SCREENSHOTS=1 npx playwright test e2e/capture-screenshots.spec.ts
 # Lint
 cd backend && .venv/Scripts/python -m ruff check app seed tests
 # Queda real do worker no meio de um lote (SIGKILL) com a stack Docker no ar: espera retomada sem duplicar arquivos
 python scripts/crash_recovery_test.py
 ```
 
-O que a suíte cobre: validações CPF/CNPJ (incl. alfanumérico) e tipos de campo; **vetores compartilhados backend↔frontend**; texto dividido em runs do DOCX, campo repetido, formatação, imagem, tabela, cabeçalho, rodapé; segurança de upload (ZIP bomb, macros, XXE, path traversal); **isolamento multi-tenant** (dois workspaces, chamadas de geradores **e** de kits + download assinado); **idempotência**; **falha parcial em lote**, retomada de job e **recuperação após queda do worker** (claim atômico, heartbeat, watchdog, perda de posse); geração sem etapa de publicação (uso imediato, restaurar versão, fixar); **kit de documentos** (detecção automática de campos compartilhados — por similaridade de rótulo e, opcionalmente, por **classificação semântica de papéis** via TypeSafe.ai/Jev, distinguindo "contratante" de "contratado" e reconhecendo sinônimos —, mapeamento manual, tipos incompatíveis, geração de todos os documentos do kit, ZIP + relatório); **detecção de campos no upload** (ano, mês como lista suspensa, numeração de sugestões duplicadas, papel de parte antes de um nome — ver D26); importação XLSX/CSV (mapeamento sugerido, **oferecer adicionar um valor novo à lista suspensa** durante a importação); provedor de IA (schema, retry, timeout, cache por hash, indisponibilidade); grade (colar TSV, desfazer, preencher); E2E dos três fluxos principais (individual, lote, kit); axe (WCAG A/AA).
+O que a suíte cobre: validações CPF/CNPJ (incl. alfanumérico) e tipos de campo; **vetores compartilhados backend↔frontend**; texto dividido em runs do DOCX, campo repetido, formatação, imagem, tabela, cabeçalho, rodapé; segurança de upload (ZIP bomb, macros, XXE, path traversal); **isolamento multi-tenant** (dois workspaces, chamadas de geradores **e** de kits + download assinado); **idempotência**; **falha parcial em lote**, retomada de job e **recuperação após queda do worker** (claim atômico, heartbeat, watchdog, perda de posse); geração sem etapa de publicação (uso imediato, restaurar versão, fixar); **kit de documentos** (detecção automática de campos compartilhados — por similaridade de rótulo e, opcionalmente, por **classificação semântica de papéis** via TypeSafe.ai/Jev, distinguindo "contratante" de "contratado" e reconhecendo sinônimos —, mapeamento manual, tipos incompatíveis, geração de todos os documentos do kit, ZIP + relatório); **detecção de campos no upload** (ano, mês como lista suspensa, numeração de sugestões duplicadas, papel de parte antes de um nome — ver D26); importação XLSX/CSV (mapeamento sugerido, **oferecer adicionar um valor novo à lista suspensa** durante a importação); provedor de IA (schema, retry, timeout, cache por hash, indisponibilidade); grade (colar TSV, desfazer, preencher); **pendências dos campos, ordem do documento, dados de exemplo e nome de arquivo** (unidade); E2E dos fluxos principais pelas 4 etapas (individual, gerador sem documento, editor com pendências e salvamento, lote com planilha vazia/linha de exemplo, kit); axe (WCAG A/AA) em todas as etapas do gerador.
 
-## Resultados verificados (execução real, 25/09/2026)
+## Resultados verificados — revisão de UX (execução real, 26/09/2026)
+
+Ambiente: modo local sem Docker (SQLite, storage local, jobs em thread), LibreOffice 24.2 (Writer), Chromium 141 via Playwright 1.63, `next build` + `next start`. **Não** reexecutado nesta revisão: PostgreSQL, stack Docker, lote de 1.000 e queda do worker (tabela abaixo, da versão anterior).
+
+| Verificação | Resultado |
+|---|---|
+| Backend `pytest` (SQLite) | **246 passed** (inclui a correção das sugestões obsoletas; antes: 245 passed + 1 failed) |
+| Backend `ruff check` | 0 erros |
+| Frontend `vitest` | **81 passed** (72 + 9 novos: pendências, ordem do documento, exemplos, nome de arquivo) |
+| Frontend `tsc` (app + testes) · `eslint` · `next build` | 0 erros (eslint: 15 avisos das regras do React Compiler, os mesmos de antes) |
+| E2E Playwright (Chromium) contra `next start` + API local | **11 passed** (+2 de captura de tela, sob demanda): fluxo individual pelas 4 etapas com Word **e PDF reais**, gerador sem documento, editor (pendências e salvamento ao trocar de campo), 4 de lote, kit, 3× axe (WCAG 2 A/AA) + teclado |
+| Largura em 390 px (celular) | nenhuma tela com rolagem horizontal (antes: painel com 572 px e histórico com 913 px) |
+
+## Resultados verificados (versão anterior, 25/09/2026)
 
 | Verificação | Resultado |
 |---|---|
@@ -123,7 +143,9 @@ docs/      ARCHITECTURE, DECISIONS, DATA_MODEL, SECURITY_AND_LGPD, API, ROADMAP,
 - **Fidelidade do DOCX**: textos, negrito/itálico/sublinhado/tachado, cabeçalho, rodapé, tabelas, imagens e quebras de página são preservados; **parágrafos alterados perdem alterações rastreadas** (`w:ins/w:del`) e fica sem hyperlink apenas quando o texto dele é reescrito. Imagens, campos do Word (ex.: número de página), controles de conteúdo e quebras aparecem como blocos **não editáveis**, mantidos no lugar.
 - **Tabelas**: só o texto das células é editável; adicionar/remover linhas/colunas não é suportado (a estrutura é travada de propósito).
 - **Editor "paginado"**: o visual é contínuo (uma folha A4 com cabeçalho no topo e rodapé no fim). A paginação real só existe no DOCX/PDF gerados.
-- **Prévia do formulário** é uma aproximação em HTML do documento; o arquivo final é o DOCX/PDF.
+- **Prévia do formulário e da revisão** é uma aproximação em HTML do documento; o arquivo final é o DOCX/PDF.
+- **Rascunhos** do formulário individual e da planilha de vários documentos ficam **só no navegador** (`localStorage`): não acompanham a pessoa em outro computador e somem se ela limpar os dados do site. Nada preenchido vai ao servidor antes de gerar.
+- **Pendências dos campos** (nome repetido, lista sem opções, fora do documento) são avisos: a geração não é bloqueada (nem pelo servidor).
 - **PDF depende do LibreOffice**: fontes fora do Office (Calibri→Carlito, Arial→Liberation) podem alterar quebras de linha/página em relação ao Word. Sem `soffice`, PDF responde `PDF_CONVERTER_UNAVAILABLE` (o DOCX segue funcionando).
 - **Sem assinatura eletrônica**, sem edição de PDF de entrada, sem colaboração em tempo real, sem convites de equipe (a UI de convites está no roadmap; os papéis `owner`/`member` existem e são aplicados).
 - **IA**: sem chave, as sugestões vêm de heurísticas locais em português (conservadoras, com confiança moderada) — não é um modelo de linguagem. Com chave, o conteúdo do **modelo** (não os valores preenchidos) é enviado ao provedor apenas na análise; veja [SECURITY_AND_LGPD](docs/SECURITY_AND_LGPD.md).

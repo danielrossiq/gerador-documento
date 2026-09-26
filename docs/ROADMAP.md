@@ -11,8 +11,14 @@
 - Histórico, links de download assinados/expiráveis, repetição de geração, auditoria, métricas, retenção.
 - **Kit de documentos**: agrupar geradores existentes que compartilham variáveis num formulário só; mapeamento manual ou detecção automática por rótulo; geração de todos os documentos do kit de uma vez, com download individual, ZIP consolidado e relatório CSV.
 - Docker Compose completo (Postgres, Redis, MinIO, API, worker+LibreOffice, web), migrations, seed.
+- **Revisão de UX** ([D27](DECISIONS.md)): etapas Modelo → Campos → Revisão → Gerar em todas as telas do gerador; etapa Modelo para enviar/trocar o .docx; revisão com pendências e prévia com dados de exemplo; avisos de nome repetido/lista sem opções/campo fora do documento; ordem do formulário igual à do documento; rascunho automático do formulário; "preencher com exemplo"; resumo antes de gerar vários; menu e telas sem rolagem horizontal no celular.
 
 ## Próxima versão
+0. **Continuações da revisão de UX** (dependem de backend ou de decisão de produto):
+   - rascunho do formulário/planilha **no servidor**, para continuar em outro dispositivo — exige decidir retenção e LGPD de dados pessoais ainda não gerados;
+   - "desfazer" ao excluir um campo (hoje há confirmação e o texto original pode ser mantido);
+   - pendências como bloqueio opcional no servidor (hoje são avisos);
+   - prévia fiel (item 6).
 1. **Convites e gestão de equipe** (UI para `owner`/`member`, troca de workspace, auditoria consultável).
 2. **Edição estrutural de tabelas** (linhas/colunas) e listas numeradas; fidelidade de alterações rastreadas (`w:ins/w:del`).
 3. **Campos condicionais e repetíveis** (blocos que aparecem por Sim/Não; tabelas com N linhas), valor por extenso (moeda/data).
