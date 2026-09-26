@@ -1,0 +1,52 @@
+# Segurança e LGPD
+
+> Este documento descreve os controles **implementados** e o que **falta**. Não é parecer jurídico.
+
+## Autenticação e sessão
+- Senha com **Argon2id**; reprocessa hash quando os parâmetros mudam; comparação com tempo equalizado para conta inexistente.
+- Sessão opaca de 256 bits em cookie **`HttpOnly`**, `SameSite=Lax`, **`Secure`** quando `COOKIE_SECURE=true` (obrigatório em `APP_ENV=production`). No banco só fica o SHA-256 do token; permite revogação e expiração deslizante.
+- **CSRF**: cookie legível + cabeçalho `X-CSRF-Token` comparados com o valor guardado na sessão (não só com o cookie) em métodos inseguros, mais checagem de `Origin`.
+- Rate-limit em login/cadastro/recuperação (Redis se disponível, memória caso contrário). Recuperação de senha não revela se o e-mail existe; token de 1 h, uso único; ao redefinir, as sessões são revogadas.
+- Estrutura pronta para login social (`auth_identities`).
+
+## Isolamento multi-tenant
+- `workspace_id` em toda tabela de domínio e em toda consulta; IDs UUID v4; 404 para recurso alheio.
+- Downloads: link assinado (HMAC) de 5 min **vinculado a usuário + workspace**; exige sessão; recusa arquivo expirado (410).
+- Papéis `owner`/`member`: membro só repete/cancela gerações próprias.
+
+## Upload e processamento de arquivos
+- Extensão, magia do ZIP, estrutura OOXML e tipo de conteúdo principal; limite de tamanho por workspace.
+- **ZIP bomb**: limite de razão de compressão, tamanho por entrada e total, número de entradas.
+- **Macros**: `vbaProject.bin`/`macroEnabled` são recusados; nada é executado. Executáveis embutidos (`.exe`, `.dll`, `.js`…) recusados. Caminhos com `..`/absolutos recusados. Arquivos cifrados recusados.
+- **XML**: DTD/entidades proibidas (XXE e *billion laughs*), sem rede. Referências externas de modelo anexado são removidas ao compilar.
+- Nome interno aleatório; o nome enviado pelo usuário nunca vira caminho. O original é imutável.
+- Planilhas de importação: mesma proteção de ZIP; leitura `read_only`/`data_only`; CSV de saída protegido contra injeção de fórmula.
+- LibreOffice roda com perfil temporário limpo, timeout e sem rede.
+
+## Dados pessoais e logs
+- **Nunca** registramos conteúdo de documentos, CPF, CNPJ, valores ou e-mails em log: o filtro de log mascara esses padrões como rede de segurança, e o código não os passa aos logs.
+- Auditoria (`audit_events`) guarda ação, entidade, IP e contadores; chaves como `values`, `content`, `cpf`, `email` são descartadas antes de gravar.
+- Mensagens de erro de itens são genéricas (não incluem valores).
+
+## IA
+- Chamada **somente** na análise/reanálise do modelo, nunca na geração de documentos.
+- **O que é enviado** ao provedor: blocos de texto do modelo (ex.: parágrafos do contrato original) e suas chaves — até `AI_MAX_CHARS` (60.000). **Não** são enviados: valores preenchidos em formulários/lotes, arquivos binários, dados de usuários.
+- Recomendação: envie ao provedor apenas modelos **sem dados pessoais reais** (use nomes/CPF fictícios no modelo). Configure `AI_PROVIDER=local` ou `none` para nenhuma saída de dados.
+- Resposta validada por schema; sugestões nunca alteram o modelo sem confirmação. Registramos consumo (caracteres, tokens, duração), não conteúdo. A IA não presta aconselhamento jurídico.
+- Sem chave configurada, o produto usa só regras determinísticas + heurísticas locais, e a interface informa isso.
+
+## Retenção, exportação e exclusão (LGPD)
+- **Retenção**: arquivos gerados expiram (`FILE_RETENTION_DAYS`, padrão 7 dias). Agende `python -m app.cli cleanup` (cron/CronJob) para remover do storage. Links recusam arquivos expirados.
+- **Exportação** (portabilidade): `python -m app.cli export-workspace <id> saida.json` exporta metadados (geradores, versões, campos, jobs, itens, arquivos, auditoria).
+- **Eliminação**: `python -m app.cli purge-workspace <id> --yes` apaga o workspace (cascata no banco) e os arquivos no storage.
+- Geradores excluídos pelo usuário sofrem *soft delete*; a exclusão definitiva ocorre via `purge-workspace`.
+
+## Transporte e repouso
+- TLS deve ser terminado no proxy reverso (o compose de desenvolvimento é HTTP). Cabeçalhos de segurança básicos (`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`) e `Cache-Control: no-store` nas respostas de API.
+- Criptografia em repouso: `S3_SSE=true` habilita SSE-S3; para disco/banco use a criptografia do provedor de infraestrutura.
+
+## O que ainda falta (honestidade)
+- Convites e gestão de membros (UI), 2FA, política de senhas avançada e bloqueio progressivo por conta.
+- Varredura antivírus dos uploads (ClamAV) e CSP restritiva (o Next injeta scripts inline; requer nonce).
+- Consentimento/registro de operações de tratamento (RoPA), DPA com o provedor de IA, e fluxo self-service de exportação/exclusão na UI.
+- Rotação de `SECRET_KEY` (invalida links assinados e reset tokens pendentes).

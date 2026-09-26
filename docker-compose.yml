@@ -1,0 +1,109 @@
+# Minuta — stack local completa. Uso:
+#   cp .env.example .env          (opcional: tudo tem padrão para desenvolvimento)
+#   docker compose up --build
+# Web: http://localhost:3000   API/OpenAPI: http://localhost:8100/api/docs   MinIO (console): http://localhost:9101
+# Portas de host configuráveis por WEB_PORT / API_PORT / MINIO_CONSOLE_PORT (Postgres e Redis NÃO são publicados).
+name: minuta
+
+x-app-env: &app-env
+  APP_ENV: ${APP_ENV:-development}
+  SECRET_KEY: ${SECRET_KEY:-dev-only-change-me-please-32-bytes-min}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-minuta}:${POSTGRES_PASSWORD:-minuta}@postgres:5432/${POSTGRES_DB:-minuta}
+  REDIS_URL: redis://redis:6379/0
+  JOB_BACKEND: dramatiq
+  STORAGE_BACKEND: s3
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_BUCKET: ${S3_BUCKET:-minuta}
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minuta}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minuta-secret-123}
+  PUBLIC_WEB_URL: http://localhost:${WEB_PORT:-3000}
+  ALLOWED_ORIGINS: http://localhost:${WEB_PORT:-3000},http://127.0.0.1:${WEB_PORT:-3000}
+  COOKIE_SECURE: ${COOKIE_SECURE:-false}
+  AI_PROVIDER: ${AI_PROVIDER:-auto}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-claude-haiku-4-5-20251001}
+  TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+  TYPESAFE_MODEL: ${TYPESAFE_MODEL:-jev-latest}
+  PDF_CONVERTER: libreoffice
+  FILE_RETENTION_DAYS: ${FILE_RETENTION_DAYS:-7}
+  SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-demo12345}
+  LOG_JSON: "true"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-minuta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-minuta}
+      POSTGRES_DB: ${POSTGRES_DB:-minuta}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-minuta} -d ${POSTGRES_DB:-minuta}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z  # a MinIO deixou de publicar no Docker Hub; tag fixa para reprodutibilidade
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minuta}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minuta-secret-123}
+    volumes: [miniodata:/data]
+    ports: ["${MINIO_CONSOLE_PORT:-9101}:9001"]
+
+  migrate:
+    build: { context: ./backend, target: tools }
+    environment: *app-env
+    command: ["sh", "-c", "alembic upgrade head && if [ \"${SEED_DEMO:-true}\" = \"true\" ]; then python -m app.cli seed; fi"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_started }
+    restart: "no"
+
+  api:
+    build: { context: ./backend, target: api }
+    restart: unless-stopped
+    environment: *app-env
+    ports: ["${API_PORT:-8100}:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    build: { context: ./backend, target: worker }
+    restart: unless-stopped
+    environment: *app-env
+    # escalar horizontalmente: docker compose up --scale worker=3
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        API_INTERNAL_URL: http://api:8000
+    restart: unless-stopped
+    ports: ["${WEB_PORT:-3000}:3000"]
+    environment:
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

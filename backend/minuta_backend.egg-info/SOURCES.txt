@@ -1,0 +1,6 @@
+pyproject.toml
+minuta_backend.egg-info/PKG-INFO
+minuta_backend.egg-info/SOURCES.txt
+minuta_backend.egg-info/dependency_links.txt
+minuta_backend.egg-info/requires.txt
+minuta_backend.egg-info/top_level.txt

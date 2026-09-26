@@ -1,0 +1,21 @@
+# dependências e ambientes
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+# build e caches
+.next/
+*.tsbuildinfo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+# dados locais e artefatos de teste
+backend/data/
+data/
+frontend/test-results/
+frontend/playwright-report/
+scratch_*
+*.log
+# segredos
+.env
+!.env.example

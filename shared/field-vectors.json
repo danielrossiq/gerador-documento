@@ -1,0 +1,382 @@
+{
+ "comment": "Vetores compartilhados entre backend (pytest) e frontend (vitest). Não editar sem rodar as duas suítes.",
+ "cases": [
+  {
+   "type": "cpf",
+   "input": "123.456.789-09",
+   "canonical": "12345678909",
+   "formatted": "123.456.789-09",
+   "error": null
+  },
+  {
+   "type": "cpf",
+   "input": "12345678909",
+   "canonical": "12345678909",
+   "formatted": "123.456.789-09",
+   "error": null
+  },
+  {
+   "type": "cpf",
+   "input": "111.111.111-11",
+   "canonical": "111.111.111-11",
+   "formatted": null,
+   "error": "CPF inválido."
+  },
+  {
+   "type": "cpf",
+   "input": "123.456.789-10",
+   "canonical": "123.456.789-10",
+   "formatted": null,
+   "error": "CPF inválido."
+  },
+  {
+   "type": "cnpj",
+   "input": "11.222.333/0001-81",
+   "canonical": "11222333000181",
+   "formatted": "11.222.333/0001-81",
+   "error": null
+  },
+  {
+   "type": "cnpj",
+   "input": "11222333000181",
+   "canonical": "11222333000181",
+   "formatted": "11.222.333/0001-81",
+   "error": null
+  },
+  {
+   "type": "cnpj",
+   "input": "11.222.333/0001-80",
+   "canonical": "11.222.333/0001-80",
+   "formatted": null,
+   "error": "CNPJ inválido."
+  },
+  {
+   "type": "cnpj",
+   "input": "12abc34501de35",
+   "canonical": "12ABC34501DE35",
+   "formatted": "12.ABC.345/01DE-35",
+   "error": null
+  },
+  {
+   "type": "cep",
+   "input": "01310-100",
+   "canonical": "01310100",
+   "formatted": "01310-100",
+   "error": null
+  },
+  {
+   "type": "cep",
+   "input": "1234",
+   "canonical": "1234",
+   "formatted": null,
+   "error": "CEP inválido. Use 8 dígitos."
+  },
+  {
+   "type": "email",
+   "input": " Maria@Exemplo.com.br ",
+   "canonical": "maria@exemplo.com.br",
+   "formatted": "maria@exemplo.com.br",
+   "error": null
+  },
+  {
+   "type": "email",
+   "input": "maria@",
+   "canonical": "maria@",
+   "formatted": null,
+   "error": "E-mail inválido."
+  },
+  {
+   "type": "phone",
+   "input": "(11) 91234-5678",
+   "canonical": "11912345678",
+   "formatted": "(11) 91234-5678",
+   "error": null
+  },
+  {
+   "type": "phone",
+   "input": "+55 11 3123-4567",
+   "canonical": "1131234567",
+   "formatted": "(11) 3123-4567",
+   "error": null
+  },
+  {
+   "type": "phone",
+   "input": "(00) 1234-5678",
+   "canonical": "(00) 1234-5678",
+   "formatted": null,
+   "error": "Telefone inválido. Use DDD + número."
+  },
+  {
+   "type": "phone",
+   "input": "12345",
+   "canonical": "12345",
+   "formatted": null,
+   "error": "Telefone inválido. Use DDD + número."
+  },
+  {
+   "type": "currency",
+   "input": "R$ 5.000,00",
+   "canonical": "5000.00",
+   "formatted": "R$ 5.000,00",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "input": "1234,5",
+   "canonical": "1234.50",
+   "formatted": "R$ 1.234,50",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "input": "1.234",
+   "canonical": "1234.00",
+   "formatted": "R$ 1.234,00",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "input": "1234.56",
+   "canonical": "1234.56",
+   "formatted": "R$ 1.234,56",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "input": 5000,
+   "canonical": "5000.00",
+   "formatted": "R$ 5.000,00",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "input": "abc",
+   "canonical": "abc",
+   "formatted": null,
+   "error": "Informe um número válido (ex.: 1.234,56)."
+  },
+  {
+   "type": "currency",
+   "input": "-5",
+   "canonical": "-5.00",
+   "formatted": null,
+   "error": "O valor não pode ser negativo."
+  },
+  {
+   "type": "number",
+   "input": "1.234,567",
+   "canonical": "1234.567",
+   "formatted": "1.234,567",
+   "error": null
+  },
+  {
+   "type": "number",
+   "input": "1200",
+   "canonical": "1200",
+   "formatted": "1.200",
+   "error": null
+  },
+  {
+   "type": "number",
+   "input": "3,14159",
+   "canonical": "3.14",
+   "formatted": "3,14",
+   "error": null,
+   "config": {
+    "decimals": 2
+   }
+  },
+  {
+   "type": "number",
+   "input": "5",
+   "canonical": "5",
+   "formatted": null,
+   "error": "O valor mínimo é 10.",
+   "config": {
+    "min": 10
+   }
+  },
+  {
+   "type": "date",
+   "input": "21/09/2026",
+   "canonical": "2026-09-21",
+   "formatted": "21/09/2026",
+   "error": null
+  },
+  {
+   "type": "date",
+   "input": "2026-09-21",
+   "canonical": "2026-09-21",
+   "formatted": "21/09/2026",
+   "error": null
+  },
+  {
+   "type": "date",
+   "input": "21/09/2026",
+   "canonical": "2026-09-21",
+   "formatted": "21 de setembro de 2026",
+   "error": null,
+   "config": {
+    "date_format": "long"
+   }
+  },
+  {
+   "type": "date",
+   "input": "31/02/2026",
+   "canonical": "31/02/2026",
+   "formatted": null,
+   "error": "Data inválida. Use dd/mm/aaaa."
+  },
+  {
+   "type": "date",
+   "input": 46286,
+   "canonical": "2026-09-21",
+   "formatted": "21/09/2026",
+   "error": null
+  },
+  {
+   "type": "select",
+   "input": "Suporte técnico",
+   "canonical": "suporte_tecnico",
+   "formatted": "Suporte técnico",
+   "error": null,
+   "options": [
+    {
+     "label": "Consultoria",
+     "value": "consultoria"
+    },
+    {
+     "label": "Suporte técnico",
+     "value": "suporte_tecnico"
+    }
+   ]
+  },
+  {
+   "type": "select",
+   "input": "consultoria",
+   "canonical": "consultoria",
+   "formatted": "Consultoria",
+   "error": null,
+   "options": [
+    {
+     "label": "Consultoria",
+     "value": "consultoria"
+    },
+    {
+     "label": "Suporte técnico",
+     "value": "suporte_tecnico"
+    }
+   ]
+  },
+  {
+   "type": "select",
+   "input": "Outro",
+   "canonical": "Outro",
+   "formatted": null,
+   "error": "Opção inválida. Escolha uma das opções da lista.",
+   "options": [
+    {
+     "label": "Consultoria",
+     "value": "consultoria"
+    },
+    {
+     "label": "Suporte técnico",
+     "value": "suporte_tecnico"
+    }
+   ]
+  },
+  {
+   "type": "yes_no",
+   "input": "sim",
+   "canonical": true,
+   "formatted": "Sim",
+   "error": null
+  },
+  {
+   "type": "yes_no",
+   "input": "Não",
+   "canonical": false,
+   "formatted": "Não",
+   "error": null
+  },
+  {
+   "type": "yes_no",
+   "input": "talvez",
+   "canonical": null,
+   "formatted": null,
+   "error": "Responda Sim ou Não."
+  },
+  {
+   "type": "checkbox",
+   "input": true,
+   "canonical": true,
+   "formatted": "☒",
+   "error": null
+  },
+  {
+   "type": "checkbox",
+   "input": "",
+   "canonical": false,
+   "formatted": "☐",
+   "error": null
+  },
+  {
+   "type": "checkbox",
+   "input": false,
+   "canonical": false,
+   "formatted": null,
+   "error": "Marque esta opção para continuar.",
+   "required": true
+  },
+  {
+   "type": "text_short",
+   "input": "  a\nb  ",
+   "canonical": "a b",
+   "formatted": "a b",
+   "error": null
+  },
+  {
+   "type": "text_short",
+   "input": "",
+   "canonical": null,
+   "formatted": null,
+   "error": "Campo obrigatório.",
+   "required": true
+  },
+  {
+   "type": "text_long",
+   "input": "a\r\nb",
+   "canonical": "a\nb",
+   "formatted": "a\nb",
+   "error": null
+  },
+  {
+   "type": "number",
+   "input": "1,234",
+   "canonical": "1.234",
+   "formatted": "1,234",
+   "error": null
+  },
+  {
+   "type": "number",
+   "input": "123,456",
+   "canonical": "123.456",
+   "formatted": "123,456",
+   "error": null
+  },
+  {
+   "type": "number",
+   "input": 1.5,
+   "canonical": "1.5",
+   "formatted": "1,5",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "input": "0,5",
+   "canonical": "0.50",
+   "formatted": "R$ 0,50",
+   "error": null
+  }
+ ]
+}
