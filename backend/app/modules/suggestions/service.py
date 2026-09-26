@@ -7,6 +7,7 @@ O usuário sempre confirma: aceitar uma sugestão cria o campo e aplica no docum
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import re
 import uuid
@@ -300,6 +301,37 @@ def provider_label(provider: str, model: str | None) -> str:
     return "Somente regras determinísticas"
 
 
+def _locate(block: Any, s: FieldSuggestion) -> tuple[int, int] | None:
+    """Onde o trecho sugerido está hoje no bloco (o documento pode ter mudado desde a análise), ou None."""
+    text = block.text or ""
+    start, end = s.start_offset, s.end_offset
+    if text[start:end] == s.text:
+        return start, end
+    found = next(
+        (
+            m.start()
+            for m in re.finditer(re.escape(s.text), text)
+            if text[max(0, m.start() - 20) : m.start()].endswith(s.context_before[-20:])
+        ),
+        None,
+    )
+    return None if found is None else (found, found + len(s.text))
+
+
+def _still_applicable(block: Any, s: FieldSuggestion) -> bool:
+    """A sugestão ainda pode virar campo? Falso se o trecho sumiu ou já virou campo (ex.: marcado à mão)."""
+    if block is None or block.kind != "paragraph":
+        return False
+    pos = _locate(block, s)
+    if pos is None:
+        return False
+    try:
+        replace_range_with_field(copy.deepcopy(block.content), pos[0], pos[1], "verificacao")
+    except RangeError:
+        return False
+    return True
+
+
 def list_suggestions(ctx: Ctx, generator_id: uuid.UUID, status: str = "pending") -> dict[str, Any]:
     db = ctx.db
     version = _version_for_review(ctx, generator_id)
@@ -312,6 +344,11 @@ def list_suggestions(ctx: Ctx, generator_id: uuid.UUID, status: str = "pending")
     )
     blocks = core.ordered_blocks(core.load_blocks(db, version.id), core.part_order_of(version, []))
     order = {b.key: i for i, b in enumerate(blocks)}
+    if status == "pending":
+        # não oferecer o que não dá mais para aceitar (trecho apagado ou já transformado em campo à mão):
+        # na interface isso aparecia como sugestão pendente e o "Aceitar" terminava em erro
+        by_key = {b.key: b for b in blocks}
+        rows = [r for r in rows if _still_applicable(by_key.get(r.block_key), r)]
     rows.sort(key=lambda s: (order.get(s.block_key, 10**6), s.start_offset))
     groups: dict[tuple[str, str], dict[str, Any]] = {}
     for s in rows:
@@ -468,20 +505,11 @@ def accept(ctx: Ctx, suggestion_id: uuid.UUID, body: AcceptIn) -> dict[str, Any]
         if b is None or b.kind != "paragraph":
             s.status = "ignored"
             continue
-        start, end = s.start_offset, s.end_offset
-        if b.text[start:end] != s.text:  # documento mudou: tenta reencontrar pelo contexto
-            found = next(
-                (
-                    m.start()
-                    for m in re.finditer(re.escape(s.text), b.text)
-                    if b.text[max(0, m.start() - 20) : m.start()].endswith(s.context_before[-20:])
-                ),
-                None,
-            )
-            if found is None:
-                s.status = "ignored"
-                continue
-            start, end = found, found + len(s.text)
+        pos = _locate(b, s)  # documento mudou: tenta reencontrar pelo contexto
+        if pos is None:
+            s.status = "ignored"
+            continue
+        start, end = pos
         try:
             b.content, _ = replace_range_with_field(b.content, start, end, str(field.id))
         except RangeError:

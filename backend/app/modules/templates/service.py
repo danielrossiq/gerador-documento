@@ -255,6 +255,14 @@ def version_out(v: TemplateVersion) -> dict[str, Any]:
     }
 
 
+def source_filename(db: Session, v: TemplateVersion) -> str | None:
+    """Nome do .docx enviado que originou a versão (para a interface dizer qual arquivo está em uso)."""
+    if v.source_file_id is None:
+        return None
+    f = db.scalar(select(TemplateFile).where(TemplateFile.id == v.source_file_id))
+    return f.original_filename if f else None
+
+
 def get_editor(ctx: Ctx, generator_id: uuid.UUID) -> dict[str, Any]:
     db = ctx.db
     gen = core.get_generator(db, ctx.workspace_id, generator_id)
@@ -265,7 +273,7 @@ def get_editor(ctx: Ctx, generator_id: uuid.UUID) -> dict[str, Any]:
     doc = blocks_to_doc(blocks, parts)
     return {
         "generator": generators_service.generator_out(db, gen),
-        "version": version_out(version),
+        "version": {**version_out(version), "source_filename": source_filename(db, version)},
         "doc": doc,
         "fields": fields_service.list_out(db, version),
         "warnings": meta.get("warnings", []),
@@ -419,7 +427,14 @@ def list_versions(ctx: Ctx, generator_id: uuid.UUID) -> list[dict[str, Any]]:
     out = []
     for v, author in rows:
         n_fields = len(fields_service.fields_of_version(db, v.id))
-        out.append({**version_out(v), "author": author, "fields_count": n_fields})
+        out.append(
+            {
+                **version_out(v),
+                "author": author,
+                "fields_count": n_fields,
+                "source_filename": source_filename(db, v),
+            }
+        )
     return out
 
 

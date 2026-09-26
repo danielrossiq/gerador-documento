@@ -160,6 +160,10 @@ def test_reupload_creates_new_current_version_without_affecting_past_jobs(api, d
     assert ed["version"]["version_number"] == 2
     hist = [v["version_number"] for v in api.get(f"/generators/{gid}/versions").json()["items"]]
     assert hist == [2, 1]
+    # a interface mostra qual arquivo está em uso (etapa "Modelo") e o de cada versão do histórico
+    assert ed["version"]["source_filename"] == "v2.docx"
+    names = [v["source_filename"] for v in api.get(f"/generators/{gid}/versions").json()["items"]]
+    assert names[0] == "v2.docx" and names[1].endswith(".docx")
 
     job2 = api.post(f"/generators/{gid}/generate", json={"values": SAMPLE_VALUES}).json()
     assert job2["version_number"] == 2
