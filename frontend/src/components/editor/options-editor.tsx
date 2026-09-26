@@ -73,8 +73,8 @@ export function OptionsEditor({
 
   return (
     <fieldset className="space-y-3 rounded-md border border-border p-3">
-      <legend className="px-1 text-sm font-medium">Opções da lista</legend>
-      {options.length === 0 && <p className="text-sm text-muted">Nenhuma opção ainda. Adicione abaixo ou cole várias de uma vez.</p>}
+      <legend className="px-1 text-sm font-medium">Opções da lista <span className="text-danger" aria-hidden>*</span><span className="sr-only"> (pelo menos uma)</span></legend>
+      {options.length === 0 && <p className="text-sm text-warning">Nenhuma opção ainda. Adicione abaixo ou cole várias de uma vez — quem preenche só pode escolher entre elas.</p>}
       <ul className="space-y-2">
         {options.map((o, i) => (
           <li key={i} className="flex items-start gap-1.5">
@@ -88,7 +88,7 @@ export function OptionsEditor({
                 className="h-9"
                 placeholder="Texto da opção"
               />
-              {showValues && <Input aria-label={`Valor interno da opção ${i + 1}`} value={o.value ?? ""} onChange={(e) => update(i, { value: e.target.value })} className="h-8 font-mono text-xs" placeholder={toSnake(o.label, "opcao")} />}
+              {showValues && <Input aria-label={`Código da opção ${i + 1}`} value={o.value ?? ""} onChange={(e) => update(i, { value: e.target.value })} className="h-8 font-mono text-xs" placeholder={toSnake(o.label, "opcao")} />}
               {dups.has(i) && (
                 <p role="alert" className="text-xs font-medium text-danger">
                   ⚠ Opção repetida
@@ -132,11 +132,11 @@ export function OptionsEditor({
         )}
       </div>
 
-      <Checkbox label="Mostrar valor interno (avançado)" checked={showValues} onChange={(e) => setShowValues(e.target.checked)} />
+      <Checkbox label="Mostrar códigos das opções (avançado, para planilhas importadas)" checked={showValues} onChange={(e) => setShowValues(e.target.checked)} />
 
       <div className="space-y-1.5">
         <label htmlFor={`${id}-def`} className="text-sm font-medium">
-          Valor padrão
+          Opção já selecionada ao abrir o formulário
         </label>
         <Select id={`${id}-def`} value={defaultValue} onChange={(e) => onDefaultChange(e.target.value)}>
           <option value="">Nenhum</option>

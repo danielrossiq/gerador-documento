@@ -17,23 +17,27 @@ export function FieldChip({ node }: NodeViewProps) {
   const meta = f ? FIELD_TYPE_META[f.type] : null;
   const Icon = meta?.icon ?? Type;
   const selected = ctx.selectedId === id;
+  const issues = ctx.issues[id] ?? [];
   const label = f?.label ?? (String(node.attrs.sample || "") || "Campo removido");
   const state = !f ? "Campo removido — remova este trecho" : f.required ? "Obrigatório" : "Opcional";
-  const tooltip = `${label}\nTipo: ${meta?.label ?? "desconhecido"}\nEstado: ${state}\nOcorrências: ${f?.occurrences ?? 0}`;
+  const pend = issues.length ? `\n⚠ ${issues.map((i) => (i.kind === "duplicate_label" ? "Nome repetido" : i.kind === "empty_options" ? "Lista sem opções" : "Revisar")).join(", ")}` : "";
+  const tooltip = `${label}\nTipo: ${meta?.label ?? "desconhecido"}\n${state}\nTexto original: ${String(node.attrs.sample || "—")}${pend}\nClique para configurar`;
   return (
     <NodeViewWrapper
       as="span"
       className="field-chip"
       data-selected={selected}
       data-missing={!f}
+      data-issue={issues.length > 0 || undefined}
       data-field-id={id}
       data-tooltip={tooltip}
-      aria-label={`Campo ${label}, ${meta?.label ?? "tipo desconhecido"}, ${state}`}
+      aria-label={`Campo ${label}, ${meta?.label ?? "tipo desconhecido"}, ${state}${issues.length ? ", precisa de atenção" : ""}`}
       contentEditable={false}
       onClick={() => ctx.select(id)}
     >
       {f ? <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />}
       <span className="chip-label">{label}</span>
+      {f && issues.length > 0 && <AlertTriangle className="h-3 w-3 shrink-0 text-warning" aria-hidden />}
     </NodeViewWrapper>
   );
 }

@@ -2,12 +2,11 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, FileText, Layers } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppShell, PageHeader } from "@/components/layout/app-shell";
 import { TrySampleButton } from "@/components/onboarding/samples";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { Alert, Card, Skeleton } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
@@ -40,7 +39,7 @@ export default function NewKitPage() {
   async function create() {
     setError(null);
     if (!name.trim()) return setError("Dê um nome ao kit.");
-    if (picked.length < 2) return setError("Escolha pelo menos 2 modelos — o kit serve para preencher vários documentos de uma vez.");
+    if (picked.length < 2) return setError("Escolha pelo menos 2 geradores — o kit serve para preencher vários documentos de uma vez.");
     setBusy(true);
     let kit: KitOut | null = null;
     try {
@@ -51,7 +50,7 @@ export default function NewKitPage() {
       toast.push(
         r.created_fields
           ? { tone: "success", title: `Kit criado com ${plural(r.created_fields, "dado em comum", "dados em comum")}`, description: "Confira o que vai ser preenchido uma vez só." }
-          : { tone: "info", title: "Kit criado", description: "Não achamos dados com o mesmo nome nos modelos — ligue-os manualmente na tabela." },
+          : { tone: "info", title: "Kit criado", description: "Não achamos dados com o mesmo nome nos geradores — ligue-os manualmente na tabela." },
       );
       router.push(`/kits/${kit.id}/edit`);
     } catch (e) {
@@ -63,7 +62,7 @@ export default function NewKitPage() {
 
   return (
     <AppShell>
-      <PageHeader title="Novo kit" description="Junte modelos que sempre andam juntos e preencha os dados em comum (nome, CPF, endereço…) uma vez só." />
+      <PageHeader title="Novo kit" description="Junte geradores de documentos que sempre andam juntos e preencha os dados em comum (nome, CPF, endereço…) uma vez só." />
       <div className="mx-auto max-w-3xl space-y-4">
         {error && <Alert tone="danger" title={error} />}
         <Card className="space-y-6 p-6">
@@ -79,10 +78,10 @@ export default function NewKitPage() {
               <div className="grid gap-2 sm:grid-cols-2"><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
             ) : ready.length < 2 ? (
               <div className="rounded-md border border-dashed border-border-strong p-5 text-sm">
-                <p className="font-medium">Você precisa de pelo menos 2 modelos prontos para montar um kit.</p>
+                <p className="font-medium">Você precisa de pelo menos 2 geradores prontos (com documento enviado) para montar um kit.</p>
                 <p className="mt-1 text-muted">{ready.length === 1 ? "Você tem 1 até agora." : "Você ainda não tem nenhum."} Crie outro a partir de um .docx — ou veja como funciona com o exemplo.</p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Link href="/generators/new"><Button variant="primary" size="sm">Novo modelo</Button></Link>
+                  <ButtonLink href="/generators/new" variant="primary" size="sm">Novo gerador</ButtonLink>
                   <TrySampleButton kind="kit" size="sm" />
                 </div>
               </div>
@@ -92,7 +91,7 @@ export default function NewKitPage() {
                   const on = picked.includes(g.id);
                   return (
                     <li key={g.id}>
-                      <label className={cn("flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors", on ? "border-primary bg-primary-soft" : "border-border hover:bg-surface-2")}>
+                      <label className={cn("flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary", on ? "border-primary bg-primary-soft" : "border-border hover:bg-surface-2")}>
                         <input type="checkbox" className="sr-only" checked={on} onChange={() => toggle(g.id)} data-testid="kit-pick" aria-label={g.name} />
                         <span className={cn("mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded border", on ? "border-primary bg-primary text-primary-fg" : "border-border-strong bg-surface")} aria-hidden>
                           {on && <Check className="h-3.5 w-3.5" />}
@@ -110,7 +109,7 @@ export default function NewKitPage() {
           </fieldset>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <p className="text-xs text-muted">Os campos com o mesmo nome nos documentos escolhidos viram um só no formulário do kit.</p>
+            <p className="text-xs text-muted">Os campos com o mesmo nome nos geradores escolhidos viram um só no formulário do kit.</p>
             <Button variant="primary" loading={busy} disabled={ready.length < 2} onClick={create} data-testid="create-kit">
               <Layers className="h-4 w-4" aria-hidden /> Criar kit
             </Button>

@@ -103,7 +103,7 @@ export default function JobDetailPage() {
                       <option value="succeeded">Geradas</option>
                     </Select>
                   </div>
-                  <Card className="overflow-x-auto">
+                  <Card className="relative overflow-x-auto">
                     <table className="w-full min-w-[640px] text-left text-sm">
                       <caption className="sr-only">Linhas do lote</caption>
                       <thead className="border-b border-border bg-surface-2 text-xs uppercase tracking-wide text-muted">

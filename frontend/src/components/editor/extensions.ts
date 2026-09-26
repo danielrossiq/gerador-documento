@@ -177,7 +177,9 @@ export const StructureGuard = Extension.create({
 
 // ------------------------------------------------------------------ realces (busca e sugestões)
 
-export const highlightKey = new PluginKey<{ query: string; current: number; ranges: { from: number; to: number }[] }>("docHighlights");
+type Range = { from: number; to: number };
+/** query/current: busca · ranges: sugestão sob o mouse · pending: trecho que está virando campo (painel aberto). */
+export const highlightKey = new PluginKey<{ query: string; current: number; ranges: Range[]; pending: Range | null }>("docHighlights");
 
 export function findMatches(doc: PMNode, query: string): { from: number; to: number }[] {
   const q = query.trim().toLowerCase();
@@ -203,13 +205,14 @@ export const Highlights = Extension.create({
       new Plugin({
         key: highlightKey,
         state: {
-          init: () => ({ query: "", current: 0, ranges: [] as { from: number; to: number }[] }),
+          init: () => ({ query: "", current: 0, ranges: [] as Range[], pending: null as Range | null }),
           apply(tr, value) {
             const meta = tr.getMeta(highlightKey);
             const next = meta ? { ...value, ...meta } : value;
             if (tr.docChanged && next.ranges.length) {
-              next.ranges = next.ranges.map((r: { from: number; to: number }) => ({ from: tr.mapping.map(r.from), to: tr.mapping.map(r.to) }));
+              next.ranges = next.ranges.map((r: Range) => ({ from: tr.mapping.map(r.from), to: tr.mapping.map(r.to) }));
             }
+            if (tr.docChanged && next.pending) next.pending = { from: tr.mapping.map(next.pending.from), to: tr.mapping.map(next.pending.to) };
             return next;
           },
         },
@@ -220,6 +223,7 @@ export const Highlights = Extension.create({
             const decos: Decoration[] = [];
             findMatches(state.doc, s.query).forEach((m, i) => decos.push(Decoration.inline(m.from, m.to, { class: `search-hl${i === s.current ? " current" : ""}` })));
             for (const r of s.ranges) if (r.to > r.from) decos.push(Decoration.inline(r.from, r.to, { class: "suggestion-hl" }));
+            if (s.pending && s.pending.to > s.pending.from) decos.push(Decoration.inline(s.pending.from, s.pending.to, { class: "pending-hl" }));
             return decos.length ? DecorationSet.create(state.doc, decos) : null;
           },
         },

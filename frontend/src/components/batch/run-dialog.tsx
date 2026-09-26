@@ -8,8 +8,11 @@ import { Dialog } from "@/components/ui/dialog";
 import { Checkbox, Field, Input } from "@/components/ui/form";
 import { Alert } from "@/components/ui/misc";
 import { api, ApiError, errorMessage } from "@/lib/api";
-import type { JobOut } from "@/lib/types";
+import { previewFilename, unknownTokens } from "@/lib/fields/filename";
+import type { FieldOut, JobOut } from "@/lib/types";
 import { plural, uuid } from "@/lib/utils";
+
+const FORMAT_LABEL = { docx: "Word (.docx)", pdf: "PDF", both: "Word e PDF" } as const;
 
 type Validation = { rows: { index: number; valid: boolean; errors: Record<string, string> }[]; valid_count: number; invalid_count: number };
 
@@ -17,10 +20,11 @@ type Validation = { rows: { index: number; valid: boolean; errors: Record<string
  * Confirmação e execução do lote. A validação do SERVIDOR é a autoridade: mesmo com o cliente dizendo "tudo certo",
  * validamos de novo. Se houver linhas inválidas, gerar só as válidas exige um aceite explícito.
  */
-export function RunDialog({ open, onOpenChange, generator, names, rows, clientInvalid, pdfAvailable, onServerErrors, onFocusErrors }: {
+export function RunDialog({ open, onOpenChange, generator, fields, names, rows, clientInvalid, pdfAvailable, onServerErrors, onFocusErrors }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   generator: { id: string; name: string; filename_pattern: string };
+  fields: FieldOut[];
   names: string[];
   rows: Row[]; // apenas linhas não vazias, na ordem enviada
   clientInvalid: number;
@@ -72,13 +76,17 @@ export function RunDialog({ open, onOpenChange, generator, names, rows, clientIn
       setPhase("job");
     } catch (e) {
       setPhase("config");
-      setError(e instanceof ApiError && e.code === "PDF_CONVERTER_UNAVAILABLE" ? "A conversão para PDF não está disponível neste ambiente. Escolha DOCX." : errorMessage(e));
+      setError(e instanceof ApiError && e.code === "PDF_CONVERTER_UNAVAILABLE" ? "A conversão para PDF não está disponível neste servidor. Escolha Word (.docx)." : `${errorMessage(e)} Nada foi gerado; suas linhas continuam na planilha — tente de novo.`);
     }
   }
 
   const total = rows.length;
   const valid = total - invalid;
   const blocked = total === 0 || (invalid > 0 && !onlyValid) || (onlyValid && valid === 0);
+  const willGenerate = onlyValid ? valid : total;
+  const files = format === "both" ? willGenerate * 2 : willGenerate;
+  const examples = rows.slice(0, 3).map((r, i) => previewFilename(pattern, fields, r.v, generator.name, i + 1));
+  const badTokens = unknownTokens(pattern, fields);
 
   return (
     <Dialog
@@ -86,14 +94,14 @@ export function RunDialog({ open, onOpenChange, generator, names, rows, clientIn
       onOpenChange={onOpenChange}
       dismissible={phase !== "sending"}
       title={phase === "job" ? "Gerando o lote" : "Gerar lote de documentos"}
-      description={phase === "job" ? "Você pode fechar esta janela: o processamento continua e fica no Histórico." : `${generator.name} · ${plural(total, "documento", "documentos")}`}
+      description={phase === "job" ? "Você pode fechar esta janela: a geração continua e o resultado fica no Histórico." : `${generator.name} · confira o resumo antes de gerar`}
       size="md"
       footer={
         phase === "job" ? undefined : (
           <>
             <Button onClick={() => onOpenChange(false)} disabled={phase === "sending"}>Cancelar</Button>
             <Button variant="primary" loading={phase === "sending"} disabled={blocked && !(invalid > 0)} onClick={start} data-testid="run-start">
-              {invalid > 0 && !onlyValid ? "Validar" : `Gerar ${plural(onlyValid ? valid : total, "documento", "documentos")}`}
+              {invalid > 0 && !onlyValid ? "Conferir de novo" : `Gerar ${plural(willGenerate, "documento", "documentos")}`}
             </Button>
           </>
         )
@@ -104,11 +112,16 @@ export function RunDialog({ open, onOpenChange, generator, names, rows, clientIn
       ) : (
         <div className="space-y-4">
           {error && <Alert tone="danger">{error}</Alert>}
+          <dl className="grid grid-cols-2 gap-2 rounded-md border border-border bg-surface-2 p-3 text-sm sm:grid-cols-3" data-testid="run-summary">
+            <div><dt className="text-xs text-muted">Linhas preenchidas</dt><dd className="font-semibold tabular-nums">{total}</dd></div>
+            <div><dt className="text-xs text-muted">Com erro</dt><dd className={invalid ? "font-semibold text-danger tabular-nums" : "font-semibold tabular-nums"}>{invalid}</dd></div>
+            <div><dt className="text-xs text-muted">Arquivos a gerar</dt><dd className="font-semibold tabular-nums">{invalid > 0 && !onlyValid ? "—" : files} <span className="font-normal text-muted">({FORMAT_LABEL[format]})</span></dd></div>
+          </dl>
           <fieldset>
             <legend className="mb-1.5 text-sm font-medium">Formato de saída</legend>
             <div className="flex flex-wrap gap-3">
               {(
-                [["docx", "DOCX"], ["pdf", "PDF"], ["both", "DOCX e PDF"]] as const
+                [["docx", "Word (.docx)"], ["pdf", "PDF"], ["both", "Word e PDF"]] as const
               ).map(([v, t]) => (
                 <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
                   <input type="radio" name="fmt" checked={format === v} onChange={() => setFormat(v)} disabled={v !== "docx" && !pdfAvailable} className="accent-[var(--primary)]" data-testid={`fmt-${v}`} />
@@ -116,21 +129,26 @@ export function RunDialog({ open, onOpenChange, generator, names, rows, clientIn
                 </label>
               ))}
             </div>
-            {!pdfAvailable && <p className="mt-1 text-xs text-warning">PDF indisponível neste ambiente (LibreOffice não encontrado).</p>}
+            {!pdfAvailable && <p className="mt-1 text-xs text-warning">PDF indisponível neste servidor (conversor não instalado). Word funciona normalmente.</p>}
           </fieldset>
 
-          <Field label="Nome dos arquivos" help="Ex.: Contrato_{nome_do_contratante}_{linha}. Nomes repetidos ganham _2, _3…">
+          <Field
+            label="Nome dos arquivos"
+            help={badTokens.length ? undefined : `Exemplos: ${examples.map((e) => `${e}.docx`).join(" · ") || "—"}. Nomes repetidos ganham _2, _3…`}
+            error={badTokens.length ? `Não existe campo com o código ${badTokens.map((b) => `{${b}}`).join(", ")}.` : null}
+          >
             {(a) => <Input className="font-mono text-xs" value={pattern} onChange={(e) => setPattern(e.target.value)} {...a} />}
           </Field>
+          <p className="text-xs text-muted">Você recebe um ZIP com todos os arquivos e um relatório (CSV) com o resultado de cada linha.</p>
 
           {invalid > 0 && (
             <Alert tone="warning" title={`${plural(invalid, "linha com erro", "linhas com erro")}`}>
-              <p>Corrija as células destacadas em vermelho — o painel de erros leva direto a cada uma.</p>
+              <p>Corrija as células destacadas em vermelho — a lista de erros leva direto a cada uma.</p>
               <div className="mt-2">
                 <Button size="sm" onClick={() => { onOpenChange(false); onFocusErrors(); }}>Ir para os erros</Button>
               </div>
               <div className="mt-3 border-t border-warning/30 pt-3">
-                <Checkbox label={`Gerar somente as ${plural(valid, "linha válida", "linhas válidas")}. As ${invalid} inválidas ficarão de fora e aparecerão no relatório.`} checked={onlyValid} onChange={(e) => setOnlyValid(e.target.checked)} data-testid="only-valid" />
+                <Checkbox label={`Gerar só as ${plural(valid, "linha pronta", "linhas prontas")}. As ${invalid} com erro ficam de fora e aparecem no relatório.`} checked={onlyValid} onChange={(e) => setOnlyValid(e.target.checked)} data-testid="only-valid" />
               </div>
             </Alert>
           )}

@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
  * mais importa num contrato. As de baixa confiança continuam aparecendo, só não entram no "aceitar todas". */
 const ACCEPT_ALL_MIN = 0.6;
 
-const SOURCE: Record<string, string> = { rule: "regra", ai: "IA", local: "heurística" };
+const SOURCE: Record<string, string> = { rule: "regra automática", ai: "IA", local: "regra automática" };
 
 function ConfidenceDot({ v }: { v: number }) {
   const [label, cls] = v >= 0.85 ? ["alta", "bg-success"] : v >= ACCEPT_ALL_MIN ? ["média", "bg-warning"] : ["baixa", "bg-border-strong"];
@@ -76,7 +76,7 @@ export function SuggestionsPanel({
     onSuccess: async (r) => {
       await onApplied({ revision: r.revision });
       refresh();
-      toast.push({ tone: "success", title: r.accepted_groups === 1 ? "1 campo criado" : `${r.accepted_groups} campos criados`, description: "Confira no documento — dá para desfazer excluindo o campo." });
+      toast.push({ tone: "success", title: r.accepted_groups === 1 ? "1 campo criado" : `${r.accepted_groups} campos criados`, description: "Confira na aba Campos — dá para renomear, ajustar ou excluir." });
     },
     onError: (e) => toast.push({ tone: "danger", title: "Não foi possível aceitar", description: errorMessage(e) }),
   });
@@ -99,13 +99,13 @@ export function SuggestionsPanel({
         <div className="rounded-md bg-primary-soft p-3">
           <p className="text-sm text-fg">
             <Sparkles className="mr-1 inline h-4 w-4 text-primary" aria-hidden />
-            Encontramos <strong>{items.length}</strong> {items.length === 1 ? "trecho que parece variar" : "trechos que parecem variar"} de um documento para outro.
+            Encontramos <strong>{items.length}</strong> {items.length === 1 ? "trecho que parece mudar" : "trechos que parecem mudar"} de um documento para outro. Aceite os que fazem sentido — cada um vira um campo.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Button size="sm" variant="primary" disabled={confident === 0 || acceptAll.isPending} loading={acceptAll.isPending} onClick={() => acceptAll.mutate()} data-testid="accept-all">
-              <Check className="h-4 w-4" aria-hidden /> Aceitar {confident === items.length ? "todas" : "as recomendadas"} ({confident})
+              <Check className="h-4 w-4" aria-hidden /> {confident === items.length ? `Aceitar todas (${confident})` : `Aceitar as ${confident} recomendadas`}
             </Button>
-            <span className="text-xs text-muted">ou revise uma a uma abaixo</span>
+            <span className="text-xs text-muted">ou confira uma a uma abaixo (passe o mouse para ver no documento)</span>
           </div>
         </div>
       ) : (
@@ -137,7 +137,7 @@ export function SuggestionsPanel({
       </ul>
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted">
-        <span>{data?.analysis.provider === "local" || !data?.analysis.provider ? "Sugestões automáticas por regras" : data.analysis.provider_label}. Nada é aplicado sem a sua confirmação.</span>
+        <span>{data?.analysis.provider === "local" || !data?.analysis.provider ? "Sugestões automáticas (regras para CPF, datas, valores…)" : data.analysis.provider_label}. Nada muda sem a sua confirmação.</span>
         <Button size="sm" variant="ghost" onClick={() => reanalyze.mutate()} disabled={running} loading={reanalyze.isPending}>
           <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Analisar de novo
         </Button>

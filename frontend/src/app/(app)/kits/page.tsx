@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/layout/app-shell";
 import { TrySampleButton } from "@/components/onboarding/samples";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Checkbox, Input, Select } from "@/components/ui/form";
 import { ActionMenu, type MenuItem } from "@/components/ui/menu";
@@ -93,13 +93,11 @@ export default function KitsPage() {
     <AppShell>
       <PageHeader
         title="Kits"
-        description="Gere vários documentos de uma vez com as mesmas variáveis (nome, CPF, endereço…)."
+        description="Um kit junta vários geradores que usam os mesmos dados (nome, CPF, endereço…): você preenche uma vez e recebe todos os documentos."
         actions={
-          <Link href="/kits/new">
-            <Button variant="primary">
-              <FilePlus2 className="h-4 w-4" aria-hidden /> Novo kit
-            </Button>
-          </Link>
+          <ButtonLink href="/kits/new" variant="primary">
+            <FilePlus2 className="h-4 w-4" aria-hidden /> Novo kit
+          </ButtonLink>
         }
       />
 
@@ -130,7 +128,7 @@ export default function KitsPage() {
           action={
             !debounced && !showArchived ? (
               <div className="flex flex-wrap justify-center gap-2">
-                <Link href="/kits/new"><Button variant="primary"><FilePlus2 className="h-4 w-4" aria-hidden /> Novo kit</Button></Link>
+                <ButtonLink href="/kits/new" variant="primary"><FilePlus2 className="h-4 w-4" aria-hidden /> Novo kit</ButtonLink>
                 <TrySampleButton kind="kit" />
               </div>
             ) : undefined
@@ -160,11 +158,9 @@ export default function KitsPage() {
                 <span className="text-xs text-muted">Atualizado {timeAgo(k.updated_at)}</span>
                 <div className="flex items-center gap-1.5">
                   {k.has_documents && (
-                    <Link href={`/kits/${k.id}/use`}>
-                      <Button size="sm" variant="primary">
-                        <Play className="h-3.5 w-3.5" aria-hidden /> Preencher
-                      </Button>
-                    </Link>
+                    <ButtonLink href={`/kits/${k.id}/use`} size="sm" variant="primary">
+                      <Play className="h-3.5 w-3.5" aria-hidden /> Preencher
+                    </ButtonLink>
                   )}
                   <ActionMenu label={`Ações de ${k.name}`} items={menuFor(k)} />
                 </div>

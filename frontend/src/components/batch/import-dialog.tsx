@@ -63,7 +63,7 @@ function collectUnknownSelectValues(
 
 export type ImportResult = { rows: Record<string, string>[]; mode: "replace" | "append"; invalid: number };
 
-/** Importação em 2 etapas: envio (.xlsx/.csv) → mapeamento entre as colunas do arquivo e os campos do modelo. */
+/** Importação em 2 etapas: envio (.xlsx/.csv) → mapeamento entre as colunas do arquivo e os campos do gerador. */
 export function ImportDialog({ open, onOpenChange, generatorId, hasData, onImported }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -185,13 +185,13 @@ export function ImportDialog({ open, onOpenChange, generatorId, hasData, onImpor
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={unknowns ? "Valores novos na lista suspensa" : preview ? "Mapear colunas" : "Importar planilha"}
+      title={unknowns ? "Valores novos nas listas de opções" : preview ? "Mapear colunas" : "Importar planilha"}
       description={
         unknowns
-          ? "Algumas células têm valores que ainda não existem nas listas suspensas dos campos mapeados."
+          ? "Algumas células têm valores que ainda não existem nas opções dos campos. Quer adicioná-los como opções?"
           : preview
             ? `${preview.row_count} linhas em “${preview.filename}”. Confirme para qual campo vai cada coluna.`
-            : "Envie um arquivo .xlsx ou .csv (até 10 MB). A primeira linha deve ter os cabeçalhos."
+            : "Envie um arquivo .xlsx ou .csv (até 10 MB). A primeira linha deve ter os nomes das colunas — de preferência os mesmos nomes dos campos."
       }
       size="xl"
       footer={
@@ -241,26 +241,34 @@ export function ImportDialog({ open, onOpenChange, generatorId, hasData, onImpor
             </div>
           ))}
           <Alert tone="neutral">
-            Valores desmarcados continuam como erro na grade — dá pra corrigir a célula ou adicionar a opção depois, em Editar campos.
+            Valores desmarcados continuam como erro na planilha — dá para corrigir a célula ou adicionar a opção depois, na etapa Campos.
           </Alert>
         </div>
       ) : !preview ? (
-        <label className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 px-6 py-12 text-center hover:border-primary">
+        <label
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault(); // sem isso o navegador abriria o arquivo e a pessoa sairia da tela
+            const f = e.dataTransfer.files[0];
+            if (f && !busy) upload(f);
+          }}
+          className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 px-6 py-12 text-center hover:border-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary"
+        >
           <UploadCloud className="h-9 w-9 text-muted" aria-hidden />
-          <span className="text-sm text-muted">{busy ? "Lendo o arquivo…" : file ? `${file.name} (${formatBytes(file.size)})` : "Arraste ou escolha um arquivo .xlsx ou .csv"}</span>
+          <span className="text-sm text-muted" role="status">{busy ? "Lendo o arquivo…" : file ? `${file.name} (${formatBytes(file.size)})` : "Arraste ou escolha um arquivo .xlsx ou .csv"}</span>
           <span className="inline-flex h-10 items-center rounded-md border border-border-strong bg-surface px-4 text-sm font-medium">Escolher arquivo</span>
           <input type="file" data-testid="import-input" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
         </label>
       ) : (
         <div className="space-y-4">
-          <div className="overflow-x-auto rounded-md border border-border">
+          <div className="relative overflow-x-auto rounded-md border border-border">
             <table className="w-full min-w-[640px] text-left text-sm">
               <caption className="sr-only">Mapeamento das colunas do arquivo</caption>
               <thead className="bg-surface-2 text-xs uppercase tracking-wide text-muted">
                 <tr>
                   <th scope="col" className="px-3 py-2">Coluna do arquivo</th>
                   <th scope="col" className="px-3 py-2">Exemplos</th>
-                  <th scope="col" className="px-3 py-2">Campo do modelo</th>
+                  <th scope="col" className="px-3 py-2">Vai para o campo</th>
                 </tr>
               </thead>
               <tbody>

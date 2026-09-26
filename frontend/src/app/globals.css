@@ -241,6 +241,12 @@ body {
   border-bottom: 2px solid #d4a017;
   border-radius: 2px;
 }
+/* trecho que está virando campo enquanto o painel "Novo campo" está aberto (a seleção nativa some ao focar o painel) */
+.pending-hl {
+  background: #c7d2fe;
+  outline: 2px solid #4338ca;
+  border-radius: 2px;
+}
 .search-hl {
   background: #cfe8ff;
   border-radius: 2px;
@@ -280,8 +286,11 @@ body {
   border-style: dashed;
   border-color: #b45309;
 }
-.field-chip[data-related="true"] {
-  box-shadow: 0 0 0 2px #a5abf0;
+.field-chip[data-issue="true"] {
+  border-color: #b45309;
+}
+.field-chip[data-selected="true"] svg {
+  color: inherit;
 }
 .field-chip:focus-visible,
 .ProseMirror-selectednode > .field-chip,

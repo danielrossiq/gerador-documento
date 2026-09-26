@@ -48,7 +48,8 @@ export const BatchGrid = forwardRef<GridHandle, Props>(function BatchGrid({ spec
   const [editing, setEditing] = useState<Editing>(null);
   const [live, setLive] = useState("");
   const names = useMemo(() => specs.map((s) => s.name), [specs]);
-  const widths = useMemo(() => specs.map((s) => WIDTH[s.type] ?? 180), [specs]);
+  // largura pelo tipo, mas sem cortar o nome do campo no cabeçalho (até um limite)
+  const widths = useMemo(() => specs.map((s) => Math.min(320, Math.max(WIDTH[s.type] ?? 180, Math.ceil(s.label.length * 7.6 + (s.required ? 40 : 28))))), [specs]);
   const offsets = useMemo(() => widths.reduce<number[]>((acc, w, i) => [...acc, (acc[i] ?? NUM_W) + w], [NUM_W]), [widths]);
   const totalWidth = offsets[offsets.length - 1] ?? NUM_W;
 

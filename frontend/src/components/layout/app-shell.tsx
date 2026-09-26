@@ -16,9 +16,9 @@ export function useMe() {
 }
 
 const NAV = [
-  { href: "/dashboard", label: "Painel", icon: LayoutDashboard },
-  { href: "/kits", label: "Kits", icon: Layers },
-  { href: "/history", label: "Histórico", icon: History },
+  { href: "/dashboard", label: "Geradores", icon: LayoutDashboard, also: ["/generators"] },
+  { href: "/kits", label: "Kits", icon: Layers, also: [] as string[] },
+  { href: "/history", label: "Histórico", icon: History, also: [] as string[] },
 ];
 
 export function AppShell({ children, wide }: { children: ReactNode; wide?: boolean }) {
@@ -36,14 +36,15 @@ export function AppShell({ children, wide }: { children: ReactNode; wide?: boole
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-border bg-surface">
-        <div className={cn("mx-auto flex h-14 items-center gap-6 px-4", wide ? "max-w-[1600px]" : "max-w-6xl")}>
+        <div className={cn("mx-auto flex h-14 items-center gap-2 px-4 sm:gap-6", wide ? "max-w-[1600px]" : "max-w-6xl")}>
           <Link href="/dashboard" className="flex items-center gap-2 font-bold text-primary">
             <FileText className="h-5 w-5" aria-hidden />
-            {APP_NAME}
+            <span className="hidden min-[380px]:inline">{APP_NAME}</span>
+            <span className="sr-only min-[380px]:hidden">{APP_NAME}</span>
           </Link>
           <nav aria-label="Principal" className="flex gap-1">
             {NAV.map((n) => {
-              const active = pathname.startsWith(n.href);
+              const active = pathname.startsWith(n.href) || n.also.some((p) => pathname.startsWith(p));
               return (
                 <Link
                   key={n.href}
@@ -55,7 +56,8 @@ export function AppShell({ children, wide }: { children: ReactNode; wide?: boole
                   )}
                 >
                   <n.icon className="h-4 w-4" aria-hidden />
-                  {n.label}
+                  {/* no celular só o ícone aparece; o texto continua disponível para leitores de tela */}
+                  <span className="sr-only sm:not-sr-only">{n.label}</span>
                 </Link>
               );
             })}

@@ -221,7 +221,7 @@ function KitUseLoader() {
         <Alert tone="danger" title="Não foi possível abrir o kit">{errorMessage(q.error)}</Alert>
       ) : q.data!.members.filter((m) => m.usable).length === 0 ? (
         <Alert tone="warning" title="Nenhum documento pronto">
-          <FileText className="mr-1 inline h-4 w-4" aria-hidden /> Adicione ao menos um documento com modelo enviado antes de usar este kit.
+          <FileText className="mr-1 inline h-4 w-4" aria-hidden /> Adicione ao menos um gerador com documento enviado antes de usar este kit.
         </Alert>
       ) : (
         <KitUseForm data={q.data!} />

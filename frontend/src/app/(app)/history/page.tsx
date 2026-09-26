@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppShell, PageHeader } from "@/components/layout/app-shell";
 import { isTerminal, JobStatusBadge } from "@/components/jobs/job-status";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Select } from "@/components/ui/form";
 import { Badge, Card, EmptyState, Skeleton } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
@@ -75,9 +75,9 @@ export default function HistoryPage() {
       {q.isLoading ? (
         <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
       ) : items.length === 0 ? (
-        <EmptyState icon={<HistoryIcon className="h-9 w-9" aria-hidden />} title="Nenhuma geração ainda" description="Quando você gerar documentos — um a um ou em lote — eles aparecem aqui." action={<Link href="/dashboard"><Button variant="primary">Ir para o painel</Button></Link>} />
+        <EmptyState icon={<HistoryIcon className="h-9 w-9" aria-hidden />} title="Nenhuma geração ainda" description="Quando você gerar documentos — um a um ou em lote — eles aparecem aqui." action={<ButtonLink href="/dashboard" variant="primary">Ir para os geradores</ButtonLink>} />
       ) : (
-        <Card className="overflow-x-auto">
+        <Card className="relative overflow-x-auto">
           <table className="w-full min-w-[1000px] text-left text-sm" data-testid="history-table">
             <caption className="sr-only">Histórico de gerações</caption>
             <thead className="border-b border-border bg-surface-2 text-xs uppercase tracking-wide text-muted">

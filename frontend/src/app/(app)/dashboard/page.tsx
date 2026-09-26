@@ -6,9 +6,11 @@ import {
   ArchiveRestore,
   ArrowRight,
   CircleAlert,
+  ClipboardCheck,
   Copy,
   FilePlus2,
   FileText,
+  FileUp,
   Layers,
   Loader2,
   PencilRuler,
@@ -22,9 +24,10 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AppShell, PageHeader, useMe } from "@/components/layout/app-shell";
+import { stepHrefs, nextHref } from "@/components/generators/steps";
+import { AppShell, PageHeader } from "@/components/layout/app-shell";
 import { HowItWorks, TrySampleButton } from "@/components/onboarding/samples";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Checkbox, Input, Select } from "@/components/ui/form";
 import { ActionMenu, type MenuItem } from "@/components/ui/menu";
@@ -57,27 +60,23 @@ function avatarClass(name: string): string {
   return AVATAR_TONES[h % AVATAR_TONES.length];
 }
 
-function ModelAvatar({ name, size = "md" }: { name: string; size?: "md" | "sm" }) {
+function ModelAvatar({ name }: { name: string }) {
   const letter = (name.trim()[0] ?? "?").toUpperCase();
   return (
-    <span aria-hidden className={cn("grid shrink-0 place-items-center rounded-full font-bold", avatarClass(name), size === "md" ? "h-10 w-10 text-base" : "h-8 w-8 text-sm")}>
+    <span aria-hidden className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-bold", avatarClass(name))}>
       {letter}
     </span>
   );
 }
 
-function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: () => void }) {
+function PinButton({ pinned, name, onToggle }: { pinned: boolean; name: string; onToggle: () => void }) {
   return (
     <button
       type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onToggle();
-      }}
+      onClick={onToggle}
       aria-pressed={pinned}
-      aria-label={pinned ? "Desfixar modelo" : "Fixar modelo"}
-      title={pinned ? "Desfixar" : "Fixar no topo"}
+      aria-label={pinned ? `Desafixar ${name}` : `Fixar ${name} no topo`}
+      title={pinned ? "Desafixar" : "Fixar no topo"}
       className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors", pinned ? "text-warning" : "text-muted hover:bg-surface-2 hover:text-fg")}
     >
       <Star className="h-4 w-4" aria-hidden fill={pinned ? "currentColor" : "none"} />
@@ -85,7 +84,18 @@ function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: () => void
   );
 }
 
-/** Uma linha de atividade no lugar de 4 cartões com números — só aparece quando há algo a dizer. */
+/** Em que pé está o gerador e qual é a próxima ação — a mesma lógica das etapas Modelo → Campos → Revisão → Gerar. */
+function statusOf(g: GeneratorOut) {
+  const h = stepHrefs(g.id);
+  if (!g.has_template) return { tone: "warning" as const, label: "Falta o documento", hint: "Envie o arquivo .docx para começar.", action: { label: "Enviar documento", href: h.template, icon: FileUp } };
+  if (g.fields_count === 0) {
+    const analysing = g.analysis_status === "pending" || g.analysis_status === "running";
+    return { tone: "warning" as const, label: analysing ? "Analisando…" : "Sem campos", hint: "Marque no documento o que muda de um para outro.", action: { label: "Criar campos", href: h.fields, icon: PencilRuler } };
+  }
+  return { tone: "success" as const, label: "Pronto para gerar", hint: null, action: { label: "Gerar documento", href: h.generate, icon: Play } };
+}
+
+/** Uma linha de atividade — só aparece quando há algo a dizer. */
 function ActivityStrip({ d }: { d: Dash }) {
   const quota = d.quota.documents_per_month;
   const used = d.documents_this_month;
@@ -94,8 +104,8 @@ function ActivityStrip({ d }: { d: Dash }) {
     <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm" aria-label="Atividade do mês">
       <div className="flex min-w-56 flex-1 items-center gap-3">
         <Sparkles className="h-4 w-4 shrink-0 text-success" aria-hidden />
-        <span><strong className="tabular-nums">{used}</strong> {used === 1 ? "documento gerado" : "documentos gerados"} este mês</span>
-        {quota > 0 && <div className="hidden w-32 sm:block"><ProgressBar value={used / quota} label="Cota mensal usada" tone={used / quota > 0.9 ? "danger" : "success"} /></div>}
+        <span><strong className="tabular-nums">{used}</strong> {used === 1 ? "documento gerado" : "documentos gerados"} este mês{quota > 0 ? ` (limite: ${quota})` : ""}</span>
+        {quota > 0 && <div className="hidden w-32 sm:block"><ProgressBar value={used / quota} label="Limite mensal usado" tone={used / quota > 0.9 ? "danger" : "success"} /></div>}
       </div>
       {d.jobs_in_progress > 0 && (
         <Link href="/history" className="flex items-center gap-1.5 text-muted hover:text-fg">
@@ -111,11 +121,50 @@ function ActivityStrip({ d }: { d: Dash }) {
   );
 }
 
+function GeneratorCard({ g, menu, onTogglePin }: { g: GeneratorOut; menu: MenuItem[]; onTogglePin: () => void }) {
+  const st = statusOf(g);
+  const Icon = st.action.icon;
+  return (
+    <li>
+      <Card className={cn("flex h-full flex-col gap-3 p-4 transition-shadow hover:shadow-md", g.is_pinned && "ring-1 ring-warning/40")} data-testid="generator-card">
+        <div className="flex items-start gap-3">
+          <ModelAvatar name={g.name} />
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold">
+              <Link href={nextHref(g)} className="line-clamp-2 break-words hover:text-primary hover:underline">{g.name}</Link>
+            </h3>
+            <p className="line-clamp-1 text-xs text-muted">{g.status === "archived" ? "Arquivado · " : ""}{st.hint ?? g.description ?? "Sem descrição"}</p>
+          </div>
+          <PinButton pinned={g.is_pinned} name={g.name} onToggle={onTogglePin} />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+          <Badge tone={st.tone} data-testid="generator-status">{st.label}</Badge>
+          <span>
+            {[g.has_template ? plural(g.fields_count, "campo", "campos") : null, g.documents_generated > 0 ? plural(g.documents_generated, "documento gerado", "documentos gerados") : null, `atualizado ${timeAgo(g.updated_at)}`]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        </div>
+        <div className="mt-auto flex items-center gap-2 pt-1">
+          <ButtonLink href={st.action.href} size="sm" variant={st.tone === "success" ? "primary" : "secondary"} className="flex-1 justify-center">
+            <Icon className="h-3.5 w-3.5" aria-hidden /> {st.action.label}
+          </ButtonLink>
+          {st.tone === "success" && (
+            <ButtonLink href={stepHrefs(g.id).batch} size="sm" title="Vários documentos de uma vez, a partir de uma planilha" aria-label={`Gerar vários documentos com ${g.name}`}>
+              <Layers className="h-3.5 w-3.5" aria-hidden /> Vários
+            </ButtonLink>
+          )}
+          <ActionMenu label={`Mais ações de ${g.name}`} items={menu} />
+        </div>
+      </Card>
+    </li>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
-  const me = useMe().data;
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -140,27 +189,32 @@ export default function DashboardPage() {
   };
   const act = useMutation({
     mutationFn: async (a: { kind: "duplicate" | "archive" | "unarchive" | "delete" | "pin" | "unpin"; g: GeneratorOut }) => {
-      if (a.kind === "delete") return api.delete(`/generators/${a.g.id}`);
-      return api.post(`/generators/${a.g.id}/${a.kind}`);
+      if (a.kind === "delete") return api.delete<undefined>(`/generators/${a.g.id}`);
+      return api.post<GeneratorOut | undefined>(`/generators/${a.g.id}/${a.kind}`);
     },
-    onSuccess: (_d, v) => {
+    onSuccess: (res, v) => {
       refresh();
       setToDelete(null);
-      const msg = { duplicate: "Modelo duplicado.", archive: "Modelo arquivado.", unarchive: "Modelo restaurado.", delete: "Modelo excluído.", pin: "", unpin: "" }[v.kind];
+      if (v.kind === "duplicate") toast.push({ tone: "success", title: "Cópia criada", description: res && "name" in res ? `“${res.name}” já está na lista, pronta para ajustar.` : undefined });
+      const msg = { archive: "Gerador arquivado.", unarchive: "Gerador restaurado.", delete: "Gerador excluído.", pin: "", unpin: "", duplicate: "" }[v.kind];
       if (msg) toast.push({ tone: "success", title: msg });
     },
     onError: (e) => toast.push({ tone: "danger", title: "Não foi possível concluir", description: errorMessage(e) }),
   });
   const togglePin = (g: GeneratorOut) => act.mutate({ kind: g.is_pinned ? "unpin" : "pin", g });
-  const openHref = (g: GeneratorOut) => (g.has_template ? `/generators/${g.id}/use` : `/generators/${g.id}/edit`);
 
   function menuFor(g: GeneratorOut): MenuItem[] {
+    const h = stepHrefs(g.id);
+    const ready = g.has_template && g.fields_count > 0;
     return [
-      { label: "Preencher", icon: <Play className="h-4 w-4" aria-hidden />, onSelect: () => router.push(`/generators/${g.id}/use`), disabled: !g.has_template },
-      { label: "Gerar em lote", icon: <Layers className="h-4 w-4" aria-hidden />, onSelect: () => router.push(`/generators/${g.id}/batch`), disabled: !g.has_template },
-      { label: "Editar campos", icon: <PencilRuler className="h-4 w-4" aria-hidden />, onSelect: () => router.push(`/generators/${g.id}/edit`) },
+      { label: "Gerar um documento", icon: <Play className="h-4 w-4" aria-hidden />, onSelect: () => router.push(h.generate), disabled: !ready },
+      { label: "Gerar vários (planilha)", icon: <Layers className="h-4 w-4" aria-hidden />, onSelect: () => router.push(h.batch), disabled: !ready },
       { separator: true },
-      { label: g.is_pinned ? "Desfixar" : "Fixar no topo", icon: <Pin className="h-4 w-4" aria-hidden />, onSelect: () => togglePin(g) },
+      { label: g.has_template ? "Trocar o documento .docx" : "Enviar o documento .docx", icon: <FileUp className="h-4 w-4" aria-hidden />, onSelect: () => router.push(h.template) },
+      { label: "Editar campos", icon: <PencilRuler className="h-4 w-4" aria-hidden />, onSelect: () => router.push(h.fields), disabled: !g.has_template },
+      { label: "Revisar", icon: <ClipboardCheck className="h-4 w-4" aria-hidden />, onSelect: () => router.push(h.review), disabled: !ready },
+      { separator: true },
+      { label: g.is_pinned ? "Desafixar" : "Fixar no topo", icon: <Pin className="h-4 w-4" aria-hidden />, onSelect: () => togglePin(g) },
       { label: "Duplicar", icon: <Copy className="h-4 w-4" aria-hidden />, onSelect: () => act.mutate({ kind: "duplicate", g }) },
       g.status === "archived"
         ? { label: "Desarquivar", icon: <ArchiveRestore className="h-4 w-4" aria-hidden />, onSelect: () => act.mutate({ kind: "unarchive", g }) }
@@ -172,184 +226,101 @@ export default function DashboardPage() {
 
   const d = dash.data;
   const items = list.data?.items ?? [];
-  const firstName = me?.user.name.split(" ")[0];
-  const isNew = !!d && d.total_generators === 0 && d.kits.total_kits === 0;
+  const isNew = !!d && d.total_generators === 0 && d.kits.total_kits === 0 && !showArchived;
+  const filtering = !!debounced || showArchived;
 
   return (
     <AppShell>
       <PageHeader
-        title={firstName ? `Olá, ${firstName}` : "Painel"}
-        description={isNew ? undefined : "O que você quer gerar hoje?"}
-        actions={
-          !isNew && (
-            <>
-              <Link href="/kits/new"><Button><Layers className="h-4 w-4" aria-hidden /> Novo kit</Button></Link>
-              <Link href="/generators/new"><Button variant="primary"><FilePlus2 className="h-4 w-4" aria-hidden /> Novo modelo</Button></Link>
-            </>
-          )
-        }
+        title="Geradores"
+        description={isNew ? "Comece criando o seu primeiro gerador." : "Cada gerador transforma um documento .docx em um formulário: preencha e baixe o documento pronto — um de cada vez ou vários com uma planilha."}
+        actions={!isNew && <ButtonLink href="/generators/new" variant="primary"><FilePlus2 className="h-4 w-4" aria-hidden /> Novo gerador</ButtonLink>}
       />
 
       {dash.isLoading ? (
-        <div className="space-y-4"><Skeleton className="h-14" /><div className="grid gap-3 sm:grid-cols-3"><Skeleton className="h-36" /><Skeleton className="h-36" /><Skeleton className="h-36" /></div></div>
+        <div className="space-y-4"><Skeleton className="h-14" /><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Skeleton className="h-44" /><Skeleton className="h-44" /><Skeleton className="h-44" /></div></div>
+      ) : dash.error ? (
+        <Card className="p-6 text-sm text-danger" role="alert">Não foi possível carregar o painel: {errorMessage(dash.error)}</Card>
       ) : isNew ? (
         <HowItWorks />
       ) : d ? (
         <>
           <ActivityStrip d={d} />
 
-          {d.recent.length > 0 && (
-            <section aria-labelledby="recent-h" className="mb-10">
-              <h2 id="recent-h" className="mb-3 text-lg font-semibold">Preencher agora</h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {d.recent.map((g) => (
-                  <Card key={g.id} className={cn("group flex flex-col gap-3 p-4 transition-shadow hover:shadow-md", g.is_pinned && "ring-1 ring-warning/40")}>
-                    <div className="flex items-start gap-3">
-                      <ModelAvatar name={g.name} />
-                      <div className="min-w-0 flex-1">
-                        <Link href={openHref(g)} className="line-clamp-2 font-semibold hover:text-primary hover:underline">{g.name}</Link>
-                        <p className="mt-0.5 text-xs text-muted">
-                          {g.has_template ? `${plural(g.fields_count, "campo", "campos")} · ${plural(g.documents_generated, "documento gerado", "documentos gerados")}` : "Falta enviar o documento .docx"}
-                        </p>
-                      </div>
-                      <PinButton pinned={g.is_pinned} onToggle={() => togglePin(g)} />
-                    </div>
-                    <div className="mt-auto flex items-center gap-2 pt-1">
-                      {g.has_template ? (
-                        <>
-                          <Link href={`/generators/${g.id}/use`} className="flex-1">
-                            <Button size="sm" variant="primary" className="w-full justify-center"><Play className="h-3.5 w-3.5" aria-hidden /> Preencher</Button>
-                          </Link>
-                          <Link href={`/generators/${g.id}/batch`} title="Vários documentos de uma vez, a partir de uma planilha">
-                            <Button size="sm"><Layers className="h-3.5 w-3.5" aria-hidden /> Lote</Button>
-                          </Link>
-                        </>
-                      ) : (
-                        <Link href={`/generators/${g.id}/edit`} className="flex-1">
-                          <Button size="sm" className="w-full justify-center"><PencilRuler className="h-3.5 w-3.5" aria-hidden /> Continuar configurando</Button>
-                        </Link>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section aria-labelledby="kits-h" className="mb-10">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 id="kits-h" className="text-lg font-semibold">Kits</h2>
-              {d.kits.total_kits > 0 && <Link href="/kits" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">Ver todos <ArrowRight className="h-3.5 w-3.5" aria-hidden /></Link>}
-            </div>
-            {d.kits.total_kits > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {d.kits.recent.slice(0, 3).map((k) => (
-                  <Card key={k.id} className="flex flex-col gap-3 p-4">
-                    <div className="flex items-start gap-3">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-primary" aria-hidden><Layers className="h-5 w-5" aria-hidden /></span>
-                      <div className="min-w-0 flex-1">
-                        <Link href={k.has_documents ? `/kits/${k.id}/use` : `/kits/${k.id}/edit`} className="line-clamp-2 font-semibold hover:text-primary hover:underline">{k.name}</Link>
-                        <p className="mt-0.5 text-xs text-muted">{plural(k.items_count, "documento", "documentos")} · {plural(k.fields_count, "dado em comum", "dados em comum")}</p>
-                      </div>
-                    </div>
-                    <div className="mt-auto flex items-center gap-2 pt-1">
-                      {k.has_documents ? (
-                        <Link href={`/kits/${k.id}/use`} className="flex-1"><Button size="sm" variant="primary" className="w-full justify-center"><Play className="h-3.5 w-3.5" aria-hidden /> Preencher kit</Button></Link>
-                      ) : (
-                        <Link href={`/kits/${k.id}/edit`} className="flex-1"><Button size="sm" className="w-full justify-center">Continuar configurando</Button></Link>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card className="flex flex-wrap items-center gap-4 border-dashed p-5">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-soft text-primary" aria-hidden><Layers className="h-5 w-5" aria-hidden /></span>
-                <div className="min-w-60 flex-1">
-                  <p className="font-semibold">Documentos que sempre andam juntos?</p>
-                  <p className="text-sm text-muted">Um kit junta vários modelos (contrato + recibo + termo…) e você preenche nome, CPF e endereço <strong className="text-fg">uma vez só</strong> para gerar todos.</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <TrySampleButton kind="kit" size="sm" />
-                  {d.total_generators >= 2 && <Link href="/kits/new"><Button size="sm" variant="primary">Criar um kit</Button></Link>}
-                </div>
-              </Card>
-            )}
-          </section>
-
-          <section aria-labelledby="all-h">
+          <section aria-labelledby="all-h" className="mb-10">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 id="all-h" className="text-lg font-semibold">Todos os modelos</h2>
-              {(d.total_generators > 0 || showArchived) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted" aria-hidden />
-                    <Input aria-label="Buscar modelo" placeholder="Buscar" className="w-52 pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
-                  </div>
-                  <Select aria-label="Ordenar" value={sort} onChange={(e) => setSort(e.target.value)} className="w-48">
-                    <option value="updated">Atualização recente</option>
-                    <option value="name">Nome (A–Z)</option>
-                    <option value="created">Criação recente</option>
-                  </Select>
-                  <Checkbox label="Arquivados" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="text-muted" />
+              <h2 id="all-h" className="text-lg font-semibold">{showArchived ? "Geradores arquivados" : "Seus geradores"}</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted" aria-hidden />
+                  <Input aria-label="Buscar gerador" placeholder="Buscar" className="w-full pl-9 sm:w-52" value={q} onChange={(e) => setQ(e.target.value)} />
                 </div>
-              )}
+                <Select aria-label="Ordenar" value={sort} onChange={(e) => setSort(e.target.value)} className="w-44">
+                  <option value="updated">Mais recentes</option>
+                  <option value="name">Nome (A–Z)</option>
+                  <option value="created">Criados por último</option>
+                </Select>
+                <Checkbox label="Mostrar arquivados" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="text-muted" />
+              </div>
             </div>
 
             {list.isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-44" />)}</div>
             ) : list.error ? (
               <Card className="p-6 text-sm text-danger" role="alert">{errorMessage(list.error)}</Card>
             ) : items.length === 0 ? (
               <EmptyState
                 icon={<FileText className="h-9 w-9" aria-hidden />}
-                title={debounced || showArchived ? "Nenhum modelo encontrado" : "Nenhum modelo ainda"}
-                description={debounced || showArchived ? "Tente outra busca." : "Envie um documento .docx que você já usa para criar o primeiro."}
-                action={!debounced && !showArchived ? <Link href="/generators/new"><Button variant="primary"><FilePlus2 className="h-4 w-4" aria-hidden /> Novo modelo</Button></Link> : undefined}
+                title={filtering ? "Nenhum gerador encontrado" : "Nenhum gerador ainda"}
+                description={filtering ? (showArchived ? "Não há geradores arquivados com esse filtro." : "Tente buscar por outra palavra.") : "Envie um documento .docx que você já usa para criar o primeiro."}
+                action={!filtering ? <ButtonLink href="/generators/new" variant="primary"><FilePlus2 className="h-4 w-4" aria-hidden /> Novo gerador</ButtonLink> : undefined}
               />
             ) : (
-              <Card className="overflow-x-auto">
-                <table className="w-full min-w-[720px] text-left text-sm">
-                  <caption className="sr-only">Lista de modelos</caption>
-                  <thead className="border-b border-border bg-surface-2 text-xs uppercase tracking-wide text-muted">
-                    <tr>
-                      <th scope="col" className="w-10 px-2 py-3"><span className="sr-only">Fixar</span></th>
-                      <th scope="col" className="px-2 py-3 font-semibold">Modelo</th>
-                      <th scope="col" className="px-4 py-3 text-right font-semibold">Campos</th>
-                      <th scope="col" className="px-4 py-3 text-right font-semibold">Gerados</th>
-                      <th scope="col" className="px-4 py-3 font-semibold">Atualizado</th>
-                      <th scope="col" className="px-2 py-3"><span className="sr-only">Ações</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((g) => (
-                      <tr key={g.id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
-                        <td className="px-2 py-2"><PinButton pinned={g.is_pinned} onToggle={() => togglePin(g)} /></td>
-                        <td className="px-2 py-3">
-                          <div className="flex items-center gap-2.5">
-                            <ModelAvatar name={g.name} size="sm" />
-                            <div className="min-w-0">
-                              <Link href={openHref(g)} className="font-medium hover:text-primary hover:underline">{g.name}</Link>
-                              <p className="line-clamp-1 max-w-md text-xs text-muted">
-                                {g.status === "archived" && <Badge className="mr-1 align-middle">Arquivado</Badge>}
-                                {!g.has_template ? "Falta enviar o documento .docx" : g.description || "Sem descrição"}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">{g.fields_count}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{g.documents_generated}</td>
-                        <td className="px-4 py-3 text-muted">{timeAgo(g.updated_at)}</td>
-                        <td className="px-2 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            {g.has_template && <Link href={`/generators/${g.id}/use`}><Button size="sm" variant="ghost" className="text-primary"><Play className="h-3.5 w-3.5" aria-hidden /> Preencher</Button></Link>}
-                            <ActionMenu label={`Ações de ${g.name}`} items={menuFor(g)} />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Geradores">
+                {items.map((g) => <GeneratorCard key={g.id} g={g} menu={menuFor(g)} onTogglePin={() => togglePin(g)} />)}
+              </ul>
+            )}
+          </section>
+
+          <section aria-labelledby="kits-h">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 id="kits-h" className="text-lg font-semibold">Kits de documentos</h2>
+              {d.kits.total_kits > 0 && <Link href="/kits" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">Ver todos os kits <ArrowRight className="h-3.5 w-3.5" aria-hidden /></Link>}
+            </div>
+            {d.kits.total_kits > 0 ? (
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {d.kits.recent.slice(0, 3).map((k) => (
+                  <li key={k.id}>
+                    <Card className="flex h-full flex-col gap-3 p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-primary" aria-hidden><Layers className="h-5 w-5" aria-hidden /></span>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold"><Link href={k.has_documents ? `/kits/${k.id}/use` : `/kits/${k.id}/edit`} className="line-clamp-2 hover:text-primary hover:underline">{k.name}</Link></h3>
+                          <p className="mt-0.5 text-xs text-muted">{plural(k.items_count, "documento", "documentos")} · {plural(k.fields_count, "dado em comum", "dados em comum")}</p>
+                        </div>
+                      </div>
+                      <div className="mt-auto pt-1">
+                        {k.has_documents ? (
+                          <ButtonLink href={`/kits/${k.id}/use`} size="sm" variant="primary" className="w-full justify-center"><Play className="h-3.5 w-3.5" aria-hidden /> Preencher kit</ButtonLink>
+                        ) : (
+                          <ButtonLink href={`/kits/${k.id}/edit`} size="sm" className="w-full justify-center">Continuar configurando</ButtonLink>
+                        )}
+                      </div>
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Card className="flex flex-wrap items-center gap-4 border-dashed p-5">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-soft text-primary" aria-hidden><Layers className="h-5 w-5" aria-hidden /></span>
+                <div className="min-w-0 flex-1 basis-60">
+                  <p className="font-semibold">Documentos que sempre andam juntos?</p>
+                  <p className="text-sm text-muted">Um kit junta vários geradores (contrato + recibo + termo…) e você preenche nome, CPF e endereço <strong className="text-fg">uma vez só</strong> para gerar todos.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <TrySampleButton kind="kit" size="sm" />
+                  {d.total_generators >= 2 && <ButtonLink href="/kits/new" size="sm" variant="primary">Criar um kit</ButtonLink>}
+                </div>
               </Card>
             )}
           </section>
@@ -359,9 +330,9 @@ export default function DashboardPage() {
       <ConfirmDialog
         open={!!toDelete}
         onOpenChange={(o) => !o && setToDelete(null)}
-        title="Excluir modelo?"
-        description={toDelete ? `“${toDelete.name}” deixará de aparecer nas suas listas. O histórico de gerações já feitas é mantido.` : undefined}
-        confirmLabel="Excluir modelo"
+        title="Excluir gerador?"
+        description={toDelete ? `“${toDelete.name}” deixará de aparecer nas suas listas. O histórico de documentos já gerados é mantido.` : undefined}
+        confirmLabel="Excluir gerador"
         danger
         loading={act.isPending}
         onConfirm={() => toDelete && act.mutate({ kind: "delete", g: toDelete })}

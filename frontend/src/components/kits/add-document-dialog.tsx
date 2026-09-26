@@ -44,7 +44,7 @@ export function AddDocumentDialog({ open, onOpenChange, excludeIds, onAdded }: {
       open={open}
       onOpenChange={onOpenChange}
       title="Adicionar documento ao kit"
-      description="Só modelos que já têm um documento .docx enviado aparecem aqui."
+      description="Só geradores que já têm um documento .docx enviado aparecem aqui."
       footer={<Button onClick={() => onOpenChange(false)}>Fechar</Button>}
     >
       {error && <Alert tone="danger" className="mb-3">{error}</Alert>}
@@ -53,8 +53,8 @@ export function AddDocumentDialog({ open, onOpenChange, excludeIds, onAdded }: {
       ) : available.length === 0 ? (
         <p className="text-sm text-muted">
           {q.data && q.data.items.length === 0
-            ? "Você ainda não tem nenhum modelo pronto. Crie um em “Novo modelo” antes de montar o kit."
-            : "Todos os seus modelos prontos já estão neste kit."}
+            ? "Você ainda não tem nenhum gerador pronto. Crie um em “Novo gerador” antes de montar o kit."
+            : "Todos os seus geradores prontos já estão neste kit."}
         </p>
       ) : (
         <ul className="max-h-96 divide-y divide-border overflow-y-auto rounded-md border border-border">

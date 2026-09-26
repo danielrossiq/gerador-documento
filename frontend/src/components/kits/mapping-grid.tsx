@@ -38,7 +38,7 @@ export function MappingGrid({ kitId, fields, items, onChanged }: {
   if (fields.length === 0 || usableItems.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto rounded-md border border-border">
+    <div className="relative overflow-x-auto rounded-md border border-border">
       <table className="w-full min-w-[480px] text-left text-sm">
         <caption className="sr-only">De qual campo de cada documento vem cada dado em comum</caption>
         <thead className="bg-surface-2 text-xs uppercase tracking-wide text-muted">

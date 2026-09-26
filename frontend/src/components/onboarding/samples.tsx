@@ -1,11 +1,10 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { FileUp, MousePointerClick, Sparkles, Wand2 } from "lucide-react";
-import Link from "next/link";
+import { ClipboardCheck, FileUp, MousePointerClick, Sparkles, Wand2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, type ButtonProps } from "@/components/ui/button";
+import { Button, ButtonLink, type ButtonProps } from "@/components/ui/button";
 import { Card } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { api, errorMessage } from "@/lib/api";
@@ -29,7 +28,7 @@ export function TrySampleButton({ kind = "generator", children, ...rest }: { kin
       } else {
         const g = await api.post<GeneratorOut>("/samples/generator");
         qc.invalidateQueries();
-        toast.push({ tone: "success", title: "Modelo de exemplo criado", description: "Preencha o formulário e baixe o contrato pronto." });
+        toast.push({ tone: "success", title: "Gerador de exemplo criado", description: "Use “Preencher com dados de exemplo” e baixe o contrato pronto." });
         router.push(`/generators/${g.id}/use`);
       }
     } catch (e) {
@@ -46,20 +45,22 @@ export function TrySampleButton({ kind = "generator", children, ...rest }: { kin
   );
 }
 
+// As mesmas etapas que a pessoa vai ver no topo de cada tela do gerador (Modelo → Campos → Revisão → Gerar).
 const STEPS = [
-  { icon: FileUp, title: "Envie um documento que você já usa", text: "Contrato, recibo, declaração, procuração… em .docx." },
-  { icon: MousePointerClick, title: "Marque o que muda", text: "Nome, CPF, valores e datas são sugeridos sozinhos — é só confirmar." },
-  { icon: Sparkles, title: "Preencha e baixe", text: "Um formulário gera o DOCX/PDF pronto. Vários de uma vez com uma planilha." },
+  { icon: FileUp, title: "Modelo", text: "Envie um documento que você já usa: contrato, recibo, declaração… em .docx." },
+  { icon: MousePointerClick, title: "Campos", text: "Selecione o que muda (nome, CPF, valor…) e transforme em campo. Sugerimos os mais comuns." },
+  { icon: ClipboardCheck, title: "Revisão", text: "Veja o documento com dados de exemplo e confira o que falta ajustar." },
+  { icon: Sparkles, title: "Gerar", text: "Preencha um formulário e baixe Word ou PDF — ou gere vários de uma vez com uma planilha." },
 ];
 
-/** Primeiro acesso: o que é o produto em 3 passos e dois jeitos de começar. */
+/** Primeiro acesso: o que é o produto em 4 etapas e dois jeitos de começar. */
 export function HowItWorks() {
   return (
     <Card className="overflow-hidden" data-testid="onboarding">
       <div className="bg-linear-to-br from-primary-soft via-surface to-surface px-6 py-8 sm:px-10">
-        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Transforme seus documentos em modelos que se preenchem sozinhos</h2>
+        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Transforme um documento que você já usa em um gerador</h2>
         <p className="mt-1 max-w-2xl text-sm text-muted">Chega de copiar, colar e caçar nome e CPF no Word. Faça uma vez, gere quantas vezes quiser.</p>
-        <ol className="mt-6 grid gap-4 sm:grid-cols-3">
+        <ol className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((s, i) => (
             <li key={s.title} className="flex gap-3">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-primary-fg" aria-hidden>{i + 1}</span>
@@ -71,11 +72,9 @@ export function HowItWorks() {
           ))}
         </ol>
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Link href="/generators/new">
-            <Button variant="primary" size="lg"><FileUp className="h-4 w-4" aria-hidden /> Enviar meu documento</Button>
-          </Link>
+          <ButtonLink href="/generators/new" variant="primary" size="lg"><FileUp className="h-4 w-4" aria-hidden /> Criar meu primeiro gerador</ButtonLink>
           <TrySampleButton size="lg">Experimentar com um exemplo</TrySampleButton>
-          <span className="text-xs text-muted">Sem documento à mão? O exemplo fica pronto em segundos.</span>
+          <span className="text-xs text-muted">Sem documento à mão? O exemplo (um contrato) fica pronto em segundos.</span>
         </div>
       </div>
     </Card>

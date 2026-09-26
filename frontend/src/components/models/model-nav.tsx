@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Layers, PencilRuler, Settings2 } from "lucide-react";
+import { FileText, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -43,24 +43,6 @@ function Segmented({ items, current, ariaLabel, onNavigate, className }: {
       })}
     </nav>
   );
-}
-
-export type ModelMode = "use" | "batch" | "edit";
-
-/** As três formas de trabalhar com um modelo, sempre à mão — antes cada tela era um beco sem saída. */
-export function ModelNav({ id, current, onNavigate, className }: {
-  id: string;
-  current: ModelMode;
-  /** O editor precisa salvar antes de sair; quando informado, intercepta o clique. */
-  onNavigate?: (href: string) => void;
-  className?: string;
-}) {
-  const items: Item[] = [
-    { key: "use", label: "Preencher", short: "Preencher", href: `/generators/${id}/use`, icon: FileText },
-    { key: "batch", label: "Em lote (planilha)", short: "Em lote", href: `/generators/${id}/batch`, icon: Layers },
-    { key: "edit", label: "Editar campos", short: "Editar", href: `/generators/${id}/edit`, icon: PencilRuler },
-  ];
-  return <Segmented items={items} current={current} ariaLabel="Modos do modelo" onNavigate={onNavigate} className={className} />;
 }
 
 export function KitNav({ id, current, className }: { id: string; current: "use" | "edit"; className?: string }) {

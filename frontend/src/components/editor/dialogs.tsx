@@ -52,7 +52,7 @@ export function DeleteFieldDialog({ field, open, onOpenChange, onConfirm }: {
           {(
             [
               ["keep_text", "Manter o texto original no documento", "O trecho volta a ser texto comum (ex.: “João da Silva”)."],
-              ["remove_text", "Remover o trecho do documento", "O texto deixa de existir no modelo."],
+              ["remove_text", "Remover o trecho do documento", "O texto deixa de existir no documento."],
             ] as const
           ).map(([v, t, d]) => (
             <label key={v} className="flex cursor-pointer items-start gap-2 rounded-md border border-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary-soft">
@@ -78,15 +78,17 @@ export function VersionsDialog({ open, onOpenChange, generatorId, onRestored }: 
   onRestored: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const q = useQuery({ queryKey: ["versions", generatorId], enabled: open, queryFn: () => api.get<{ items: VersionOut[] }>(`/generators/${generatorId}/versions`) });
+  const q = useQuery({ queryKey: ["versions", generatorId], enabled: open, queryFn: () => api.get<{ items: (VersionOut & { source_filename?: string | null })[] }>(`/generators/${generatorId}/versions`) });
 
   async function restore(v: VersionOut) {
-    if (!window.confirm(`Restaurar a versão ${v.version_number}? A versão atual continua guardada aqui.`)) return;
     setBusy(v.id);
     setError(null);
     try {
       await api.post(`/generators/${generatorId}/versions/${v.id}/restore`);
+      setConfirming(null);
+      await q.refetch();
       onRestored();
       onOpenChange(false);
     } catch (e) {
@@ -97,10 +99,12 @@ export function VersionsDialog({ open, onOpenChange, generatorId, onRestored }: 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Histórico de versões" description="Cada arquivo enviado (ou versão restaurada) fica guardado aqui." size="lg">
+    <Dialog open={open} onOpenChange={(o) => { setConfirming(null); onOpenChange(o); }} title="Histórico de versões" description="Cada documento enviado (ou versão restaurada) fica guardado aqui. Restaurar cria uma nova versão — nada é apagado." size="lg">
       {error && <Alert tone="danger" className="mb-3">{error}</Alert>}
       {q.isLoading ? (
         <Spinner />
+      ) : q.error ? (
+        <Alert tone="danger" title="Não foi possível carregar as versões">{errorMessage(q.error)}</Alert>
       ) : (
         <ul className="divide-y divide-border rounded-md border border-border">
           {q.data?.items.map((v, i) => (
@@ -108,17 +112,24 @@ export function VersionsDialog({ open, onOpenChange, generatorId, onRestored }: 
               <History className="h-4 w-4 text-muted" aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">
-                  Versão {v.version_number} {i === 0 && <Badge tone="success">Atual</Badge>}
+                  Versão {v.version_number} {i === 0 && <Badge tone="success">Em uso</Badge>}
                 </p>
-                <p className="text-xs text-muted">
-                  {formatDateTime(v.created_at)} · {v.author ?? "—"} · {v.fields_count} campos{v.note ? ` · ${v.note}` : ""}
+                <p className="break-words text-xs text-muted">
+                  {formatDateTime(v.created_at)} · {v.author ?? "—"} · {v.fields_count} campos{v.source_filename ? ` · ${v.source_filename}` : ""}{v.note ? ` · ${v.note}` : ""}
                 </p>
               </div>
-              {i !== 0 && (
-                <Button size="sm" loading={busy === v.id} onClick={() => restore(v)}>
-                  <RotateCcw className="h-4 w-4" aria-hidden /> Restaurar
-                </Button>
-              )}
+              {i !== 0 &&
+                (confirming === v.id ? (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted">Voltar para esta versão?</span>
+                    <Button size="sm" onClick={() => setConfirming(null)}>Cancelar</Button>
+                    <Button size="sm" variant="primary" loading={busy === v.id} onClick={() => restore(v)}>Restaurar</Button>
+                  </span>
+                ) : (
+                  <Button size="sm" onClick={() => setConfirming(v.id)} aria-label={`Restaurar a versão ${v.version_number}`}>
+                    <RotateCcw className="h-4 w-4" aria-hidden /> Restaurar…
+                  </Button>
+                ))}
             </li>
           ))}
         </ul>
