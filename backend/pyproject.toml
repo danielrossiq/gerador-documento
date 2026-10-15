@@ -21,6 +21,9 @@ dependencies = [
   "dramatiq[redis]>=1.17",
   "prometheus-client>=0.20",
   "defusedxml>=0.7",
+  # PDF digitado → .docx (MIT / Apache-BSD; evitamos PyMuPDF/pdf2docx por serem AGPL)
+  "pdfplumber>=0.11",
+  "pypdfium2>=4.30",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +34,7 @@ dev = [
   "ruff>=0.5",
   "mypy>=1.10",
   "pillow>=10.3",
+  "pypdf>=4.0",  # só para gerar um PDF com senha nos testes
 ]
 
 [build-system]

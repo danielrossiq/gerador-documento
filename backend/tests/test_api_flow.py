@@ -116,7 +116,8 @@ def test_upload_rejects_bad_files(api, demo_docx):
     api.register()
     gid = api.post("/generators", json={"name": "G"}).json()["id"]
     assert upload(api, gid, b"nao sou um docx").json()["error"]["code"] == "NOT_A_DOCX"
-    assert upload(api, gid, demo_docx, "contrato.pdf").json()["error"]["code"] == "INVALID_EXTENSION"
+    assert upload(api, gid, demo_docx, "contrato.pdf").json()["error"]["code"] == "NOT_A_PDF"
+    assert upload(api, gid, demo_docx, "contrato.odt").json()["error"]["code"] == "INVALID_EXTENSION"
     assert upload(api, gid, b"", "vazio.docx").json()["error"]["code"] == "EMPTY_FILE"
 
 

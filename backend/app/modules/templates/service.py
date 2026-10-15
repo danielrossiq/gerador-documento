@@ -36,6 +36,7 @@ from app.docx_engine.editor_doc import BlockIn, DocStructureError, PartLike, blo
 from app.docx_engine.inline import inline_text, normalize_nodes
 from app.docx_engine.nodes import RangeError, replace_range_with_field
 from app.docx_engine.parse import parse_docx
+from app.docx_engine.pdf_import import PdfConversion, convert_pdf, looks_like_pdf
 from app.docx_engine.safety import DocxRejected, validate_docx
 from app.modules.audit import service as audit
 from app.modules.fields import service as fields_service
@@ -50,10 +51,22 @@ ATTRS_DISPLAY = ("style", "heading", "align", "list", "level")
 
 
 def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: bytes) -> TemplateVersion:
+    """Recebe o documento-base: .docx direto, ou PDF digitado convertido em .docx (ver docx_engine.pdf_import).
+
+    Do PDF guardamos só o .docx convertido — é ele que o editor edita e o gerador preenche —, mas com o nome
+    do arquivo enviado, para a interface mostrar ao usuário o arquivo que ele reconhece.
+    """
     db = ctx.db
     gen = core.get_generator(db, ctx.workspace_id, generator_id)
+    max_bytes = ctx.limit("max_upload_mb") * 1024 * 1024
+    is_pdf = (filename or "").lower().endswith(".pdf") or looks_like_pdf(data)
+    conversion: PdfConversion | None = None
     try:
-        validate_docx(data, filename=filename or "", max_bytes=ctx.limit("max_upload_mb") * 1024 * 1024)
+        if is_pdf:
+            conversion = convert_pdf(data, max_bytes=max_bytes)
+            data = conversion.docx
+        else:
+            validate_docx(data, filename=filename or "", max_bytes=max_bytes)
     except DocxRejected as exc:
         audit.record(
             db,
@@ -61,7 +74,7 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
             ctx=ctx,
             entity_type="generator",
             entity_id=gen.id,
-            meta={"code": exc.code},
+            meta={"code": exc.code, "format": "pdf" if is_pdf else "docx"},
         )
         db.commit()
         raise ValidationFailed(exc.message, code=exc.code) from exc
@@ -95,10 +108,12 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
         based_on_version_id=prev.id if prev else None,
         meta={
             "stats": parsed.stats,
-            "warnings": parsed.warnings,
+            "warnings": [*(conversion.warnings if conversion else []), *parsed.warnings],
             "parts": [
                 {"name": p.name, "kind": p.kind, "label": p.label, "hidden": p.hidden} for p in parsed.parts
             ],
+            "source_format": "pdf" if conversion else "docx",
+            **({"pdf": conversion.stats} if conversion else {}),
         },
     )
     db.add(version)
@@ -132,7 +147,12 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
         ctx=ctx,
         entity_type="generator",
         entity_id=gen.id,
-        meta={"version": version.version_number, "size": len(data), "sha256": src.sha256},
+        meta={
+            "version": version.version_number,
+            "size": len(data),
+            "sha256": src.sha256,
+            "format": "pdf" if conversion else "docx",
+        },
     )
     db.commit()
     try:
@@ -250,6 +270,7 @@ def version_out(v: TemplateVersion) -> dict[str, Any]:
         "analysis_status": v.analysis_status,
         "analysis_error": v.analysis_error,
         "note": v.note,
+        "source_format": (v.meta or {}).get("source_format", "docx"),
         "created_at": v.created_at.isoformat(),
         "updated_at": v.updated_at.isoformat(),
     }
