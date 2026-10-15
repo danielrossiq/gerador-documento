@@ -19,7 +19,7 @@ export function stepHrefs(id: string) {
   };
 }
 
-/** Para onde levar alguém que abre o gerador: a próxima etapa que falta, ou a geração se já está tudo pronto. */
+/** Para onde levar alguém que abre o modelo: a próxima etapa que falta, ou a geração se já está tudo pronto. */
 export function nextHref(g: { id: string; has_template: boolean; fields_count: number }): string {
   const h = stepHrefs(g.id);
   if (!g.has_template) return h.template;
@@ -28,7 +28,7 @@ export function nextHref(g: { id: string; has_template: boolean; fields_count: n
 }
 
 /**
- * Etapas do gerador: Modelo → Campos → Revisão → Gerar. Mostra onde a pessoa está (aria-current="step"), o que já
+ * Etapas do modelo: Documento → Campos → Revisão → Gerar. Mostra onde a pessoa está (aria-current="step"), o que já
  * foi feito (✓) e bloqueia, com explicação, as etapas que ainda não fazem sentido (ex.: gerar sem nenhum campo).
  */
 export function GeneratorSteps({ id, current, hasTemplate, fieldsCount, onNavigate, compact, className }: {
@@ -42,10 +42,10 @@ export function GeneratorSteps({ id, current, hasTemplate, fieldsCount, onNaviga
   className?: string;
 }) {
   const h = stepHrefs(id);
-  const needDoc = hasTemplate ? null : "Envie o documento .docx primeiro";
+  const needDoc = hasTemplate ? null : "Envie o documento primeiro";
   const needFields = needDoc ?? (fieldsCount > 0 ? null : "Crie pelo menos um campo primeiro");
   const steps: StepDef[] = [
-    { key: "template", label: "Modelo", href: h.template, done: hasTemplate, blocked: null },
+    { key: "template", label: "Documento", href: h.template, done: hasTemplate, blocked: null },
     { key: "fields", label: "Campos", href: h.fields, done: fieldsCount > 0, blocked: needDoc },
     { key: "review", label: "Revisão", href: h.review, done: false, blocked: needFields },
     { key: "generate", label: "Gerar", href: h.generate, done: false, blocked: needFields },
@@ -53,7 +53,7 @@ export function GeneratorSteps({ id, current, hasTemplate, fieldsCount, onNaviga
   const currentIdx = steps.findIndex((s) => s.key === current);
 
   return (
-    <nav aria-label="Etapas do gerador" className={cn("min-w-0", className)}>
+    <nav aria-label="Etapas do modelo" className={cn("min-w-0", className)}>
       <ol className="flex items-center gap-1 sm:gap-2">
         {steps.map((s, i) => {
           const isCurrent = s.key === current;
@@ -117,7 +117,7 @@ export function GenerateModeTabs({ id, current }: { id: string; current: "use" |
   );
 }
 
-/** Cabeçalho comum das telas de um gerador (exceto o editor, que tem layout de tela cheia). */
+/** Cabeçalho comum das telas de um modelo (exceto o editor, que tem layout de tela cheia). */
 export function GeneratorHeader({ id, name, step, hasTemplate, fieldsCount, description, actions, children }: {
   id: string;
   name: string;
@@ -131,8 +131,8 @@ export function GeneratorHeader({ id, name, step, hasTemplate, fieldsCount, desc
   return (
     <div className="mb-6 space-y-4">
       <div>
-        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted hover:text-fg">
-          <ArrowLeft className="h-4 w-4" aria-hidden /> Geradores
+        <Link href="/models" className="inline-flex items-center gap-1 text-sm text-muted hover:text-fg">
+          <ArrowLeft className="h-4 w-4" aria-hidden /> Modelos
         </Link>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">

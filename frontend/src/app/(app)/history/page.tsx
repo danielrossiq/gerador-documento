@@ -75,7 +75,7 @@ export default function HistoryPage() {
       {q.isLoading ? (
         <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
       ) : items.length === 0 ? (
-        <EmptyState icon={<HistoryIcon className="h-9 w-9" aria-hidden />} title="Nenhuma geração ainda" description="Quando você gerar documentos — um a um ou em lote — eles aparecem aqui." action={<ButtonLink href="/dashboard" variant="primary">Ir para os geradores</ButtonLink>} />
+        <EmptyState icon={<HistoryIcon className="h-9 w-9" aria-hidden />} title="Nenhuma geração ainda" description="Quando você gerar documentos — um a um ou em lote — eles aparecem aqui." action={<ButtonLink href="/models" variant="primary">Ir para os modelos</ButtonLink>} />
       ) : (
         <Card className="relative overflow-x-auto">
           <table className="w-full min-w-[1000px] text-left text-sm" data-testid="history-table">

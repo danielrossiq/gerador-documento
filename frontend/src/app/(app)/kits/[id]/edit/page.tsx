@@ -140,7 +140,7 @@ export default function KitEditPage() {
           <EmptyState
             icon={<Layers className="h-9 w-9" aria-hidden />}
             title="Nenhum documento ainda"
-            description="Adicione dois ou mais geradores que usam os mesmos dados (nome, CPF, endereço…)."
+            description="Adicione dois ou mais modelos que usam os mesmos dados (nome, CPF, endereço…)."
             action={<Button variant="primary" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" aria-hidden /> Adicionar documento</Button>}
           />
         ) : (
@@ -173,7 +173,7 @@ export default function KitEditPage() {
             <p className="text-sm text-muted">Preenchidos uma vez só no formulário do kit e usados em todos os documentos.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={autoDetect} loading={autoBusy} disabled={usableCount < 2} title={usableCount < 2 ? "Adicione ao menos 2 geradores com documento enviado" : undefined}>
+            <Button onClick={autoDetect} loading={autoBusy} disabled={usableCount < 2} title={usableCount < 2 ? "Adicione ao menos 2 modelos com documento enviado" : undefined}>
               <Sparkles className="h-4 w-4" aria-hidden /> Detectar automaticamente
             </Button>
             <Button variant="primary" onClick={() => setFieldDialog({ field: null })}>
@@ -233,7 +233,7 @@ export default function KitEditPage() {
         open={!!toDeleteItem}
         onOpenChange={(o) => !o && setToDeleteItem(null)}
         title="Remover documento do kit?"
-        description={toDeleteItem ? `“${toDeleteItem.name}” deixa de ser gerado junto com o kit. O gerador em si não é afetado.` : undefined}
+        description={toDeleteItem ? `“${toDeleteItem.name}” deixa de ser gerado junto com o kit. O modelo em si não é afetado.` : undefined}
         confirmLabel="Remover"
         danger
         onConfirm={() => toDeleteItem && removeItem(toDeleteItem.id)}

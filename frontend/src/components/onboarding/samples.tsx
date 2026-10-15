@@ -28,7 +28,7 @@ export function TrySampleButton({ kind = "generator", children, ...rest }: { kin
       } else {
         const g = await api.post<GeneratorOut>("/samples/generator");
         qc.invalidateQueries();
-        toast.push({ tone: "success", title: "Gerador de exemplo criado", description: "Use “Preencher com dados de exemplo” e baixe o contrato pronto." });
+        toast.push({ tone: "success", title: "Modelo de exemplo criado", description: "Use “Preencher com dados de exemplo” e baixe o contrato pronto." });
         router.push(`/generators/${g.id}/use`);
       }
     } catch (e) {
@@ -45,20 +45,20 @@ export function TrySampleButton({ kind = "generator", children, ...rest }: { kin
   );
 }
 
-// As mesmas etapas que a pessoa vai ver no topo de cada tela do gerador (Modelo → Campos → Revisão → Gerar).
+// As mesmas etapas que a pessoa vai ver no topo de cada tela do modelo (Documento → Campos → Revisão → Gerar).
 const STEPS = [
-  { icon: FileUp, title: "Modelo", text: "Envie um documento que você já usa: contrato, recibo, declaração… em .docx." },
+  { icon: FileUp, title: "Documento", text: "Envie um documento que você já usa: contrato, recibo, declaração… em Word (.docx) ou PDF digitado." },
   { icon: MousePointerClick, title: "Campos", text: "Selecione o que muda (nome, CPF, valor…) e transforme em campo. Sugerimos os mais comuns." },
   { icon: ClipboardCheck, title: "Revisão", text: "Veja o documento com dados de exemplo e confira o que falta ajustar." },
   { icon: Sparkles, title: "Gerar", text: "Preencha um formulário e baixe Word ou PDF — ou gere vários de uma vez com uma planilha." },
 ];
 
 /** Primeiro acesso: o que é o produto em 4 etapas e dois jeitos de começar. */
-export function HowItWorks() {
+export function HowItWorks({ actions = true }: { actions?: boolean }) {
   return (
     <Card className="overflow-hidden" data-testid="onboarding">
       <div className="bg-linear-to-br from-primary-soft via-surface to-surface px-6 py-8 sm:px-10">
-        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Transforme um documento que você já usa em um gerador</h2>
+        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Transforme um documento que você já usa em um modelo</h2>
         <p className="mt-1 max-w-2xl text-sm text-muted">Chega de copiar, colar e caçar nome e CPF no Word. Faça uma vez, gere quantas vezes quiser.</p>
         <ol className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((s, i) => (
@@ -71,11 +71,11 @@ export function HowItWorks() {
             </li>
           ))}
         </ol>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <ButtonLink href="/generators/new" variant="primary" size="lg"><FileUp className="h-4 w-4" aria-hidden /> Criar meu primeiro gerador</ButtonLink>
+        {actions && <div className="mt-8 flex flex-wrap items-center gap-3">
+          <ButtonLink href="/generators/new" variant="primary" size="lg"><FileUp className="h-4 w-4" aria-hidden /> Criar meu primeiro modelo</ButtonLink>
           <TrySampleButton size="lg">Experimentar com um exemplo</TrySampleButton>
           <span className="text-xs text-muted">Sem documento à mão? O exemplo (um contrato) fica pronto em segundos.</span>
-        </div>
+        </div>}
       </div>
     </Card>
   );

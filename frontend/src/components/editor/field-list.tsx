@@ -9,7 +9,7 @@ import type { FieldOut } from "@/lib/types";
 import { cn, plural } from "@/lib/utils";
 
 /**
- * Lista dos campos do gerador (painel direito do editor). A ordem é a do formulário; por padrão ela acompanha a
+ * Lista dos campos do modelo (painel direito do editor). A ordem é a do formulário; por padrão ela acompanha a
  * ordem em que os campos aparecem no documento. Cada campo mostra onde está e o que falta configurar.
  */
 export function FieldList({ fields, issues, selectedId, inDocOrder, suggestions, onSelect, onInsert, onMove, onSyncOrder, onShowSuggestions }: {
@@ -76,7 +76,7 @@ export function FieldList({ fields, issues, selectedId, inDocOrder, suggestions,
         )}
       </div>
 
-      <ul className="space-y-1.5" aria-label="Campos do gerador (na ordem do formulário)" data-testid="field-list">
+      <ul className="space-y-1.5" aria-label="Campos do modelo (na ordem do formulário)" data-testid="field-list">
         {fields.map((f, idx) => {
           const Icon = FIELD_TYPE_META[f.type]?.icon ?? Type;
           const fi = issues[f.id] ?? [];

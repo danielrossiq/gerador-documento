@@ -53,8 +53,8 @@ function FilenameSettings({ generator, fields, sample, onSaved }: { generator: G
 
   return (
     <Card className="space-y-4 p-5">
-      <h2 className="text-base font-semibold">Detalhes do gerador</h2>
-      <Field label="Descrição" help="Aparece no painel, para lembrar para que serve este gerador.">
+      <h2 className="text-base font-semibold">Detalhes do modelo</h2>
+      <Field label="Descrição" help="Aparece no painel, para lembrar para que serve este modelo.">
         {(a) => <Input {...a} value={desc} maxLength={500} onChange={(e) => setDesc(e.target.value)} onBlur={() => desc !== (generator.description ?? "") && save({ description: desc }, "Descrição")} placeholder="Ex.: Contrato padrão de prestação de serviços" />}
       </Field>
       <div className="space-y-2">
@@ -234,7 +234,7 @@ export default function ReviewPage() {
         <div className="grid gap-6 lg:grid-cols-[26rem_1fr]"><Skeleton className="h-96" /><Skeleton className="h-96" /></div>
       ) : q.error ? (
         <Alert tone="danger" title="Não foi possível abrir a revisão">
-          {errorMessage(q.error)} <ButtonLink href={stepHrefs(id).template} size="sm" className="ml-2">Ir para a etapa Modelo</ButtonLink>
+          {errorMessage(q.error)} <ButtonLink href={stepHrefs(id).template} size="sm" className="ml-2">Ir para a etapa Documento</ButtonLink>
         </Alert>
       ) : (
         <ReviewView data={q.data!} suggestions={sug.data?.items.length ?? 0} />

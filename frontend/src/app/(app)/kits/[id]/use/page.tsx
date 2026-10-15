@@ -185,7 +185,7 @@ function KitUseForm({ data }: { data: KitFormPayload }) {
 
           <label className="block text-sm font-medium">
             Padrão do nome do arquivo <span className="font-normal text-muted">(opcional — usa o padrão de cada documento se vazio)</span>
-            <Input className="mt-1 font-mono text-xs" value={pattern} onChange={(e) => setPattern(e.target.value)} placeholder="Ex.: {gerador}_{nome}_{hoje}" />
+            <Input className="mt-1 font-mono text-xs" value={pattern} onChange={(e) => setPattern(e.target.value)} placeholder="Ex.: {modelo}_{nome}_{hoje}" />
           </label>
 
           <div className="sticky bottom-0 -mx-5 flex flex-wrap gap-2 border-t border-border bg-surface/95 px-5 py-3 backdrop-blur">
@@ -221,7 +221,7 @@ function KitUseLoader() {
         <Alert tone="danger" title="Não foi possível abrir o kit">{errorMessage(q.error)}</Alert>
       ) : q.data!.members.filter((m) => m.usable).length === 0 ? (
         <Alert tone="warning" title="Nenhum documento pronto">
-          <FileText className="mr-1 inline h-4 w-4" aria-hidden /> Adicione ao menos um gerador com documento enviado antes de usar este kit.
+          <FileText className="mr-1 inline h-4 w-4" aria-hidden /> Adicione ao menos um modelo com documento enviado antes de usar este kit.
         </Alert>
       ) : (
         <KitUseForm data={q.data!} />

@@ -63,7 +63,7 @@ function collectUnknownSelectValues(
 
 export type ImportResult = { rows: Record<string, string>[]; mode: "replace" | "append"; invalid: number };
 
-/** Importação em 2 etapas: envio (.xlsx/.csv) → mapeamento entre as colunas do arquivo e os campos do gerador. */
+/** Importação em 2 etapas: envio (.xlsx/.csv) → mapeamento entre as colunas do arquivo e os campos do modelo. */
 export function ImportDialog({ open, onOpenChange, generatorId, hasData, onImported }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;

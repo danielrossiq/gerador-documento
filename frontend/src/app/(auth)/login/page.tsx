@@ -41,7 +41,7 @@ function LoginForm() {
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Entrar</h1>
-        <p className="mt-1 text-sm text-muted">Acesse seus geradores de documentos.</p>
+        <p className="mt-1 text-sm text-muted">Acesse seus modelos de documentos.</p>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       <Field label="E-mail" error={formState.errors.email?.message} required>

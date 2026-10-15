@@ -93,7 +93,7 @@ export default function KitsPage() {
     <AppShell>
       <PageHeader
         title="Kits"
-        description="Um kit junta vários geradores que usam os mesmos dados (nome, CPF, endereço…): você preenche uma vez e recebe todos os documentos."
+        description="Um kit junta vários modelos que usam os mesmos dados (nome, CPF, endereço…): você preenche uma vez e recebe todos os documentos."
         actions={
           <ButtonLink href="/kits/new" variant="primary">
             <FilePlus2 className="h-4 w-4" aria-hidden /> Novo kit

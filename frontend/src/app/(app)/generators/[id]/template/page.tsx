@@ -6,10 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { VersionsDialog } from "@/components/editor/dialogs";
 import { GeneratorHeader, stepHrefs } from "@/components/generators/steps";
-import { AnalysisStep, checkDocx, DocxDropzone, UploadErrorAlert, type UploadError } from "@/components/generators/template-upload";
+import { AnalysisStep, checkUpload, DocxDropzone, UploadErrorAlert, type UploadError } from "@/components/generators/template-upload";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Alert, Card, Skeleton } from "@/components/ui/misc";
+import { Alert, Badge, Card, Skeleton } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import type { GeneratorOut, VersionOut } from "@/lib/types";
@@ -18,8 +18,8 @@ import { formatDateTime, plural } from "@/lib/utils";
 type VersionRow = VersionOut & { source_filename?: string | null };
 
 /**
- * Etapa 1 (Modelo) de um gerador que já existe: envia o .docx que falta ou troca o atual.
- * Antes, um gerador sem .docx levava a uma tela de erro ("Modelo não encontrado") sem caminho de volta.
+ * Etapa 1 (Documento) de um modelo que já existe: envia o .docx/PDF que falta ou troca o atual.
+ * Antes, um modelo sem documento levava a uma tela de erro ("Modelo não encontrado") sem caminho de volta.
  */
 export default function TemplateStepPage() {
   const { id } = useParams<{ id: string }>();
@@ -43,7 +43,7 @@ export default function TemplateStepPage() {
 
   async function send(f: File) {
     setError(null);
-    const bad = checkDocx(f);
+    const bad = checkUpload(f);
     if (bad) return setError(bad);
     const replacing = !!g?.has_template;
     setFile(f);
@@ -79,8 +79,8 @@ export default function TemplateStepPage() {
   if (gen.error || !g) {
     return (
       <AppShell>
-        <Alert tone="danger" title="Gerador não encontrado">
-          {errorMessage(gen.error)} <ButtonLink href="/dashboard" size="sm" className="ml-2">Voltar aos geradores</ButtonLink>
+        <Alert tone="danger" title="Modelo não encontrado">
+          {errorMessage(gen.error)} <ButtonLink href="/models" size="sm" className="ml-2">Voltar aos modelos</ButtonLink>
         </Alert>
       </AppShell>
     );
@@ -94,7 +94,7 @@ export default function TemplateStepPage() {
         step="template"
         hasTemplate={g.has_template}
         fieldsCount={g.fields_count}
-        description={g.has_template ? "O documento Word que serve de base para este gerador." : "Falta enviar o documento Word que serve de base para este gerador."}
+        description={g.has_template ? "O documento Word que serve de base para este modelo." : "Falta enviar o documento Word que serve de base para este modelo."}
       >
         {g.has_template && (
           <ButtonLink href={stepHrefs(id).fields} variant="primary" size="sm">
@@ -117,7 +117,10 @@ export default function TemplateStepPage() {
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-primary-soft text-primary" aria-hidden><FileText className="h-5 w-5" /></span>
                   <div className="min-w-0 flex-1">
-                    <p className="break-words font-medium" data-testid="current-file">{current.source_filename ?? "documento.docx"}</p>
+                    <p className="break-words font-medium" data-testid="current-file">
+                      {current.source_filename ?? "documento.docx"}
+                      {current.source_format === "pdf" && <Badge tone="primary" className="ml-2 align-middle">convertido de PDF para Word</Badge>}
+                    </p>
                     <p className="text-xs text-muted">Versão {current.version_number} · enviada em {formatDateTime(current.created_at)}{current.author ? ` por ${current.author}` : ""} · {plural(g.fields_count, "campo", "campos")}</p>
                   </div>
                   <Button size="sm" variant="ghost" onClick={() => setVersionsOpen(true)}>
@@ -137,13 +140,13 @@ export default function TemplateStepPage() {
               <Alert tone="neutral" title="O que acontece com os campos">
                 Os campos que você já criou continuam existindo e são reposicionados procurando o mesmo trecho no novo arquivo. Os que não forem encontrados ficam marcados como “fora do documento” na etapa Campos, para você decidir.
               </Alert>
-              <DocxDropzone busy={uploading} file={file} onPick={send} title="Arraste o novo .docx para cá" buttonLabel="Escolher novo arquivo" />
+              <DocxDropzone busy={uploading} file={file} onPick={send} title="Arraste o novo documento para cá" buttonLabel="Escolher novo arquivo" />
             </Card>
           </>
         ) : (
           <Card className="space-y-4 p-6">
-            <Alert tone="warning" title="Este gerador ainda não tem documento">
-              Envie o .docx para marcar os campos e começar a gerar.
+            <Alert tone="warning" title="Este modelo ainda não tem documento">
+              Envie o documento (Word .docx ou PDF digitado) para marcar os campos e começar a gerar.
             </Alert>
             <DocxDropzone busy={uploading} file={file} onPick={send} />
           </Card>

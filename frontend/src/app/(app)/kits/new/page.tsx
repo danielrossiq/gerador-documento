@@ -39,7 +39,7 @@ export default function NewKitPage() {
   async function create() {
     setError(null);
     if (!name.trim()) return setError("Dê um nome ao kit.");
-    if (picked.length < 2) return setError("Escolha pelo menos 2 geradores — o kit serve para preencher vários documentos de uma vez.");
+    if (picked.length < 2) return setError("Escolha pelo menos 2 modelos — o kit serve para preencher vários documentos de uma vez.");
     setBusy(true);
     let kit: KitOut | null = null;
     try {
@@ -50,7 +50,7 @@ export default function NewKitPage() {
       toast.push(
         r.created_fields
           ? { tone: "success", title: `Kit criado com ${plural(r.created_fields, "dado em comum", "dados em comum")}`, description: "Confira o que vai ser preenchido uma vez só." }
-          : { tone: "info", title: "Kit criado", description: "Não achamos dados com o mesmo nome nos geradores — ligue-os manualmente na tabela." },
+          : { tone: "info", title: "Kit criado", description: "Não achamos dados com o mesmo nome nos modelos — ligue-os manualmente na tabela." },
       );
       router.push(`/kits/${kit.id}/edit`);
     } catch (e) {
@@ -62,7 +62,7 @@ export default function NewKitPage() {
 
   return (
     <AppShell>
-      <PageHeader title="Novo kit" description="Junte geradores de documentos que sempre andam juntos e preencha os dados em comum (nome, CPF, endereço…) uma vez só." />
+      <PageHeader title="Novo kit" description="Junte modelos de documentos que sempre andam juntos e preencha os dados em comum (nome, CPF, endereço…) uma vez só." />
       <div className="mx-auto max-w-3xl space-y-4">
         {error && <Alert tone="danger" title={error} />}
         <Card className="space-y-6 p-6">
@@ -78,10 +78,10 @@ export default function NewKitPage() {
               <div className="grid gap-2 sm:grid-cols-2"><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
             ) : ready.length < 2 ? (
               <div className="rounded-md border border-dashed border-border-strong p-5 text-sm">
-                <p className="font-medium">Você precisa de pelo menos 2 geradores prontos (com documento enviado) para montar um kit.</p>
-                <p className="mt-1 text-muted">{ready.length === 1 ? "Você tem 1 até agora." : "Você ainda não tem nenhum."} Crie outro a partir de um .docx — ou veja como funciona com o exemplo.</p>
+                <p className="font-medium">Você precisa de pelo menos 2 modelos prontos (com documento enviado) para montar um kit.</p>
+                <p className="mt-1 text-muted">{ready.length === 1 ? "Você tem 1 até agora." : "Você ainda não tem nenhum."} Crie outro a partir de um documento Word ou PDF — ou veja como funciona com o exemplo.</p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <ButtonLink href="/generators/new" variant="primary" size="sm">Novo gerador</ButtonLink>
+                  <ButtonLink href="/generators/new" variant="primary" size="sm">Novo modelo</ButtonLink>
                   <TrySampleButton kind="kit" size="sm" />
                 </div>
               </div>
@@ -109,7 +109,7 @@ export default function NewKitPage() {
           </fieldset>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <p className="text-xs text-muted">Os campos com o mesmo nome nos geradores escolhidos viram um só no formulário do kit.</p>
+            <p className="text-xs text-muted">Os campos com o mesmo nome nos modelos escolhidos viram um só no formulário do kit.</p>
             <Button variant="primary" loading={busy} disabled={ready.length < 2} onClick={create} data-testid="create-kit">
               <Layers className="h-4 w-4" aria-hidden /> Criar kit
             </Button>

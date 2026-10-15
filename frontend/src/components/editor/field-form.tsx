@@ -85,7 +85,7 @@ export type FieldFormProps = {
   mode: "create" | "edit";
   generatorId: string;
   field?: FieldOut;
-  /** Todos os campos do gerador (para avisar nomes repetidos e oferecer "usar campo existente"). */
+  /** Todos os campos do modelo (para avisar nomes repetidos e oferecer "usar campo existente"). */
   siblings: FieldOut[];
   issues?: FieldIssue[];
   seed?: { label: string; type: FieldType; example: string; text?: string };

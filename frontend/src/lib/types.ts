@@ -57,7 +57,22 @@ export type VersionOut = {
   updated_at: string;
   author?: string | null;
   fields_count?: number;
+  source_format?: "docx" | "pdf";
 };
+
+/** POST /batch/identify — tabela colada → modelo provável e como cada coluna vira campo. */
+export type IdentifyMatch = { column: number; header: string; field: string; label: string; confidence: number; source: "nome" | "parecido" | "conteudo" | "semantico" };
+export type IdentifyCandidate = {
+  generator_id: string;
+  name: string;
+  score: number;
+  exact: boolean;
+  batch_fields: number;
+  mapping: IdentifyMatch[];
+  missing_required: string[];
+  unmatched_columns: string[];
+};
+export type IdentifyResult = { status: "exact" | "probable" | "weak" | "none"; semantic: boolean; columns: string[]; candidates: IdentifyCandidate[] };
 
 // Documento do editor (ProseMirror JSON)
 export type DocNode = {

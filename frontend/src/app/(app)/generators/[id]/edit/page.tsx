@@ -316,7 +316,7 @@ function EditorView({ initial }: { initial: EditorPayload }) {
     if (!n || n === generator.name) return setName(generator.name);
     try {
       setGenerator(await api.patch<GeneratorOut>(`/generators/${id}`, { name: n }));
-      toast.push({ tone: "success", title: "Nome do gerador salvo" });
+      toast.push({ tone: "success", title: "Nome do modelo salvo" });
     } catch (e) {
       toast.push({ tone: "danger", title: "Não foi possível renomear", description: errorMessage(e) });
       setName(generator.name);
@@ -349,7 +349,7 @@ function EditorView({ initial }: { initial: EditorPayload }) {
   const ctxValue = useMemo(() => ({ fields: fieldMap, issues, selectedId, select: (fid: string) => selectField(fid) }), [fieldMap, issues, selectedId, selectField]);
   const pendingSuggestions = useQuery({ queryKey: ["suggestions", id], queryFn: () => api.get<{ items: unknown[] }>(`/generators/${id}/suggestions`), staleTime: 5000 });
   const nSuggestions = pendingSuggestions.data?.items.length ?? 0;
-  // ao reabrir um gerador sem campos e com sugestões pendentes, elas são o próximo passo — abre direto nelas (uma vez).
+  // ao reabrir um modelo sem campos e com sugestões pendentes, elas são o próximo passo — abre direto nelas (uma vez).
   const [autoTabDone, setAutoTabDone] = useState(false);
   if (!autoTabDone && pendingSuggestions.isSuccess) {
     setAutoTabDone(true);
@@ -381,11 +381,11 @@ function EditorView({ initial }: { initial: EditorPayload }) {
       <div className="flex h-dvh flex-col bg-bg">
         <header className="border-b border-border bg-surface">
           <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-            <Button variant="ghost" size="icon" aria-label="Voltar aos geradores" onClick={() => goTo("/dashboard")}>
+            <Button variant="ghost" size="icon" aria-label="Voltar aos modelos" onClick={() => goTo("/models")}>
               <ArrowLeft className="h-4 w-4" aria-hidden />
             </Button>
             <div className="min-w-0 flex-1 sm:max-w-md">
-              <label htmlFor="gen-name" className="sr-only">Nome do gerador</label>
+              <label htmlFor="gen-name" className="sr-only">Nome do modelo</label>
               <Input id="gen-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={saveName} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} className="h-9 border-transparent bg-transparent font-semibold hover:border-border-strong" title="Clique para renomear" />
             </div>
             <div aria-live="polite" role="status" data-testid="save-state" data-state={autosave.state === "saved" && fieldSave?.state === "saving" ? "saving" : autosave.state} className="min-w-32">{SaveBadge}</div>
@@ -565,13 +565,13 @@ function EditorLoader() {
     const noDoc = e.code === "NOT_FOUND" && /docx/i.test(e.message);
     return (
       <main id="main" className="mx-auto max-w-lg space-y-4 p-8">
-        <Alert tone={noDoc ? "warning" : "danger"} title={noDoc ? "Falta enviar o documento" : e.code === "NOT_FOUND" ? "Gerador não encontrado" : "Não foi possível abrir o editor"}>
-          {noDoc ? "Para criar campos, primeiro envie o arquivo .docx deste gerador." : errorMessage(e)}
+        <Alert tone={noDoc ? "warning" : "danger"} title={noDoc ? "Falta enviar o documento" : e.code === "NOT_FOUND" ? "Modelo não encontrado" : "Não foi possível abrir o editor"}>
+          {noDoc ? "Para criar campos, primeiro envie o documento deste modelo (Word .docx ou PDF digitado)." : errorMessage(e)}
         </Alert>
         <div className="flex flex-wrap gap-2">
           {noDoc && <ButtonLink href={stepHrefs(id).template} variant="primary">Enviar o documento</ButtonLink>}
           {!noDoc && e.code !== "NOT_FOUND" && <Button onClick={() => q.refetch()}>Tentar de novo</Button>}
-          <ButtonLink href="/dashboard">Voltar aos geradores</ButtonLink>
+          <ButtonLink href="/models">Voltar aos modelos</ButtonLink>
         </div>
       </main>
     );

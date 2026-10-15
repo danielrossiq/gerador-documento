@@ -188,7 +188,7 @@ function UseForm({ data }: { data: FormPayload }) {
     return (
       <EmptyState
         icon={<PencilRuler className="h-9 w-9" aria-hidden />}
-        title="Este gerador ainda não tem campos"
+        title="Este modelo ainda não tem campos"
         description="Sem campos, o documento gerado seria igual ao original. Marque no documento o que muda (nome, CPF, valor…) e volte aqui."
         action={<ButtonLink href={stepHrefs(id).fields} variant="primary"><PencilRuler className="h-4 w-4" aria-hidden /> Criar campos</ButtonLink>}
       />
@@ -352,11 +352,11 @@ function UseLoader() {
       ) : q.error ? (
         <div className="space-y-3">
           <Alert tone={noDoc ? "warning" : "danger"} title={noDoc ? "Falta enviar o documento" : "Não foi possível abrir o formulário"}>
-            {noDoc ? "Este gerador ainda não tem o arquivo .docx. Envie o documento e marque os campos para poder gerar." : errorMessage(q.error)}
+            {noDoc ? "Este modelo ainda não tem documento. Envie o arquivo (Word ou PDF digitado) e marque os campos para poder gerar." : errorMessage(q.error)}
           </Alert>
           <div className="flex flex-wrap gap-2">
             {noDoc ? <ButtonLink href={stepHrefs(id).template} variant="primary">Enviar o documento</ButtonLink> : <Button onClick={() => q.refetch()}>Tentar de novo</Button>}
-            <ButtonLink href="/dashboard">Voltar aos geradores</ButtonLink>
+            <ButtonLink href="/models">Voltar aos modelos</ButtonLink>
           </div>
         </div>
       ) : (

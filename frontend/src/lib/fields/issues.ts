@@ -1,4 +1,4 @@
-// O que falta configurar num gerador — calculado no cliente a partir dos campos e do documento.
+// O que falta configurar num modelo — calculado no cliente a partir dos campos e do documento.
 // Usado no editor (avisos por campo), na revisão (lista de pendências) e no painel.
 import type { DocNode, FieldOut } from "@/lib/types";
 

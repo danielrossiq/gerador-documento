@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { APP_NAME } from "@/lib/utils";
 
 const POINTS = [
-  "Envie o contrato, recibo ou declaração que você já usa (.docx)",
+  "Envie o contrato, recibo ou declaração que você já usa (Word ou PDF digitado)",
   "Nome, CPF, datas e valores viram campos sozinhos",
   "Preencha um formulário e baixe DOCX ou PDF pronto",
   "Centenas de uma vez a partir de uma planilha",
@@ -21,7 +21,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <span className="text-2xl font-bold tracking-tight">{APP_NAME}</span>
           </div>
           <h2 className="mt-10 text-3xl font-bold leading-tight tracking-tight">Documentos que se preenchem sozinhos.</h2>
-          <p className="mt-3 text-base opacity-90">Configure o gerador uma vez. Gere quantas vezes precisar — sem copiar e colar no Word.</p>
+          <p className="mt-3 text-base opacity-90">Configure o modelo uma vez. Gere quantas vezes precisar — sem copiar e colar no Word.</p>
           <ul className="mt-8 space-y-3 text-sm">
             {POINTS.map((p) => (
               <li key={p} className="flex gap-2.5">
@@ -39,7 +39,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <span className="text-2xl font-bold tracking-tight">{APP_NAME}</span>
           </div>
           <div className="rounded-lg border border-border bg-surface p-7 shadow-md">{children}</div>
-          <p className="mt-6 text-center text-xs text-muted lg:hidden">Documentos repetitivos viram geradores que se preenchem sozinhos.</p>
+          <p className="mt-6 text-center text-xs text-muted lg:hidden">Documentos repetitivos viram modelos que se preenchem sozinhos.</p>
         </div>
       </div>
     </main>

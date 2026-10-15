@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, History, LayoutDashboard, Layers, LogOut, User } from "lucide-react";
+import { FileStack, FileText, History, Home, Layers, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -16,7 +16,8 @@ export function useMe() {
 }
 
 const NAV = [
-  { href: "/dashboard", label: "Geradores", icon: LayoutDashboard, also: ["/generators"] },
+  { href: "/dashboard", label: "Início", icon: Home, also: [] as string[] },
+  { href: "/models", label: "Modelos", icon: FileStack, also: ["/generators"] },
   { href: "/kits", label: "Kits", icon: Layers, also: [] as string[] },
   { href: "/history", label: "Histórico", icon: History, also: [] as string[] },
 ];
