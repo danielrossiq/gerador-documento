@@ -33,6 +33,7 @@ const schema = z.object({
   min: z.string(),
   max: z.string(),
   date_format: z.enum(["short", "long"]),
+  currency_format: z.enum(["short", "words"]),
   max_length: z.string().refine((v) => v === "" || /^\d+$/.test(v), "Use um número inteiro."),
   checked_text: z.string().max(20),
   unchecked_text: z.string().max(20),
@@ -56,6 +57,7 @@ function valuesFromField(f?: FieldOut, seed?: { label: string; type: FieldType; 
     mask: f?.mask ?? "",
     decimals: s("decimals"), min: s("min"), max: s("max"),
     date_format: c.date_format === "long" ? "long" : "short",
+    currency_format: c.currency_format === "words" ? "words" : "short",
     max_length: s("max_length"), checked_text: s("checked_text"), unchecked_text: s("unchecked_text"),
   };
 }
@@ -66,6 +68,7 @@ function toPayload(v: Values, options: Opt[]) {
   if ((v.type === "number" || v.type === "currency") && v.min.trim()) config.min = v.min.trim();
   if ((v.type === "number" || v.type === "currency") && v.max.trim()) config.max = v.max.trim();
   if (v.type === "date" && v.date_format === "long") config.date_format = "long";
+  if (v.type === "currency" && v.currency_format === "words") config.currency_format = "words";
   if (v.type === "text_short" && v.max_length) config.max_length = Number(v.max_length);
   if (v.type === "checkbox") {
     if (v.checked_text) config.checked_text = v.checked_text;
@@ -351,6 +354,16 @@ export function FieldForm({ mode, generatorId, field, siblings, issues = [], see
               <Field label="Mínimo">{(a) => <Input inputMode="decimal" {...a} {...register("min")} />}</Field>
               <Field label="Máximo">{(a) => <Input inputMode="decimal" {...a} {...register("max")} />}</Field>
             </div>
+          )}
+          {type === "currency" && (
+            <Field label="Como o valor sai no documento" help="Contratos costumam repetir o valor por extenso entre parênteses.">
+              {(a) => (
+                <Select {...a} {...register("currency_format")}>
+                  <option value="short">R$ 1.500,00</option>
+                  <option value="words">R$ 1.500,00 (mil e quinhentos reais)</option>
+                </Select>
+              )}
+            </Field>
           )}
           {type === "date" && (
             <Field label="Como a data sai no documento">

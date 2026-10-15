@@ -1,5 +1,6 @@
 // Espelho de backend/app/modules/fields/normalize.py (o servidor é a autoridade; aqui é feedback imediato).
 // shared/field-vectors.json é executado nas duas suítes para impedir divergência.
+import { currencyWords } from "@/lib/fields/extenso";
 import type { FieldOption, FieldType } from "@/lib/types";
 
 export type FieldSpec = {
@@ -259,7 +260,12 @@ export function formatValue(fd: FieldSpec, value: unknown): string {
   if (t === "checkbox") return String(value ? (fd.config.checked_text ?? "☒") : (fd.config.unchecked_text ?? "☐"));
   if (isEmpty(value)) return "";
   const s = String(value);
-  if (t === "currency") return /^-?\d+(\.\d+)?$/.test(s) ? `R$ ${brNumber(s, 2)}` : s;
+  if (t === "currency") {
+    if (!/^-?\d+(\.\d+)?$/.test(s)) return s;
+    const short = `R$ ${brNumber(s, 2)}`;
+    const words = fd.config.currency_format === "words" ? currencyWords(s) : null;
+    return words ? `${short} (${words})` : short;
+  }
   if (t === "number") {
     if (!/^-?\d+(\.\d+)?$/.test(s)) return s;
     const dec = fd.config.decimals;

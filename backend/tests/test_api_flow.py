@@ -161,3 +161,21 @@ def test_delete_field_keep_or_remove_text(api, demo_docx):
     ed = api.get(f"/generators/{gid}/editor").json()
     assert "R$ 5.000,00" in str(ed["doc"])  # texto original voltou ao documento
     assert all(f["id"] != valor["id"] for f in ed["fields"])
+
+
+def test_currency_in_words_goes_to_the_document(api, demo_docx):
+    """Contratos repetem o valor por extenso: config currency_format="words" → "R$ 1.234,50 (mil … centavos)"."""
+    api.register()
+    built = build_generator(api, demo_docx)
+    gid, valor = built["id"], built["fields"]["valor"]
+    bad = api.patch(f"/fields/{valor['id']}", json={"config": {"currency_format": "romano"}})
+    assert bad.status_code == 422 and bad.json()["error"]["code"] == "INVALID_CONFIG"
+    ok = api.patch(f"/fields/{valor['id']}", json={"config": {"currency_format": "words"}})
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["config"]["currency_format"] == "words"
+
+    job = api.post(f"/generators/{gid}/generate", json={"values": SAMPLE_VALUES, "format": "docx"}).json()
+    (file,) = job["files"]
+    dl = api.tc.get(api.post(f"/files/{file['id']}/link").json()["url"])
+    text = docx_text(dl.content)
+    assert "R$ 1.234,50 (mil duzentos e trinta e quatro reais e cinquenta centavos)" in text

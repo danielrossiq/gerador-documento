@@ -377,6 +377,116 @@
    "canonical": "0.50",
    "formatted": "R$ 0,50",
    "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "1500",
+   "canonical": "1500.00",
+   "formatted": "R$ 1.500,00 (mil e quinhentos reais)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "1,00",
+   "canonical": "1.00",
+   "formatted": "R$ 1,00 (um real)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "0,01",
+   "canonical": "0.01",
+   "formatted": "R$ 0,01 (um centavo)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "0,50",
+   "canonical": "0.50",
+   "formatted": "R$ 0,50 (cinquenta centavos)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "10,50",
+   "canonical": "10.50",
+   "formatted": "R$ 10,50 (dez reais e cinquenta centavos)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "100",
+   "canonical": "100.00",
+   "formatted": "R$ 100,00 (cem reais)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "1234,56",
+   "canonical": "1234.56",
+   "formatted": "R$ 1.234,56 (mil duzentos e trinta e quatro reais e cinquenta e seis centavos)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "1.001.000",
+   "canonical": "1001000.00",
+   "formatted": "R$ 1.001.000,00 (um milhão e mil reais)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "1.000.000",
+   "canonical": "1000000.00",
+   "formatted": "R$ 1.000.000,00 (um milhão de reais)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "words"
+   },
+   "input": "2.500.000,00",
+   "canonical": "2500000.00",
+   "formatted": "R$ 2.500.000,00 (dois milhões e quinhentos mil reais)",
+   "error": null
+  },
+  {
+   "type": "currency",
+   "config": {
+    "currency_format": "short"
+   },
+   "input": "1500",
+   "canonical": "1500.00",
+   "formatted": "R$ 1.500,00",
+   "error": null
   }
  ]
 }

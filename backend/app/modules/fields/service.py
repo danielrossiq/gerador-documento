@@ -94,6 +94,7 @@ ALLOWED_CONFIG_KEYS = {
     "max",
     "max_length",
     "date_format",
+    "currency_format",
     "checked_text",
     "unchecked_text",
     "rows",
@@ -106,6 +107,8 @@ def clean_config(cfg: dict[str, Any] | None) -> dict[str, Any] | None:
     out = {k: v for k, v in cfg.items() if k in ALLOWED_CONFIG_KEYS and v not in (None, "")}
     if "date_format" in out and out["date_format"] not in ("short", "long"):
         raise ValidationFailed("Formato de data inválido.", code="INVALID_CONFIG")
+    if "currency_format" in out and out["currency_format"] not in ("short", "words"):
+        raise ValidationFailed("Formato de valor inválido.", code="INVALID_CONFIG")
     return out or None
 
 

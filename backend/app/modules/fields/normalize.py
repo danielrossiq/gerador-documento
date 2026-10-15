@@ -14,6 +14,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from app.modules.fields import extenso
 from app.modules.fields.types import FieldDef
 from app.modules.fields.validators import (
     clean_cnpj,
@@ -235,7 +236,12 @@ def format_value(fd: FieldDef, value: Any) -> str:
         return ""
     if t == "currency":
         d = canonical_decimal(value)
-        return f"R$ {br_number(d, 2)}" if d is not None else str(value)
+        if d is None:
+            return str(value)
+        short = f"R$ {br_number(d, 2)}"
+        if fd.config.get("currency_format") == "words" and abs(d) <= extenso.MAX_INTEGER:
+            return f"{short} ({extenso.currency_words(d)})"
+        return short
     if t == "number":
         d = canonical_decimal(value)
         dec = fd.config.get("decimals")
