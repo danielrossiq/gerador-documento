@@ -138,7 +138,7 @@ export default function HomePage() {
       ) : isNew ? (
         <HowItWorks actions={false} />
       ) : (
-        <div className="grid gap-8 lg:grid-cols-3">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-3">
           <section aria-labelledby="quick-h" className="min-w-0 lg:col-span-2">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 id="quick-h" className="text-lg font-semibold">Seus modelos</h2>
@@ -149,7 +149,7 @@ export default function HomePage() {
             {list.isLoading ? (
               <div className="grid gap-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
             ) : (
-              <ul className="grid gap-2" aria-label="Atalhos para os modelos">
+              <ul className="grid grid-cols-[minmax(0,1fr)] gap-2" aria-label="Atalhos para os modelos">
                 {quick.map((g) => <QuickModel key={g.id} g={g} />)}
               </ul>
             )}

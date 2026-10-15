@@ -114,6 +114,10 @@ export function PasteBatch({ models }: { models: GeneratorOut[] }) {
           <Spinner label="Procurando o modelo que usa essas colunas…" />
         ) : ident.error ? (
           <Alert tone="danger" title="Não foi possível identificar o modelo">{errorMessage(ident.error)}</Alert>
+        ) : !cand && result?.header_looks_like_data ? (
+          <Alert tone="warning" title="Sem títulos não dá para descobrir o modelo sozinho">
+            Escolha o modelo abaixo: as colunas são ligadas aos campos pelo conteúdo (CPF, datas…). Com a linha de títulos no topo, a identificação é automática.
+          </Alert>
         ) : !cand ? (
           <Alert tone="warning" title="Não encontramos um modelo para essas colunas">
             Os títulos precisam lembrar os nomes dos campos (ex.: “Nome do contratante”, “CPF”). Escolha o modelo abaixo ou baixe a planilha-modelo dele na tela de lote.
