@@ -16,6 +16,7 @@ import { ActionMenu } from "@/components/ui/menu";
 import { Alert, Badge, EmptyState, Skeleton } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, errorMessage } from "@/lib/api";
+import { dropIncomingBatch, peekIncomingBatch } from "@/lib/batch-handoff";
 import { displayFor } from "@/lib/fields/masks";
 import { validateRow, type FieldSpec } from "@/lib/fields/normalize";
 import { exampleValues } from "@/lib/fields/samples";
@@ -44,7 +45,25 @@ function BatchView({ data, maxRows }: { data: FormPayload; maxRows: number }) {
   const names = useMemo(() => specs.map((s) => s.name), [specs]);
   const labels = useMemo(() => Object.fromEntries(data.fields.map((f) => [f.name, f.label])), [data.fields]);
 
-  const [state, dispatch] = useReducer(gridReducer, undefined, () => initialState(loadRows(storageKey) ?? undefined));
+  // linhas coladas na página inicial ("cole aqui e a gente descobre o modelo") entram no lugar do rascunho
+  const [incoming] = useState(() => peekIncomingBatch(id));
+  const [state, dispatch] = useReducer(gridReducer, undefined, () =>
+    incoming?.rows.length
+      ? initialState(incoming.rows.slice(0, maxRows).map((raw) => newRow(Object.fromEntries(specs.map((s) => [s.name, displayFor(s, raw[s.name] ?? "")])))))
+      : initialState(loadRows(storageKey) ?? undefined),
+  );
+  const announced = useRef(false);
+  useEffect(() => {
+    if (!incoming || announced.current) return;
+    announced.current = true;
+    dropIncomingBatch(id);
+    const n = Math.min(incoming.rows.length, maxRows);
+    toast.push({
+      tone: "success",
+      title: `${plural(n, "linha colada", "linhas coladas")} na planilha`,
+      description: [incoming.rows.length > maxRows ? `Só as primeiras ${maxRows} cabem num lote.` : "", incoming.ignored.length ? `Colunas ignoradas: ${incoming.ignored.join(", ")}.` : "", "Confira e clique em Gerar."].filter(Boolean).join(" "),
+    });
+  }, [incoming, id, maxRows, toast]);
   const [serverErrors, setServerErrors] = useState<Map<string, { row: Row; errors: Record<string, string> }>>(new Map());
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "errors" | "valid">("all");
@@ -282,18 +301,18 @@ function BatchLoader() {
       ) : q.error ? (
         <div className="space-y-3">
           <Alert tone={noDoc ? "warning" : "danger"} title={noDoc ? "Falta enviar o documento" : "Não foi possível abrir a planilha"}>
-            {noDoc ? "Este gerador ainda não tem o arquivo .docx." : errorMessage(q.error)}
+            {noDoc ? "Este modelo ainda não tem o documento (Word ou PDF)." : errorMessage(q.error)}
           </Alert>
           <div className="flex flex-wrap gap-2">
             {noDoc ? <ButtonLink href={h.template} variant="primary">Enviar o documento</ButtonLink> : <Button onClick={() => q.refetch()}>Tentar de novo</Button>}
-            <ButtonLink href="/dashboard">Voltar aos geradores</ButtonLink>
+            <ButtonLink href="/models">Voltar aos modelos</ButtonLink>
           </div>
         </div>
       ) : q.data!.fields.length === 0 ? (
         <EmptyState
           icon={<PencilRuler className="h-9 w-9" aria-hidden />}
-          title="Este gerador ainda não tem campos"
-          description="As colunas da planilha são os campos do gerador. Marque no documento o que muda e volte aqui."
+          title="Este modelo ainda não tem campos"
+          description="As colunas da planilha são os campos do modelo. Marque no documento o que muda e volte aqui."
           action={<ButtonLink href={h.fields} variant="primary"><PencilRuler className="h-4 w-4" aria-hidden /> Criar campos</ButtonLink>}
         />
       ) : q.data!.fields.filter((f) => f.include_in_batch).length === 0 ? (

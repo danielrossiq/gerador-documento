@@ -351,3 +351,18 @@ body {
 .grid-cell[aria-invalid="true"][data-active="true"] {
   box-shadow: inset 0 0 0 2px var(--danger);
 }
+
+/* Área "cole aqui" da página inicial: parece uma planilha vazia (linhas de 1.5rem alinhadas ao texto) */
+.paste-grid {
+  background-color: var(--surface);
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 7.5rem 1.5rem;
+  background-position: -1px calc(0.5rem - 1px);
+  background-attachment: local;
+}
+.paste-grid::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
