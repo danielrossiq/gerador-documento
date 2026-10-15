@@ -1,15 +1,16 @@
 # Minuta — geração inteligente de documentos
 
-Transforme documentos repetitivos (contratos, declarações, propostas, procurações, termos, recibos, formulários de RH) em **geradores reutilizáveis**.
+Transforme documentos repetitivos (contratos, declarações, propostas, procurações, termos, recibos, formulários de RH) em **modelos reutilizáveis**.
 
-Cada gerador passa por 4 etapas, sempre visíveis no topo da tela — **Modelo → Campos → Revisão → Gerar**:
+Cada modelo passa por 4 etapas, sempre visíveis no topo da tela — **Documento → Campos → Revisão → Gerar**:
 
-1. **Modelo**: envie um `.docx` que você já usa (dá para trocá-lo depois; os campos são reposicionados).
+1. **Documento**: envie um `.docx` ou um **PDF digitado** (exportado do Word, Google Docs ou de um sistema) que você já usa; o PDF vira Word editável. **PDF digitalizado** (foto ou escaneamento) é recusado de propósito, com explicação. Dá para trocar o documento depois; os campos são reposicionados.
 2. **Campos**: no editor visual, **selecione** um trecho como “João da Silva” e clique em **Transformar em campo** — sem escrever `{{placeholders}}`. Sugestões automáticas (CPF, CNPJ, datas, valores…) e avisos de nome repetido, lista sem opções e campo fora do documento.
 3. **Revisão**: o documento com **dados de exemplo**, a lista do que falta ajustar e o nome dos arquivos gerados.
 4. **Gerar**: **um documento** num formulário automático (máscaras e validações brasileiras, prévia ao vivo, rascunho salvo sozinho) ou **vários** numa grade estilo Excel (colar do Excel, importar XLSX/CSV, erros por célula, resumo antes de gerar).
 4. Saída em **DOCX e PDF reais** (LibreOffice), com histórico, links temporários e ZIP + relatório CSV para lotes.
-5. **Kit de documentos**: agrupe geradores prontos que compartilham variáveis (nome, CPF, endereço…) — preencha uma vez e gere todos juntos, com download individual ou em ZIP.
+5. **Cole aqui e a gente descobre o modelo** (página inicial): cole as linhas de uma planilha com a linha de títulos; o sistema identifica qual modelo ela preenche, mostra como cada coluna vira um campo e leva as linhas para o lote. Sem linha de títulos, só o conteúdo (CPF, datas…) é usado e nada é enviado ao classificador externo.
+6. **Kit de documentos**: agrupe modelos prontos que compartilham variáveis (nome, CPF, endereço…) — preencha uma vez e gere todos juntos, com download individual ou em ZIP.
 
 Stack: Next.js 16 · React 19 · TipTap · TanStack Query/Virtual · FastAPI · SQLAlchemy 2 · PostgreSQL · Redis + Dramatiq · MinIO/S3 · LibreOffice headless.
 
@@ -66,7 +67,7 @@ API_INTERNAL_URL=http://127.0.0.1:8100 npm run dev      # PowerShell: $env:API_I
 
 Veja o passo a passo completo em [docs/DEMO.md](docs/DEMO.md). Resumo, com os arquivos em `demo/`:
 
-1. **Cadastro** → **Criar meu primeiro gerador** → (etapa **Modelo**) nome opcional → envie `demo/contrato_prestacao_servicos.docx`.
+1. **Cadastro** → no **Início**, envie `demo/contrato_prestacao_servicos.docx` (ou `.pdf`, que é digitado) ou abra **Novo modelo** → (etapa **Documento**) nome opcional.
 2. (etapa **Campos**) **Selecione “João da Silva”** → menu flutuante → **Transformar em campo** → “Nome do contratante”. Na outra ocorrência, o editor avisa que o nome já existe e oferece **usar o campo existente**.
 3. Selecione “consultoria em desenvolvimento de software” → tipo **Lista de opções** → cole 3 opções (uma por linha).
 4. Aba **Sugestões** → **Aceitar as recomendadas** (CPF, CNPJ, valor, datas).
@@ -84,7 +85,7 @@ cd backend && .venv/Scripts/python -m pytest
 TEST_DATABASE_URL=postgresql://usuario:senha@localhost:5432/teste .venv/Scripts/python -m pytest
 # Frontend: unidade (vetores compartilhados com o backend + grade) e tipos
 cd frontend && npm test && npm run typecheck
-# E2E + acessibilidade (stack já em execução em :3000; E2E_CHANNEL=msedge usa o Edge instalado;
+# E2E + acessibilidade (stack já em execução em :3000, ou E2E_BASE_URL=http://localhost:PORTA; E2E_CHANNEL=msedge usa o Edge instalado;
 # E2E_EXECUTABLE_PATH=/caminho/do/chromium usa um Chromium já instalado)
 cd frontend && npx playwright test
 # Recapturar docs/screenshots
@@ -95,7 +96,26 @@ cd backend && .venv/Scripts/python -m ruff check app seed tests
 python scripts/crash_recovery_test.py
 ```
 
-O que a suíte cobre: validações CPF/CNPJ (incl. alfanumérico) e tipos de campo; **vetores compartilhados backend↔frontend**; texto dividido em runs do DOCX, campo repetido, formatação, imagem, tabela, cabeçalho, rodapé; segurança de upload (ZIP bomb, macros, XXE, path traversal); **isolamento multi-tenant** (dois workspaces, chamadas de geradores **e** de kits + download assinado); **idempotência**; **falha parcial em lote**, retomada de job e **recuperação após queda do worker** (claim atômico, heartbeat, watchdog, perda de posse); geração sem etapa de publicação (uso imediato, restaurar versão, fixar); **kit de documentos** (detecção automática de campos compartilhados — por similaridade de rótulo e, opcionalmente, por **classificação semântica de papéis** via TypeSafe.ai/Jev, distinguindo "contratante" de "contratado" e reconhecendo sinônimos —, mapeamento manual, tipos incompatíveis, geração de todos os documentos do kit, ZIP + relatório); **detecção de campos no upload** (ano, mês como lista suspensa, numeração de sugestões duplicadas, papel de parte antes de um nome — ver D26); importação XLSX/CSV (mapeamento sugerido, **oferecer adicionar um valor novo à lista suspensa** durante a importação); provedor de IA (schema, retry, timeout, cache por hash, indisponibilidade); grade (colar TSV, desfazer, preencher); **pendências dos campos, ordem do documento, dados de exemplo e nome de arquivo** (unidade); E2E dos fluxos principais pelas 4 etapas (individual, gerador sem documento, editor com pendências e salvamento, lote com planilha vazia/linha de exemplo, kit); axe (WCAG A/AA) em todas as etapas do gerador.
+O que a suíte cobre: validações CPF/CNPJ (incl. alfanumérico) e tipos de campo; **vetores compartilhados backend↔frontend**; texto dividido em runs do DOCX, campo repetido, formatação, imagem, tabela, cabeçalho, rodapé; segurança de upload (ZIP bomb, macros, XXE, path traversal); **isolamento multi-tenant** (dois workspaces, chamadas de geradores **e** de kits + download assinado); **idempotência**; **falha parcial em lote**, retomada de job e **recuperação após queda do worker** (claim atômico, heartbeat, watchdog, perda de posse); geração sem etapa de publicação (uso imediato, restaurar versão, fixar); **kit de documentos** (detecção automática de campos compartilhados — por similaridade de rótulo e, opcionalmente, por **classificação semântica de papéis** via TypeSafe.ai/Jev, distinguindo "contratante" de "contratado" e reconhecendo sinônimos —, mapeamento manual, tipos incompatíveis, geração de todos os documentos do kit, ZIP + relatório); **detecção de campos no upload** (ano, mês como lista suspensa, numeração de sugestões duplicadas, papel de parte antes de um nome — ver D26); importação XLSX/CSV (mapeamento sugerido, **oferecer adicionar um valor novo à lista suspensa** durante a importação); provedor de IA (schema, retry, timeout, cache por hash, indisponibilidade); grade (colar TSV, desfazer, preencher); **pendências dos campos, ordem do documento, dados de exemplo e nome de arquivo** (unidade); E2E dos fluxos principais pelas 4 etapas (individual, modelo sem documento, editor com pendências e salvamento, lote com planilha vazia/linha de exemplo, kit, PDF digitado × digitalizado, colar planilha com e sem títulos, celular 390 px); **PDF digitado vs digitalizado** e **colar sem títulos não chega ao classificador externo** (backend); axe (WCAG A/AA) em todas as etapas do modelo.
+
+## Resultados verificados — Fase 0 (execução real, 15/10/2026)
+
+Ambiente: stack Docker **recriada do zero** num projeto Compose separado (`docker compose -p minuta-fase0`, portas 3210/8110/9111, volumes novos — nenhum volume ou dado existente foi apagado ou alterado), imagens reconstruídas com o código desta branch; E2E no **Microsoft Edge** (`E2E_CHANNEL=msedge`); testes de backend em SQLite (modo local).
+
+| Verificação | Resultado |
+|---|---|
+| Backend `pytest` | **273 passed** (inclui PDF digitado × digitalizado, `/batch/identify`, colar sem títulos, `{modelo}`) |
+| Backend `ruff check` · `ruff format --check` | 0 erros · 99 arquivos formatados |
+| Frontend `vitest` | **87 passed** |
+| Frontend `tsc` (app + testes) · `next build` | 0 erros |
+| Frontend `eslint` | 0 erros, 15 avisos (regras do React Compiler, os mesmos de antes) |
+| Stack Docker do zero (`up -d --build`: postgres 17, redis, minio, migrate + seed, api, worker, web) | todos os serviços saudáveis; migrations 0001 → 0004 aplicadas |
+| E2E Playwright (Edge) contra a stack Docker | **15 passed**, 2 de captura de tela (sob demanda): fluxo individual (Documento → Campos → Revisão → Gerar), modelo sem documento, editor, 4 de lote, kit, **PDF digitado aceito / digitalizado recusado**, **colar com e sem títulos**, **celular 390 px**, 3× axe (WCAG 2 A/AA) + teclado |
+| Home em 390 px | sem rolagem horizontal (corrigido: a lista "Seus modelos" chegava a 435 px) |
+
+Observações da execução:
+- O cadastro é limitado a **10 por hora por IP** (`app/modules/auth/service.py`). A suíte E2E cria ~7 contas por execução; para repeti-la na mesma hora numa stack de desenvolvimento, apague a chave `rl:register:*` do Redis **dessa stack** (`docker compose exec redis redis-cli --scan --pattern 'rl:register:*'`).
+- Não reexecutado nesta fase: PostgreSQL via `TEST_DATABASE_URL`, lote de 1.000 e queda do worker (`scripts/crash_recovery_test.py`).
 
 ## Resultados verificados — revisão de UX (execução real, 26/09/2026)
 

@@ -23,7 +23,7 @@
 2. **Edição estrutural de tabelas** (linhas/colunas) e listas numeradas; fidelidade de alterações rastreadas (`w:ins/w:del`).
 3. **Campos condicionais e repetíveis** (blocos que aparecem por Sim/Não; tabelas com N linhas), valor por extenso (moeda/data).
 4. **Assinatura eletrônica** (fluxo com provedor; hoje há só ponto de extensão no modelo de jobs).
-5. **Entrada PDF (beta)**: fundo + campos posicionados (interface `TemplateSourceParser` já prevista).
+5. **PDF**: ~~entrada de PDF digitado~~ (feito, ver D28). Falta PDF **digitalizado** (OCR, hoje recusado de propósito) e PDF de formulário com campos posicionados (interface `TemplateSourceParser` já prevista).
 6. **Prévia fiel**: renderizar o DOCX compilado (LibreOffice → PDF/PNG) ao lado do formulário em vez da aproximação HTML.
 7. **Download direto por URL pré-assinada do S3** (arquivos grandes) e upload por URL assinada.
 8. Login social (Google/Microsoft), 2FA, antivírus de upload, CSP com nonce.

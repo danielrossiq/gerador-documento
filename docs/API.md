@@ -36,7 +36,7 @@ Sem rascunho/publicação: `document_generators.current_version_id` é a versão
 
 | Método | Rota | |
 |---|---|---|
-| POST | `/generators/{id}/template` | upload `.docx` (multipart `file`): valida, parseia, vira a versão atual na hora, enfileira análise |
+| POST | `/generators/{id}/template` | upload `.docx` **ou PDF digitado** (multipart `file`): valida, parseia (PDF vira .docx antes, ver [D28](DECISIONS.md)), vira a versão atual na hora, enfileira análise. Recusas de PDF: `NOT_A_PDF`, `PDF_SCANNED` (digitalizado), `PDF_TEXT_UNREADABLE`, `PDF_TOO_MANY_PAGES`, `PDF_TIMEOUT`, `PDF_CONVERSION_FAILED`; `ENCRYPTED` para PDF com senha. A versão traz `source_format` (`docx`\|`pdf`) |
 | GET | `/generators/{id}/editor` | documento (ProseMirror JSON), campos, versão atual, avisos (`404` se nenhum arquivo foi enviado ainda) |
 | PUT | `/generators/{id}/editor/content` | `{revision, doc}`; `409 STALE_REVISION` se a revisão mudou |
 | GET | `/generators/{id}/versions` · POST `…/versions/{vid}/restore` | histórico (a mais recente é a atual) / restaurar uma versão antiga como nova versão atual |
@@ -59,6 +59,7 @@ Tipos: `text_short, text_long, number, currency, date, cpf, cnpj, cep, email, ph
 | Método | Rota | |
 |---|---|---|
 | POST | `/generators/{id}/generate` | `{values, format: docx\|pdf\|both, filename_pattern}` → job (202) |
+| POST | `/batch/identify` | `{headers, rows (≤50), generator_id?}` → modelo provável para uma **tabela colada**, com o mapeamento coluna → campo (`status`: `exact`\|`probable`\|`weak`\|`none`). Sem linha de títulos (`header_looks_like_data: true`) só o casamento local por conteúdo roda — nada vai ao classificador externo (ver D28) |
 | POST | `/generators/{id}/batch/validate` | `{rows}` → erros por linha/campo (autoridade de validação) |
 | POST | `/generators/{id}/batches` | `{rows, format, only_valid, filename_pattern, idempotency_key}` → job |
 | GET | `/generators/{id}/batch/template.xlsx` | planilha-modelo com listas/validações e aba de instruções |

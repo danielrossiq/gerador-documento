@@ -5,18 +5,21 @@ Capturas de tela em `docs/screenshots/` (geradas por `CAPTURE_SCREENSHOTS=1 npx 
 
 | | |
 |---|---|
-| ![Primeiro acesso](screenshots/01-primeiro-acesso.png) | ![Etapa Modelo](screenshots/02-etapa-modelo-envio.png) |
+| ![Primeiro acesso](screenshots/01-primeiro-acesso.png) | ![Etapa Documento](screenshots/02-etapa-modelo-envio.png) |
 | ![Seleção e menu flutuante](screenshots/04-editor-selecao-menu-flutuante.png) | ![Aviso de nome repetido](screenshots/06-editor-aviso-nome-repetido.png) |
 | ![Lista de campos](screenshots/08-editor-lista-de-campos.png) | ![Revisão com dados de exemplo](screenshots/10-revisao-previa-exemplo.png) |
 | ![Formulário e prévia](screenshots/12-formulario-previa-erro.png) | ![Lote: resumo antes de gerar](screenshots/16-lote-resumo.png) |
 | ![Lote com erros](screenshots/15-lote-grade-com-erros.png) | ![Histórico](screenshots/18-historico.png) |
+| ![Início no celular (390 px)](screenshots/19-inicio-celular-390.png) | |
 
-Todo gerador tem as mesmas **4 etapas**, visíveis no topo de cada tela: **Modelo → Campos → Revisão → Gerar**. A etapa atual fica destacada, as concluídas ganham ✓ e as que ainda não fazem sentido ficam bloqueadas, com o motivo.
+Todo modelo tem as mesmas **4 etapas**, visíveis no topo de cada tela: **Documento → Campos → Revisão → Gerar**. (O que antes se chamava "gerador" agora é "modelo"; ver [D28](DECISIONS.md).) A etapa atual fica destacada, as concluídas ganham ✓ e as que ainda não fazem sentido ficam bloqueadas, com o motivo.
 
-## Parte A — Criar um gerador (≈ 4 min)
+## Parte A — Criar um modelo (≈ 4 min)
 
-1. **Criar conta** em http://localhost:3000/register (ou entre com `demo@minuta.app` / `demo12345` para ver um gerador já pronto). No primeiro acesso, o painel explica as 4 etapas. Clique em **Criar meu primeiro gerador** (ou **Experimentar com um exemplo**).
-2. **Etapa Modelo**: dê um nome (opcional; sem nome, usamos o do arquivo) e escolha `demo/contrato_prestacao_servicos.docx`. A tela acompanha a análise e leva à etapa Campos.
+1. **Criar conta** em http://localhost:3000/register (ou entre com `demo@minuta.app` / `demo12345` para ver um gerador já pronto). No primeiro acesso, o **Início** explica as 4 etapas: envie o documento ali mesmo, ou clique em **Novo modelo** em **Modelos** (ou **Experimentar com um exemplo**).
+2. **Etapa Documento**: dê um nome (opcional; sem nome, usamos o do arquivo) e escolha `demo/contrato_prestacao_servicos.docx`. A tela acompanha a análise e leva à etapa Campos.
+   - **PDF digitado**: `demo/contrato_prestacao_servicos.pdf` (exportado do Word/LibreOffice) é convertido em Word editável e aparece com o selo "convertido de PDF para Word".
+   - **PDF digitalizado**: `demo/contrato_digitalizado.pdf` (imagem de papel) é recusado com a explicação e o modelo não fica criado.
 3. **Etapa Campos**: o documento aparece com cabeçalho, corpo, **tabela**, rodapé, imagem e quebra de página (blocos cinza são preservados e não editáveis). À direita ficam a lista de **Campos** e as **Sugestões**.
 4. **Selecione "João da Silva"** (primeiro parágrafo). No menu flutuante, clique em **Transformar em campo**. O trecho fica destacado enquanto o painel está aberto. Digite **Nome do contratante** e clique em **Criar campo**. O trecho vira um chip com ícone e dica (nome, tipo, texto original).
 5. Selecione a outra ocorrência do nome ("em favor de João da Silva") e clique em **Transformar em campo**. Se digitar o mesmo nome, o editor **avisa que já existe** e oferece **usar o campo existente**. Também dá para escolher em "É uma informação que já tem campo?". O painel passa a mostrar "2× no documento", com setas para navegar entre as ocorrências.
