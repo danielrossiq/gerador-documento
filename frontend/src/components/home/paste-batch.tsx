@@ -65,7 +65,9 @@ export function PasteBatch({ models }: { models: GeneratorOut[] }) {
   }
 
   function go(c: IdentifyCandidate) {
-    const rows = table.rows.map((r) => Object.fromEntries(c.mapping.map((m) => [m.field, r[m.column] ?? ""])));
+    // sem linha de títulos (a 1ª linha é dado): ela entra no lote como uma linha comum
+    const source = result?.header_looks_like_data ? [table.headers, ...table.rows] : table.rows;
+    const rows = source.map((r) => Object.fromEntries(c.mapping.map((m) => [m.field, r[m.column] ?? ""])));
     if (!putIncomingBatch(c.generator_id, { rows, ignored: c.unmatched_columns })) {
       toast.push({ tone: "danger", title: "Não foi possível levar as linhas", description: "O navegador bloqueou o armazenamento temporário. Cole direto na tela de lote do modelo." });
       return;
@@ -102,6 +104,11 @@ export function PasteBatch({ models }: { models: GeneratorOut[] }) {
 
   return (
     <div className="space-y-3" data-testid="paste-result">
+      {result?.header_looks_like_data && (
+        <Alert tone="warning" title="A primeira linha parece ser dado, não título">
+          Sem títulos, só reconhecemos colunas pelo conteúdo (CPF, CNPJ, e-mail, data…) e nada é enviado a serviço externo. A primeira linha entra no lote como uma linha comum.
+        </Alert>
+      )}
       <div aria-live="polite">
         {ident.isLoading ? (
           <Spinner label="Procurando o modelo que usa essas colunas…" />

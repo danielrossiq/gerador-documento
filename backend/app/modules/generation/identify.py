@@ -42,7 +42,8 @@ MAX_COLUMNS = 100
 MAX_SAMPLE_ROWS = 30
 SIMILARITY_CUTOFF = 0.82
 MIN_CONFIDENCE = 0.5
-STRONG_TYPES = ("cpf", "cnpj", "email", "cep", "date")  # reconhecíveis só pelo conteúdo
+# reconhecíveis só pelo conteúdo; data antes de CEP porque "01/02/2027" também tem 8 dígitos
+STRONG_TYPES = ("cpf", "cnpj", "email", "date", "cep")
 TEXT_TYPES = frozenset({"text_short", "text_long"})
 STOPWORDS = frozenset({"de", "do", "da", "dos", "das", "e", "o", "a", "os", "as", "no", "na", "em"})
 PASTE_ID = "__colado__"
@@ -111,6 +112,13 @@ def infer_type(values: list[str], *, extended: bool = False) -> str | None:
         if values_fit(probe, filled) == 1.0:
             return t
     return None
+
+
+def header_looks_like_data(headers: list[str]) -> bool:
+    """A 1ª linha colada parece dado, não cabeçalho (tabela colada sem a linha de títulos): alguma célula é um
+    CPF, CNPJ, e-mail, data, CEP, valor, número ou telefone. Nesse caso os "títulos" são dados pessoais — não vão
+    para o classificador externo."""
+    return any(infer_type([h], extended=True) is not None for h in headers if h.strip())
 
 
 def match_columns(headers: list[str], samples: list[list[str]], defs: list[FieldDef]) -> list[ColumnMatch]:
@@ -329,6 +337,9 @@ def identify(
 ) -> dict[str, Any]:
     """Com `generator_id` (a pessoa escolheu o modelo na mão), avalia só ele e devolve o mapeamento mesmo fraco."""
     headers, samples = _clean_table(headers, rows)
+    headerless = header_looks_like_data(headers)
+    if headerless:  # a "linha de títulos" é a 1ª linha de dados: entra nas amostras (casamento pelo conteúdo)
+        samples = [[h, *col] for h, col in zip(headers, samples, strict=True)]
     query = select(DocumentGenerator).where(
         DocumentGenerator.workspace_id == ctx.workspace_id,
         DocumentGenerator.deleted_at.is_(None),
@@ -353,7 +364,7 @@ def identify(
     cands.sort(key=lambda c: (-c.exact, -c.score, c.name.lower()))
 
     semantic_used = False
-    if semantic and not (cands and cands[0].exact):
+    if semantic and not headerless and not (cands and cands[0].exact):
         top = (
             cands[:3]
             if cands
@@ -389,6 +400,7 @@ def identify(
     return {
         "status": status,
         "semantic": semantic_used,
+        "header_looks_like_data": headerless,
         "columns": headers,
         "candidates": [candidate_out(c) for c in shown],
     }

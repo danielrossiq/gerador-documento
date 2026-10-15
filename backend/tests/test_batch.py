@@ -227,7 +227,9 @@ def test_modelo_token_is_the_new_name_of_gerador_and_is_the_default(api, demo_do
     gid = _ready(api, demo_docx)
     gen = api.get(f"/generators/{gid}").json()
     assert gen["filename_pattern"] == "{modelo}_{linha}"  # modelos novos já usam o código novo
-    api.patch(f"/generators/{gid}", json={"filename_pattern": "{modelo}-{gerador}_{linha}"})  # o antigo continua
+    api.patch(
+        f"/generators/{gid}", json={"filename_pattern": "{modelo}-{gerador}_{linha}"}
+    )  # o antigo continua
     job = api.post(f"/generators/{gid}/batches", json={"rows": [_row(1)]}).json()
     (item,) = api.get(f"/jobs/{job['id']}/items").json()["items"]
     assert item["filename"] == f"{gen['name']}-{gen['name']}_0001".replace(" ", "_")

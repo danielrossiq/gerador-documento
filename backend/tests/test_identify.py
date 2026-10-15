@@ -39,9 +39,9 @@ def test_matches_by_name_spelling_containment_and_content():
 
 
 def test_values_of_the_wrong_type_weaken_a_name_match():
-    # "CPF" parece o campo de CPF, mas a coluna tem datas: confiança cai abaixo do corte
+    # "CPF" parece o campo de CPF, mas a coluna tem datas: o nome perde para o conteúdo (único campo de data)
     got = identify.match_columns(["CPF"], [["01/02/2027", "03/04/2027"]], CONTRACT)
-    assert got == []
+    assert [(m.field, m.source) for m in got] == [("data_de_inicio", "conteudo")]
 
 
 def test_ambiguous_short_header_is_not_trusted_blindly():
@@ -133,6 +133,7 @@ def test_unrelated_table_finds_nothing(api, demo_docx):
     assert out == {
         "status": "none",
         "semantic": False,
+        "header_looks_like_data": False,
         "columns": ["Produto", "Quantidade", "Estoque"],
         "candidates": [],
     }
@@ -164,6 +165,40 @@ def test_semantic_classifier_suggests_when_there_is_no_exact_match(
     assert by_header["CPF do contratante"] == ("cpf_do_contratante", "nome")
 
 
+def test_paste_without_header_never_reaches_the_external_classifier(
+    api, demo_docx, monkeypatch: pytest.MonkeyPatch
+):
+    """Colada sem a linha de títulos, a 1ª linha é de dados pessoais (nome, CPF…): ela não pode virar "rótulo"
+    enviado ao classificador externo. O conteúdo ainda casa localmente (coluna de CPFs → campo de CPF)."""
+    api.register()
+    contract = build_generator(api, demo_docx)["id"]
+    sent: list[list[RoleCandidate]] = []
+
+    class SpyClassifier:
+        def classify(self, candidates: list[RoleCandidate]) -> dict[str, RoleAnswer]:
+            sent.append(candidates)
+            return {}
+
+    monkeypatch.setattr("app.adapters.ai.get_role_classifier", lambda: SpyClassifier())
+    first = ["Maria Souza", "529.982.247-25", "1.500,00", "01/02/2027"]
+    rest = [["João Lima", "111.444.777-35", "900,00", "15/03/2027"]]
+    out = _paste(api, first, rest)
+    assert sent == []
+    assert out["semantic"] is False and out["header_looks_like_data"] is True
+    # a 1ª linha conta como dado; o que casa, casa só localmente (pelo conteúdo: CPF, data)
+    chosen = _paste_raw(api, {"headers": first, "rows": rest, "generator_id": contract})
+    assert sent == [] and chosen["header_looks_like_data"] is True
+    assert {(m["field"], m["source"]) for m in chosen["candidates"][0]["mapping"]} == {
+        ("cpf_do_contratante", "conteudo"),
+        ("data_de_inicio", "conteudo"),
+    }
+    assert all(m["source"] == "conteudo" for c in out["candidates"] for m in c["mapping"])
+
+    # com cabeçalho de verdade o classificador continua disponível
+    _paste(api, ["Locatário", "CPF do contratante"], [["Ana", "529.982.247-25"]])
+    assert len(sent) == 1
+
+
 def test_chosen_model_returns_its_mapping_even_when_weak(api, demo_docx):
     api.register()
     gid = build_generator(api, demo_docx)["id"]
@@ -188,3 +223,9 @@ def test_identify_is_scoped_to_the_workspace(api, api2, demo_docx):
     api2.register()
     out = _paste(api2, ["Nome do contratante", "CPF do contratante"])
     assert out["candidates"] == []
+
+
+def test_date_column_is_not_mistaken_for_cep():
+    """A data "01/02/2027" também tem 8 dígitos: a data é testada antes do CEP."""
+    assert identify.infer_type(["01/02/2027", "15/03/2027"]) == "date"
+    assert identify.infer_type(["29160-000", "29160000"]) == "cep"

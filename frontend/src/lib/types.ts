@@ -72,7 +72,7 @@ export type IdentifyCandidate = {
   missing_required: string[];
   unmatched_columns: string[];
 };
-export type IdentifyResult = { status: "exact" | "probable" | "weak" | "none"; semantic: boolean; columns: string[]; candidates: IdentifyCandidate[] };
+export type IdentifyResult = { status: "exact" | "probable" | "weak" | "none"; semantic: boolean; header_looks_like_data: boolean; columns: string[]; candidates: IdentifyCandidate[] };
 
 // Documento do editor (ProseMirror JSON)
 export type DocNode = {
