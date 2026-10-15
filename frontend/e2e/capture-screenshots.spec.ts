@@ -8,12 +8,12 @@ const shot = (name: string) => path.join(OUT, `${name}.png`);
 test.skip(!process.env.CAPTURE_SCREENSHOTS, "somente sob demanda");
 test.setTimeout(240_000);
 
-test("capturas: primeiro acesso, etapas Modelo → Campos → Revisão", async ({ page }) => {
+test("capturas: primeiro acesso, etapas Documento → Campos → Revisão", async ({ page }) => {
   await register(page, `shots-${Date.now()}@exemplo.test`);
   await page.screenshot({ path: shot("01-primeiro-acesso") });
 
-  await page.getByRole("link", { name: "Criar meu primeiro gerador" }).click();
-  await page.getByLabel(/^Nome do gerador/).fill("Contrato de prestação de serviços");
+  await page.goto("/generators/new");
+  await page.getByLabel(/^Nome do modelo/).fill("Contrato de prestação de serviços");
   await page.screenshot({ path: shot("02-etapa-modelo-envio") });
   await page.getByTestId("docx-input").setInputFiles(DOCX);
   await page.waitForURL(/\/generators\/.+\/edit/, { timeout: 60_000 });

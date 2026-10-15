@@ -16,17 +16,22 @@ test("login e cadastro", async ({ page }) => {
   await scan(page, "cadastro");
 });
 
-test("telas autenticadas críticas (todas as etapas do gerador)", async ({ page }) => {
+test("telas autenticadas críticas (todas as etapas do modelo)", async ({ page }) => {
   await login(page);
-  await expect(page.getByRole("heading", { name: "Geradores", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/Olá|Início/);
+  await expect(page.getByTestId("home-paste")).toBeVisible();
+  await scan(page, "início");
+
+  await page.goto("/models");
+  await expect(page.getByRole("heading", { name: "Modelos", level: 1 })).toBeVisible();
   await expect(page.getByTestId("generator-card").first()).toBeVisible();
-  await scan(page, "painel");
+  await scan(page, "modelos");
 
   const id = await demoGeneratorId(page);
 
   await page.goto(`/generators/${id}/template`);
   await expect(page.getByTestId("current-file")).toBeVisible();
-  await scan(page, "etapa Modelo");
+  await scan(page, "etapa Documento");
 
   await page.goto(`/generators/${id}/edit`);
   await expect(page.getByTestId("doc-page")).toContainText("CONTRATO");
@@ -54,6 +59,7 @@ test("telas autenticadas críticas (todas as etapas do gerador)", async ({ page 
 
 test("navegação por teclado: etapas, menu de ações e diálogo", async ({ page }) => {
   await login(page);
+  await page.goto("/models");
   const trigger = page.getByRole("button", { name: /^Mais ações de/ }).first();
   await trigger.focus();
   await page.keyboard.press("Enter");
@@ -65,7 +71,7 @@ test("navegação por teclado: etapas, menu de ações e diálogo", async ({ pag
 
   // um link com cara de botão é UMA parada de Tab (antes: <a><button> = duas)
   const card = page.getByTestId("generator-card").first();
-  const action = card.getByRole("link", { name: /Gerar documento|Criar campos|Enviar documento/ });
+  const action = card.getByRole("link", { name: /^(Preencher|Criar campos|Enviar documento)$/ });
   await action.focus();
   await page.keyboard.press("Tab");
   await expect(action).not.toBeFocused();
@@ -74,5 +80,5 @@ test("navegação por teclado: etapas, menu de ações e diálogo", async ({ pag
   // as etapas do gerador indicam a atual para leitores de tela
   const id = await demoGeneratorId(page);
   await page.goto(`/generators/${id}/review`);
-  await expect(page.getByRole("navigation", { name: "Etapas do gerador" }).locator('[aria-current="step"]')).toContainText("Revisão");
+  await expect(page.getByRole("navigation", { name: "Etapas do modelo" }).locator('[aria-current="step"]')).toContainText("Revisão");
 });

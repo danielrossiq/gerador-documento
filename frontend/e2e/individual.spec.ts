@@ -7,20 +7,22 @@ async function transformSelection(page: import("@playwright/test").Page) {
   await toolbar.getByRole("button", { name: "Transformar em campo" }).click();
 }
 
-// Fluxo 1 — do zero, pelas 4 etapas: Modelo (upload) → Campos (selecionar → Transformar em campo, reaproveitar,
+// Fluxo 1 — do zero, pelas 4 etapas: Documento (upload) → Campos (selecionar → Transformar em campo, reaproveitar,
 // lista de opções, sugestões) → Revisão (pendências + prévia com dados de exemplo) → Gerar (formulário, rascunho
 // automático, Word e PDF válidos) → histórico.
-test("fluxo individual completo pelas etapas Modelo → Campos → Revisão → Gerar", async ({ page }) => {
+test("fluxo individual completo pelas etapas Documento → Campos → Revisão → Gerar", async ({ page }) => {
   const email = `e2e-${Date.now()}@exemplo.test`;
   await register(page, email);
 
-  // ---- primeiro acesso: explica as etapas e leva a criar o gerador
+  // ---- primeiro acesso: o Início explica as etapas e oferece enviar o documento ali mesmo
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/Olá|Início/);
   await expect(page.getByTestId("onboarding")).toBeVisible();
-  await page.getByRole("link", { name: "Criar meu primeiro gerador" }).click();
+  await expect(page.getByTestId("home-new-model")).toBeVisible();
+  await page.goto("/generators/new");
 
-  // ---- etapa 1 (Modelo): nome opcional + upload → análise → etapa Campos
-  await expect(page.getByRole("navigation", { name: "Etapas do gerador" }).getByText("Modelo")).toBeVisible();
-  await page.getByLabel(/^Nome do gerador/).fill("Contrato de prestação de serviços");
+  // ---- etapa 1 (Documento): nome opcional + upload → análise → etapa Campos
+  await expect(page.getByRole("navigation", { name: "Etapas do modelo" }).locator('[aria-current="step"]')).toContainText("Documento");
+  await page.getByLabel(/^Nome do modelo/).fill("Contrato de prestação de serviços");
   await page.getByTestId("docx-input").setInputFiles(DOCX);
   await page.waitForURL(/\/generators\/.+\/edit/, { timeout: 60_000 });
 
@@ -142,27 +144,27 @@ test("fluxo individual completo pelas etapas Modelo → Campos → Revisão → 
   await expect(rows.first()).toContainText("Concluído");
   await expect(rows.first()).toContainText("Contrato de prestação de serviços");
 
-  // ---- painel: o gerador aparece como pronto para gerar
-  await page.goto("/dashboard");
+  // ---- lista de modelos: o modelo aparece como pronto para gerar
+  await page.goto("/models");
   await expect(page.getByTestId("generator-card").first()).toContainText("Pronto para gerar");
 });
 
-// Um gerador sem .docx não leva mais a uma tela de erro: o painel manda para a etapa Modelo, que aceita o envio.
-test("gerador sem documento: o painel leva à etapa Modelo e o envio conclui a etapa", async ({ page }) => {
+// Um modelo sem documento não leva a uma tela de erro: a lista manda para a etapa Documento, que aceita o envio.
+test("modelo sem documento: a lista leva à etapa Documento e o envio conclui a etapa", async ({ page }) => {
   await register(page, `e2e-sem-doc-${Date.now()}@exemplo.test`);
   const csrf = (await page.context().cookies()).find((c) => c.name === "minuta_csrf")?.value ?? "";
   await page.request.post("/api/v1/generators", { data: { name: "Sem documento E2E" }, headers: { "X-CSRF-Token": csrf } });
-  await page.goto("/dashboard");
+  await page.goto("/models");
   const card = page.getByTestId("generator-card").filter({ hasText: "Sem documento E2E" });
   await expect(card.getByTestId("generator-status")).toHaveText("Falta o documento");
   await card.getByRole("link", { name: "Enviar documento" }).click();
   await page.waitForURL(/\/template$/);
-  await expect(page.getByText("Este gerador ainda não tem documento")).toBeVisible();
+  await expect(page.getByText("Este modelo ainda não tem documento")).toBeVisible();
   await page.getByTestId("docx-input").setInputFiles(DOCX);
   await page.waitForURL(/\/edit/, { timeout: 60_000 });
   await expect(page.getByTestId("doc-page")).toContainText("CONTRATO");
 
-  // trocar o documento depois: a etapa Modelo mostra o arquivo em uso e aceita um novo
+  // trocar o documento depois: a etapa Documento mostra o arquivo em uso e aceita um novo
   await page.goto(page.url().replace(/\/edit.*$/, "/template"));
   await expect(page.getByTestId("current-file")).toContainText("contrato_prestacao_servicos.docx");
 });
