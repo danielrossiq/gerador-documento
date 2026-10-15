@@ -17,7 +17,7 @@ from app.db.base import utcnow
 from app.db.models import BatchImport
 from app.modules.auth.router import router as auth_router
 from app.modules.fields import service as fields_service
-from app.modules.generation import filenames, imports
+from app.modules.generation import filenames, identify, imports
 from app.modules.generation import service as gen_service
 from app.modules.generators import service as generators_service
 from app.modules.kits import service as kits_service
@@ -398,6 +398,20 @@ def import_upload(
             for d in batchable
         ],
     }
+
+
+class IdentifyIn(BaseModel):
+    headers: list[Annotated[str, PField(max_length=200)]] = PField(
+        min_length=1, max_length=identify.MAX_COLUMNS
+    )
+    rows: list[list[Annotated[str, PField(max_length=1000)]]] = PField(default_factory=list, max_length=50)
+    generator_id: uuid.UUID | None = None  # modelo escolhido na mão: devolve o mapeamento dele mesmo se fraco
+
+
+@api.post("/batch/identify", tags=["batch"])
+def batch_identify(body: IdentifyIn, ctx: Ctx = Depends(get_ctx)) -> dict[str, Any]:
+    """Tabela colada (cabeçalho + primeiras linhas) → qual modelo ela preenche e como mapear as colunas."""
+    return identify.identify(ctx, body.headers, body.rows, generator_id=body.generator_id)
 
 
 class MappingIn(BaseModel):
