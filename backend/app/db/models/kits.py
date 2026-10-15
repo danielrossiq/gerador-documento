@@ -30,7 +30,7 @@ class DocumentKit(IdMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
     status: Mapped[str] = mapped_column(sa.String(20), default="active")
     is_pinned: Mapped[bool] = mapped_column(sa.Boolean, default=False)
-    filename_pattern: Mapped[str] = mapped_column(sa.String(200), default="{gerador}_{hoje}")
+    filename_pattern: Mapped[str] = mapped_column(sa.String(200), default="{modelo}_{hoje}")
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

@@ -6,7 +6,7 @@ const spec = (f: FieldOut): FieldSpec => ({ name: f.name, label: f.label, type: 
 
 export const FILENAME_TOKENS = [
   { token: "hoje", label: "Data de hoje" },
-  { token: "gerador", label: "Nome do gerador" },
+  { token: "modelo", label: "Nome do modelo" },
   { token: "linha", label: "Número da linha (lote)" },
 ];
 
@@ -17,12 +17,13 @@ export function previewFilename(pattern: string, fields: FieldOut[], values: Rec
     tokens[f.name] = error ? "" : formatValue(spec(f), value);
   }
   tokens.data ??= tokens.hoje;
+  tokens.modelo ??= generator; // um campo chamado "modelo" (ex.: do veículo) vence o nome do modelo, como no servidor
   const raw = pattern.replace(/\{([a-z][a-z0-9_]*)\}/g, (_, k: string) => tokens[k] ?? "");
   return raw.replace(/[\\/:*?"<>|\x00-\x1f]/g, "-").replace(/\s+/g, "_").replace(/^[\s._-]+|[\s._-]+$/g, "") || "documento";
 }
 
 /** Códigos {…} do padrão que não correspondem a nenhum campo nem a um código especial. */
 export function unknownTokens(pattern: string, fields: FieldOut[]): string[] {
-  const known = new Set([...fields.map((f) => f.name), ...FILENAME_TOKENS.map((t) => t.token), "data"]);
+  const known = new Set([...fields.map((f) => f.name), ...FILENAME_TOKENS.map((t) => t.token), "data", "gerador"]);
   return [...pattern.matchAll(/\{([^}]*)\}/g)].map((m) => m[1]).filter((k) => !known.has(k));
 }

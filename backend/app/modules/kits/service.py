@@ -907,7 +907,7 @@ def create_kit_run(
 
     # Registro informativo do que foi pedido; cada documento usa o próprio padrão de nome (`gen.filename_pattern`)
     # a menos que o usuário digite um padrão explícito no momento de gerar, que aí vale para todos igualmente.
-    pattern_record = (body.filename_pattern or kit.filename_pattern or "{gerador}_{hoje}").strip()
+    pattern_record = (body.filename_pattern or kit.filename_pattern or "{modelo}_{hoje}").strip()
     run = KitRun(
         workspace_id=ctx.workspace_id,
         kit_id=kit.id,

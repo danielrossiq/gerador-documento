@@ -95,4 +95,11 @@ describe("nome do arquivo", () => {
     expect(previewFilename("{nome}", fields, {}, "Contrato")).toBe("documento");
     expect(unknownTokens("Contrato_{nome}_{cpf}_{hoje}", fields)).toEqual(["cpf"]);
   });
+
+  it("{modelo} é o nome do modelo ({gerador} continua valendo), mas um campo chamado modelo vence", () => {
+    expect(previewFilename("{modelo}_{gerador}", [], {}, "Recibo")).toBe("Recibo_Recibo");
+    expect(unknownTokens("{modelo}_{gerador}", [])).toEqual([]);
+    const carro = [field("modelo", "Modelo do veículo")];
+    expect(previewFilename("{modelo}", carro, { modelo: "Onix" }, "Contrato de venda")).toBe("Onix");
+  });
 });

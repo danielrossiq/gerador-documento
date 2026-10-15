@@ -54,7 +54,7 @@ class DocumentGenerator(IdMixin, TimestampMixin, Base):
         ),
         nullable=True,
     )
-    filename_pattern: Mapped[str] = mapped_column(sa.String(200), default="{gerador}_{linha}")
+    filename_pattern: Mapped[str] = mapped_column(sa.String(200), default="{modelo}_{linha}")
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

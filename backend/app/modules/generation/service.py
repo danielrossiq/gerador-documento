@@ -145,6 +145,9 @@ def _tokens(defs: list[FieldDef], values: dict[str, Any], row_no: int, gen_name:
     tokens = {d.name: format_value(d, values.get(d.name)) for d in defs}
     tokens.setdefault("data", today)
     tokens["hoje"], tokens["linha"], tokens["gerador"] = today, f"{row_no:04d}", gen_name
+    # {modelo} é o nome atual do código {gerador} (que continua valendo); não é reservado — se o modelo tiver
+    # um campo chamado "modelo" (ex.: modelo do veículo), o campo vence
+    tokens.setdefault("modelo", gen_name)
     return tokens
 
 
@@ -197,7 +200,7 @@ def _create_job(
         raise LimitExceeded("A cota mensal de documentos do seu plano seria excedida.", code="MONTHLY_QUOTA")
 
     _, compiled = templates_service.compile_current(ctx, gen)
-    pattern = (pattern or gen.filename_pattern or "{gerador}_{linha}").strip()
+    pattern = (pattern or gen.filename_pattern or "{modelo}_{linha}").strip()
     names = filenames.dedupe(
         [
             filenames.render_pattern(pattern, _tokens(defs, results[i].values, i + 1, gen.name))

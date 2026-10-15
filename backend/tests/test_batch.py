@@ -223,6 +223,16 @@ def test_filenames_are_sanitized_and_deduplicated(api, demo_docx):
     assert any(n.endswith("_2") for n in names)
 
 
+def test_modelo_token_is_the_new_name_of_gerador_and_is_the_default(api, demo_docx):
+    gid = _ready(api, demo_docx)
+    gen = api.get(f"/generators/{gid}").json()
+    assert gen["filename_pattern"] == "{modelo}_{linha}"  # modelos novos já usam o código novo
+    api.patch(f"/generators/{gid}", json={"filename_pattern": "{modelo}-{gerador}_{linha}"})  # o antigo continua
+    job = api.post(f"/generators/{gid}/batches", json={"rows": [_row(1)]}).json()
+    (item,) = api.get(f"/jobs/{job['id']}/items").json()["items"]
+    assert item["filename"] == f"{gen['name']}-{gen['name']}_0001".replace(" ", "_")
+
+
 def test_limits_are_enforced_server_side(api, demo_docx):
     gid = _ready(api, demo_docx)
     too_many = api.post(f"/generators/{gid}/batches", json={"rows": [_row(1)] * 1001})
