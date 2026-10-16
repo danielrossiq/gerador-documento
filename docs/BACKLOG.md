@@ -3,7 +3,7 @@
 Estratégia provisória ([ESTRATEGIA_COMERCIAL.md](ESTRATEGIA_COMERCIAL.md), D29): **escritórios pequenos de advocacia (1–5 pessoas)**, **self-service** (a pessoa se cadastra e usa sozinha), "Minuta" como nome de trabalho; sem gastos, cobrança ou publicação. Meta do piloto: primeiro documento em até 5 min (ativação) e retorno em D7. Este backlog traduz isso no que o código precisa ter, ordenado por valor ÷ (risco × esforço).
 
 Baseline (15/10/2026, branch `claude/blissful-pasteur-hvkev9`, ver README "Resultados verificados — Fase 0"):
-- pytest 293 passed (273 da Fase 0 + 12 do item 1 + 8 do item 2);
+- pytest 301 passed (273 da Fase 0 + 12 do item 1 + 8 do item 2 + 8 do item 4);
 - vitest 98 passed;
 - tsc, build e ruff sem erros; eslint com 0 erros e 15 avisos;
 - E2E no Edge 16/16 na stack Docker `minuta-fase0`, reconstruída com os itens 1 e 2.
@@ -21,7 +21,7 @@ Escalas usadas abaixo:
 | 1 | **Valor por extenso** ("R$ 1.500,00 (mil e quinhentos reais)") — **feito** (3d41964) | A | B | P | — | — | Opção "Como o valor sai no documento" no campo Valor. Mesmo texto no servidor e na prévia, garantido pelos vetores compartilhados. Documento gerado contém o extenso (`test_currency_in_words_goes_to_the_document`). |
 | 2 | Sugestão automática reconhece "R$ X (por extenso)" no documento enviado e já cria o campo com extenso — **feito** | A | M (motor de regras, não IA; decidido: não é "parser" para o gate) | P | 1 | — | Contrato com "R$ 5.000,00 (cinco mil reais)" vira **um** campo Valor com `currency_format=words`, e o texto entre parênteses é substituído junto. Sem regressão em `test_suggestion_rules.py`. |
 | 3 | Data por extenso "jurídica" ("aos 21 dias do mês de setembro de 2026" / ano por extenso) | M | B | P | — | — | Nova opção em `date_format`, coberta pelos vetores compartilhados. |
-| 4 | Listas prontas para qualificação das partes (estado civil, nacionalidade, profissão, regime de bens), sugeridas no editor | M | B | P | — | — | Selecionar "solteiro(a)" sugere o tipo Lista de opções já preenchido. Tudo local, sem IA. |
+| 4 | Listas prontas para qualificação das partes — **feito para estado civil e regime de bens**. Nacionalidade e profissão ficam fora: são listas abertas demais para uma lista fixa | M | B | P | — | — | Documento com "casada"/"comunhão parcial de bens" sugere Lista de opções completa, no gênero e na caixa do texto, um campo por parte ("Estado civil — Outorgante"). Tudo local, sem IA (`test_qualification_suggestion.py`). |
 | 5 | Tipo de campo **OAB** (UF + número) com validação de formato | M | B | P | — | — | Aceita "OAB/ES 12.345" e "ES 12345"; recusa UF inválida. Vetores compartilhados. |
 
 ### Item 2 — riscos e evidências
@@ -34,6 +34,23 @@ Escalas usadas abaixo:
   - pytest 293 passed;
   - E2E `extenso.spec.ts` no Edge: upload → sugestão → aceitar → prévia → formato no campo;
   - suíte E2E completa 16/16 na stack `minuta-fase0` reconstruída.
+
+### Item 4 — riscos e evidências
+- **Gênero**: a lista segue o termo encontrado ("casada" → lista no feminino). Se o modelo for usado para uma pessoa de outro gênero, a lista precisa ser trocada à mão no campo. Isso fica registrado aqui, e o item 7 (condicionais) resolve depois.
+- **Falso positivo**: palavras comuns como "separado do processo" e "casamento" não casam (testado); só "separado judicialmente" conta.
+- **Cache**: `RULES_VERSION` passou de r3 para r4.
+- **Evidência**: pytest 301 passed (+8). O fluxo upload → aceitar → gerar troca "casada" por "divorciada" no DOCX. E2E no Edge na `minuta-fase0` reconstruída: 16 passed. 4 deles caíram primeiro no limite de cadastro por hora (429) e passaram depois de zerar o contador só da stack de teste.
+
+## Plano sem custo para o restante
+| Ordem | Item | Pode começar já? | Bloqueio concreto |
+|---|---|---|---|
+| 1 | 3 Data por extenso jurídica | sim | nenhum: local, vetores compartilhados |
+| 2 | 5 Campo OAB | sim | nenhum: local. O tipo do campo é texto na tabela (sem enum no banco), então um tipo novo não exige migration; exige vetores compartilhados e o seletor de tipo no editor |
+| 3 | 9a Instrumentação de ativação sem conteúdo | não | Security review de privacidade/retenção (gate) |
+| 4 | 6 Biblioteca de modelos jurídicos | não | handoff de design (galeria) e revisão jurídica dos textos (custo: parecer profissional, adiado) |
+| 5 | 7/8 Condicionais e partes repetíveis | não | Security review (mexe no parser/compilador DOCX) e design do editor |
+| 6 | 9 Onboarding por perfil | não | design e Security review (toca o cadastro) |
+| 7 | 10–15 cobrança, equipe, e-mail, LGPD, assinatura, OCR | não | Security review e decisões que geram custo (provedores pagos), adiadas por D29 |
 
 ## Próximo (precisam do handoff de design)
 

@@ -16,12 +16,49 @@ from app.modules.fields.normalize import MONTHS, normalize_value, parse_date
 from app.modules.fields.types import FieldDef, role_before, to_snake_case
 from app.modules.fields.validators import is_valid_cnpj, is_valid_cpf, normalize_phone
 
-RULES_VERSION = "r3"
+RULES_VERSION = "r4"
 _MONTH_RE = "|".join(MONTHS)
 MONTH_OPTIONS = [{"label": m.capitalize(), "value": to_snake_case(m)} for m in MONTHS]
 # "(cinco mil reais)" logo depois do valor: só letras/espaços/vírgulas/hífen e termina em real/reais/centavo(s)
 _WORDS_AFTER_VALUE = re.compile(r"\s*\(\s*([a-záéíóúâêôãõç ,\-]{0,200}\b(?:reais|real|centavos?))\s*\)", re.I)
 _CURRENCY_PROBE = FieldDef(id="", name="valor", label="Valor", type="currency")
+
+# Qualificação das partes (procurações, contratos): estado civil e regime de bens viram listas prontas.
+# (masculino, feminino); a lista sugerida segue o gênero do termo encontrado no documento.
+_CIVIL_STATUS = (
+    ["solteiro", "casado", "divorciado", "viúvo", "separado judicialmente", "em união estável"],
+    ["solteira", "casada", "divorciada", "viúva", "separada judicialmente", "em união estável"],
+)
+_PROPERTY_REGIME = (
+    [
+        "comunhão parcial de bens",
+        "comunhão universal de bens",
+        "separação total de bens",
+        "separação convencional de bens",
+        "separação obrigatória de bens",
+        "participação final nos aquestos",
+    ],
+) * 2
+_QUALIFICATION = [
+    (
+        "estado_civil",
+        "Estado civil",
+        r"\b(?:solteir[oa]|casad[oa]|divorciad[oa]|viúv[oa]|separad[oa] judicialmente|em união estável)\b",
+        _CIVIL_STATUS,
+    ),
+    (
+        "regime_de_bens",
+        "Regime de bens",
+        r"\b(?:comunhão (?:parcial|universal) de bens|separação (?:total|obrigatória|convencional) de bens"
+        r"|participação final nos aquestos)\b",
+        _PROPERTY_REGIME,
+    ),
+]
+
+
+def _is_feminine(term: str) -> bool:
+    first = term.split()[0].lower()
+    return first not in ("em",) and first.endswith("a")
 
 
 def _norm_words(t: str) -> str:
@@ -173,6 +210,22 @@ def detect_rules(blocks: Sequence[tuple[str, str]]) -> list[Hit]:
                 config={"options": MONTH_OPTIONS},
                 role=False,
             )
+        # qualificação das partes: a lista inteira, no gênero e na grafia do documento (minúsculas no meio da frase)
+        for base, label, pattern, lists in _QUALIFICATION:
+            for m in re.finditer(pattern, text, re.I):
+                feminine = _is_feminine(m.group(0))
+                options = lists[1] if feminine else lists[0]
+                if m.group(0)[0].isupper():  # início de frase/linha: as opções seguem a mesma caixa
+                    options = [o[0].upper() + o[1:] for o in options]
+                add(
+                    m,
+                    base,
+                    label,
+                    "select",
+                    0.8,
+                    f"{label} na qualificação de uma parte (lista com todas as opções)",
+                    config={"options": [{"label": o, "value": to_snake_case(o)} for o in options]},
+                )
 
         hits.extend(resolve_overlaps(local))
     return hits
