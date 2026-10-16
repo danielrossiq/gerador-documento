@@ -3,10 +3,10 @@
 Estratégia provisória ([ESTRATEGIA_COMERCIAL.md](ESTRATEGIA_COMERCIAL.md), D29): **escritórios pequenos de advocacia (1–5 pessoas)**, **self-service** (a pessoa se cadastra e usa sozinha), "Minuta" como nome de trabalho; sem gastos, cobrança ou publicação. Meta do piloto: primeiro documento em até 5 min (ativação) e retorno em D7. Este backlog traduz isso no que o código precisa ter, ordenado por valor ÷ (risco × esforço).
 
 Baseline (15/10/2026, branch `claude/blissful-pasteur-hvkev9`, ver README "Resultados verificados — Fase 0"):
-- pytest 285 passed (273 da Fase 0 + 12 deste incremento);
+- pytest 293 passed (273 da Fase 0 + 12 do item 1 + 8 do item 2);
 - vitest 98 passed;
 - tsc, build e ruff sem erros; eslint com 0 erros e 15 avisos;
-- E2E no Edge 15/15 na stack Docker nova.
+- E2E no Edge 16/16 na stack Docker `minuta-fase0`, reconstruída com os itens 1 e 2.
 
 Escalas usadas abaixo:
 - **Valor**: A = destrava uso por advogados; M = melhora; B = conforto.
@@ -18,11 +18,22 @@ Escalas usadas abaixo:
 
 | # | Item | Valor | Risco | Esforço | Depende de | Gate | Critério de aceite |
 |---|---|---|---|---|---|---|---|
-| 1 | **Valor por extenso** ("R$ 1.500,00 (mil e quinhentos reais)") — **feito neste incremento** | A | B | P | — | — | Opção "Como o valor sai no documento" no campo Valor. Mesmo texto no servidor e na prévia, garantido pelos vetores compartilhados. Documento gerado contém o extenso (`test_currency_in_words_goes_to_the_document`). |
-| 2 | Sugestão automática reconhece "R$ X (por extenso)" no documento enviado e já cria o campo com extenso | A | M (motor de regras, não IA) | P | 1 | — | Contrato com "R$ 5.000,00 (cinco mil reais)" vira **um** campo Valor com `currency_format=words`, e o texto entre parênteses é substituído junto. Sem regressão em `test_suggestion_rules.py`. |
+| 1 | **Valor por extenso** ("R$ 1.500,00 (mil e quinhentos reais)") — **feito** (3d41964) | A | B | P | — | — | Opção "Como o valor sai no documento" no campo Valor. Mesmo texto no servidor e na prévia, garantido pelos vetores compartilhados. Documento gerado contém o extenso (`test_currency_in_words_goes_to_the_document`). |
+| 2 | Sugestão automática reconhece "R$ X (por extenso)" no documento enviado e já cria o campo com extenso — **feito** | A | M (motor de regras, não IA; decidido: não é "parser" para o gate) | P | 1 | — | Contrato com "R$ 5.000,00 (cinco mil reais)" vira **um** campo Valor com `currency_format=words`, e o texto entre parênteses é substituído junto. Sem regressão em `test_suggestion_rules.py`. |
 | 3 | Data por extenso "jurídica" ("aos 21 dias do mês de setembro de 2026" / ano por extenso) | M | B | P | — | — | Nova opção em `date_format`, coberta pelos vetores compartilhados. |
 | 4 | Listas prontas para qualificação das partes (estado civil, nacionalidade, profissão, regime de bens), sugeridas no editor | M | B | P | — | — | Selecionar "solteiro(a)" sugere o tipo Lista de opções já preenchido. Tudo local, sem IA. |
 | 5 | Tipo de campo **OAB** (UF + número) com validação de formato | M | B | P | — | — | Aceita "OAB/ES 12.345" e "ES 12345"; recusa UF inválida. Vetores compartilhados. |
+
+### Item 2 — riscos e evidências
+- **Processamento local**: a regra roda em `suggestions/rules.py`, que são funções puras sobre o texto do bloco. Não faz chamada de rede, não usa IA e não grava telemetria; o texto do documento continua só no banco do workspace. `test_currency_words_suggestion.py` bloqueia `socket.connect`/`create_connection`/`getaddrinfo` durante a detecção e durante o upload com análise.
+- **Falso positivo**: só captura o parêntese logo depois do valor quando ele termina em real/reais/centavo(s) e só tem letras, espaços, vírgulas e hífen. "(cláusula 3)" e "(ver anexo I)" ficam fora (testados).
+- **Extenso do documento que não confere com o valor** (ex.: "R$ 5.000,00 (seis mil reais)"): vira o mesmo campo e o motivo da sugestão avisa que o documento gerado terá o extenso correto. Nada é corrigido em silêncio no original.
+- **Cache de análise**: `RULES_VERSION` passou de r2 para r3, então documentos reanalisados recebem a regra nova. Análises antigas não mudam sozinhas.
+- **Exemplo do campo**: guarda só o valor ("R$ 5.000,00"), para a prévia e o "Preencher com dados de exemplo" continuarem válidos.
+- **Evidência**:
+  - pytest 293 passed;
+  - E2E `extenso.spec.ts` no Edge: upload → sugestão → aceitar → prévia → formato no campo;
+  - suíte E2E completa 16/16 na stack `minuta-fase0` reconstruída.
 
 ## Próximo (precisam do handoff de design)
 
@@ -47,5 +58,4 @@ Escalas usadas abaixo:
 
 ## Pendências conhecidas da baseline
 - Não reexecutados nesta fase: pytest contra PostgreSQL real, lote de 1.000 e `scripts/crash_recovery_test.py`.
-- O E2E da opção de extenso no editor não foi escrito. A opção está coberta por testes de unidade, por vetores e pela API, mas não pelo clique na tela.
 - O cadastro tem limite de 10 por hora por IP, e a suíte E2E cria cerca de 7 contas por execução (README).

@@ -8,15 +8,32 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 
-from app.modules.fields.normalize import MONTHS, parse_date
-from app.modules.fields.types import role_before, to_snake_case
+from app.modules.fields.extenso import currency_words
+from app.modules.fields.normalize import MONTHS, normalize_value, parse_date
+from app.modules.fields.types import FieldDef, role_before, to_snake_case
 from app.modules.fields.validators import is_valid_cnpj, is_valid_cpf, normalize_phone
 
-RULES_VERSION = "r2"
+RULES_VERSION = "r3"
 _MONTH_RE = "|".join(MONTHS)
 MONTH_OPTIONS = [{"label": m.capitalize(), "value": to_snake_case(m)} for m in MONTHS]
+# "(cinco mil reais)" logo depois do valor: só letras/espaços/vírgulas/hífen e termina em real/reais/centavo(s)
+_WORDS_AFTER_VALUE = re.compile(r"\s*\(\s*([a-záéíóúâêôãõç ,\-]{0,200}\b(?:reais|real|centavos?))\s*\)", re.I)
+_CURRENCY_PROBE = FieldDef(id="", name="valor", label="Valor", type="currency")
+
+
+def _norm_words(t: str) -> str:
+    return re.sub(r"[\s,]+", " ", t.strip().lower())
+
+
+def _words_match_value(amount: str, words: str) -> bool:
+    """O extenso escrito no documento é o mesmo que o sistema geraria para o valor."""
+    canonical, err = normalize_value(_CURRENCY_PROBE, amount)
+    if err is not None or canonical is None:
+        return False
+    return _norm_words(words) == _norm_words(currency_words(Decimal(str(canonical))))
 
 
 @dataclass
@@ -97,7 +114,22 @@ def detect_rules(blocks: Sequence[tuple[str, str]]) -> list[Hit]:
             if normalize_phone(m.group(0)):
                 add(m, "telefone", "Telefone", "phone", 0.85, "Telefone com DDD")
         for m in re.finditer(r"R\$\s?\d{1,3}(?:\.\d{3})*(?:,\d{2})?|R\$\s?\d+(?:,\d{2})?", text):
-            add(m, "valor", "Valor", "currency", 0.95, "Valor em reais", role=False)
+            w = _WORDS_AFTER_VALUE.match(text, m.end())
+            if w is None:
+                add(m, "valor", "Valor", "currency", 0.95, "Valor em reais", role=False)
+                continue
+            # valor seguido do extenso entre parênteses: um campo só, que gera os dois juntos
+            reason = (
+                "Valor em reais com o extenso entre parênteses"
+                if _words_match_value(m.group(0), w.group(1))
+                else "Valor em reais com extenso entre parênteses (o extenso do documento não confere com o "
+                "valor; o documento gerado terá o extenso correto)"
+            )
+            s0, e0 = m.start(), w.end()
+            local.append(
+                Hit(key, s0, e0, text[s0:e0], "valor", "Valor", "currency", 0.96, "rule", reason,
+                    {"currency_format": "words"})
+            )  # fmt: skip
         for m in re.finditer(r"\d{1,3}(?:,\d{1,2})?(?=\s?%)", text):
             add(
                 m,

@@ -495,7 +495,8 @@ def accept(ctx: Ctx, suggestion_id: uuid.UUID, body: AcceptIn) -> dict[str, Any]
         config=cfg,
         options=options,
         default_value=None,
-        example=sug.text[:300],
+        # "R$ 5.000,00 (cinco mil reais)": o exemplo é só o valor (o extenso é gerado a partir dele)
+        example=(sug.text.split(" (", 1)[0] if ftype == "currency" else sug.text)[:300],
     )
     field = fields_service.create_field(ctx, gen.id, payload, commit=False)
     blocks = {b.key: b for b in core.load_blocks(db, version.id)}
