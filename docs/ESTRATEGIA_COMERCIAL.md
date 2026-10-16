@@ -39,7 +39,7 @@ Essa comparação usa apenas páginas públicas e não substitui teste de produt
 
 - Não há evidência de entrevistas, demanda, taxa de conversão, custo unitário de operação nem disposição a pagar.
 - O produto atual limita lotes a 1.000 linhas e upload a 15 MB; cotas atuais não equivalem ainda a planos comerciais.
-- Termos e política de privacidade são rascunhos e exigem revisão profissional. A plataforma não promete validade jurídica nem substitui revisão do profissional.
+- Termos de uso e política de privacidade ainda não existem no produto nem no repositório; precisam ser escritos e passar por revisão profissional antes de qualquer piloto. A plataforma não promete validade jurídica nem substitui revisão do profissional.
 - Piloto com documentos pessoais depende de aprovação de segurança, retenção e fluxo de exportação/exclusão adequados.
 
 ## Fontes públicas consultadas em 15/10/2026
