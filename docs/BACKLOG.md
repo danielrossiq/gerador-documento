@@ -66,7 +66,7 @@ Escalas usadas abaixo:
 
 | # | Item | Valor | Risco | Esforço | Gate |
 |---|---|---|---|---|---|
-| 10 | Cobrança/planos (cota hoje é só limite técnico, `PLAN_LIMITS`) | A (negócio) | A | G | Security review + decisão de provedor (custo) |
+| 10 | Cobrança/planos (cota hoje é só limite técnico, `DEFAULT_LIMITS`) | A (negócio) | A | G | Security review + decisão de provedor (custo) |
 | 11 | Convites e equipe no escritório (multi-usuário no mesmo workspace) | A | A (multitenancy/auth) | G | Security review |
 | 12 | E-mail transacional real (hoje só recuperação de senha via SMTP opcional) | M | A (terceiro) | M | Security review + escolha de provedor |
 | 13 | Retenção e LGPD para escritórios (sigilo profissional: prazo configurável, **exportação e exclusão do workspace sob demanda**, registro de acesso) — pré-requisito do piloto com documentos reais | A | A | M | Security review |

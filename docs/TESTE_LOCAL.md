@@ -13,6 +13,26 @@ Stack Docker separada da stack `minuta` original. Volumes próprios; a stack `mi
 
 Travas do piloto ativas: `PDF_IMPORT_ENABLED=false` (só Word) e `EXTERNAL_AI_ENABLED=false` (nenhuma IA externa).
 
+## Serviços pagos e substitutos locais (sem custo, sem chamada real)
+
+| Serviço real (pago/terceiro) | No teste local | Interface para trocar depois |
+|---|---|---|
+| Gateway de pagamento / cobrança | **não existe no código**: cobrança é o item 10 do backlog, bloqueado por Security review e custo (D29). Nenhuma tela ou fluxo depende dele; os planos são só limites técnicos (`DEFAULT_LIMITS`). Por isso não há mock | — (entra como adapter novo quando for decidido) |
+| E-mail transacional | `ConsoleNotifier`: o link de recuperação de senha aparece no log da API (só fora de produção) | `adapters/notify.py` (`Notifier`; `SmtpNotifier` com `SMTP_*`) |
+| IA externa (Anthropic, TypeSafe) | provedor local de heurísticas; trava `EXTERNAL_AI_ENABLED=false` | `adapters/ai/` (`get_ai_provider`, `get_role_classifier`) |
+| Armazenamento S3 | MinIO local (contêiner da própria stack) | `adapters/storage.py` (`StorageAdapter`) |
+| Conversão para PDF | LibreOffice no contêiner do worker (gratuito) | `adapters/pdf.py` |
+
+## Checklist de inicialização (manhã)
+
+1. Abrir o Docker Desktop e esperar "Engine running".
+2. `docker compose -p minuta-fase0 ps` (com as portas exportadas): api e postgres devem estar `healthy`. Se estiverem parados, `… up -d`, **sem** `--build` se o código não mudou.
+3. Só se houver commits novos desde a última subida, depois da revisão: `… up -d --build`. O serviço `migrate` aplica as migrations; o seed não duplica dados.
+4. `curl http://localhost:8110/health` deve devolver `{"status":"ok"}`, e `/ready` deve devolver `database` e `pdf_converter` ok.
+5. Abrir http://localhost:3210 e entrar com `demo@minuta.app` / `demo12345`.
+6. Seguir o roteiro abaixo. Usar só dados fictícios: este não é o piloto com dados reais.
+7. Ao terminar: `docker compose -p minuta-fase0 stop`. Nunca `down -v`. A stack `minuta` não deve ser usada nem alterada.
+
 ## Subir, parar e reconstruir
 
 Rodar na raiz do repositório (Git Bash):

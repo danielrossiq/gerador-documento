@@ -55,6 +55,30 @@ class RedactFilter(logging.Filter):
 
 _RESERVED = set(logging.LogRecord("", 0, "", 0, "", None, None).__dict__) | {"message", "asctime"}
 
+# Campos estruturados aceitos no log (extra=…). Tudo fora desta lista é descartado e só o NOME da chave é
+# registrado em "omitted_keys" — um extra novo com conteúdo de documento não vaza por engano. Valores: só
+# tipos simples; textos passam pela máscara e são cortados em 200 caracteres.
+SAFE_EXTRA_KEYS = frozenset(
+    {
+        # requisição
+        "method", "path", "status", "duration_ms", "request_id",
+        # identificadores (UUID) e contadores
+        "workspace_id", "generator_id", "version_id", "job_id", "kit_id", "kit_run_id", "file_id",
+        "row", "attempt", "n", "n_valid", "n_dropped", "n_candidates", "n_answered", "chars", "bytes",
+        "removidos", "falhas", "pendentes",
+        # erros: só tipo/código, nunca mensagem
+        "error_type", "error", "code", "task", "template", "provider",
+    }
+)  # fmt: skip
+_DOWNLOAD_TOKEN = re.compile(r"(/downloads/)[^/?#]+")
+
+
+def _safe_extra(key: str, value: Any) -> Any:
+    if isinstance(value, (bool, int, float, type(None))):
+        return value
+    text = redact(str(value))[:200]
+    return _DOWNLOAD_TOKEN.sub(r"\1[token]", text) if key == "path" else text
+
 
 def safe_exception_text(exc_info: Any) -> str:
     """Traceback SEM a mensagem das exceções: só arquivo/linha/função e o tipo. Mensagens de exceção de
@@ -99,9 +123,16 @@ class JsonFormatter(logging.Formatter):
             payload["request_id"] = rid
         if (jid := _job_id.get()) is not None:
             payload["job_id"] = jid
+        omitted = []
         for key, value in record.__dict__.items():
-            if key not in _RESERVED and not key.startswith("_"):
-                payload[key] = value if isinstance(value, (str, int, float, bool, type(None))) else str(value)
+            if key in _RESERVED or key.startswith("_"):
+                continue
+            if key in SAFE_EXTRA_KEYS:
+                payload[key] = _safe_extra(key, value)
+            else:
+                omitted.append(key)
+        if omitted:
+            payload["omitted_keys"] = sorted(omitted)
         if record.exc_info:
             payload["exc"] = safe_exception_text(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)

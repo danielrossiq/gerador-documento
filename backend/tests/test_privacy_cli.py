@@ -207,3 +207,24 @@ def test_cleanup_exit_code_reports_failures(monkeypatch, capsys):  # type: ignor
         lambda batch=500: {"removidos": 0, "falhas": 0, "pendentes": 0},
     )
     assert cli.main(["cleanup"]) == 0
+
+
+def test_cleanup_goes_past_the_500_batch_limit(api, demo_docx):
+    """Mais de um lote de 500 expirados: uma única execução zera tudo (antes parava no primeiro lote)."""
+    ws_id = _workspace_with_files(api, demo_docx)
+    already = _expire_all(ws_id)
+    storage = get_storage()
+    with get_factory()() as db:
+        job_id = db.scalar(select(GeneratedFile.job_id).where(GeneratedFile.workspace_id == ws_id).limit(1))
+        for i in range(501):
+            key = f"teste/expirado-{uuid.uuid4().hex}.docx"
+            storage.put(key, b"x")
+            db.add(
+                GeneratedFile(
+                    workspace_id=ws_id, job_id=job_id, kind="docx", filename=f"d{i}.docx", storage_key=key,
+                    content_type="application/octet-stream", size_bytes=1, sha256="0" * 64,
+                    expires_at=utcnow() - timedelta(days=1),
+                )
+            )  # fmt: skip
+        db.commit()
+    assert cleanup_expired_report() == {"removidos": 501 + already, "falhas": 0, "pendentes": 0}

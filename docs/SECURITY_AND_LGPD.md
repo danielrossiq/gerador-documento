@@ -26,6 +26,7 @@
 
 ## Dados pessoais e logs
 - **Nunca** registramos conteúdo de documentos, CPF, CNPJ, valores ou e-mails em log: o filtro de log mascara esses padrões como rede de segurança, e o código não os passa aos logs.
+- **Campos estruturados do log em allowlist** (`SAFE_EXTRA_KEYS` em `core/logging.py`): IDs, contadores, método/rota/status e tipo/código de erro. Qualquer outro `extra=` é descartado; só o nome da chave aparece em `omitted_keys`. Textos permitidos passam pela máscara e são cortados em 200 caracteres. O token de download é mascarado na rota (`/downloads/[token]`).
 - **Exceções** vão ao log **sem a mensagem** (só tipo, arquivo e linha, inclusive causas encadeadas): mensagens de bibliotecas podem citar trechos do documento. O erro da conversão de PDF envia ao processo pai só o tipo da exceção.
 - Auditoria (`audit_events`) guarda ação, entidade, IP e contadores; chaves como `values`, `content`, `cpf`, `email` são descartadas antes de gravar.
 - Mensagens de erro de itens são genéricas (não incluem valores).

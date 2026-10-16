@@ -79,3 +79,30 @@ def test_text_formatter_ignores_a_traceback_cached_by_another_handler():
     assert "Maria Souza" in (record.exc_text or "")
     out = SafeTextFormatter("%(message)s").format(record)
     assert "Maria Souza" not in out and "ValueError" in out
+
+
+def _json_record(extra: dict) -> dict:
+    record = logging.LogRecord("x", logging.INFO, __file__, 1, "evento", None, None)
+    for k, v in extra.items():
+        setattr(record, k, v)
+    return json.loads(JsonFormatter().format(record))
+
+
+def test_only_allowlisted_extra_keys_reach_the_log():
+    out = _json_record(
+        {"job_id": "abc", "values": {"cpf": "529.982.247-25"}, "content": SECRET, "duration_ms": 12}
+    )
+    assert out["job_id"] == "abc" and out["duration_ms"] == 12
+    assert "values" not in out and "content" not in out
+    assert out["omitted_keys"] == ["content", "values"]  # só o nome da chave, para achar o log errado
+    assert "Maria" not in json.dumps(out) and "529.982" not in json.dumps(out)
+
+
+def test_allowlisted_text_is_masked_and_truncated_and_download_token_hidden():
+    out = _json_record(
+        {"path": "/api/v1/downloads/eyJ0b2tlbiI6InNlZ3JlZG8ifQ.assinatura", "error": "x" * 500}
+    )
+    assert out["path"] == "/api/v1/downloads/[token]"
+    assert len(out["error"]) == 200
+    out2 = _json_record({"error": "falhou para fulano@exemplo.com"})
+    assert "fulano@exemplo.com" not in out2["error"]
