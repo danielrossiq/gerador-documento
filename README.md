@@ -43,7 +43,7 @@ docker compose down                    # parar (mantém dados)
 docker compose down -v                 # parar e APAGAR bancos/arquivos
 ```
 
-Variáveis principais (todas em [.env.example](.env.example)): `SECRET_KEY`, `COOKIE_SECURE`, `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL`, `FILE_RETENTION_DAYS`, `SEED_DEMO`. **Travas do piloto** (padrão desligado): `EXTERNAL_AI_ENABLED` (sem ela nenhuma IA externa é chamada, mesmo com chave) e `PDF_IMPORT_ENABLED`. Retenção, exportação e eliminação: [RETENCAO_E_ELIMINACAO.md](docs/RETENCAO_E_ELIMINACAO.md). Sem `AI_API_KEY` o produto usa **apenas regras determinísticas + heurísticas locais** e a interface avisa isso (“Sugestões locais — IA externa não configurada”).
+Variáveis principais (todas em [.env.example](.env.example)): `SECRET_KEY`, `COOKIE_SECURE`, `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL`, `FILE_RETENTION_DAYS`, `SEED_DEMO`. **Travas do piloto** (padrão desligado): `EXTERNAL_AI_ENABLED` (sem ela nenhuma IA externa é chamada, mesmo com chave) e `PDF_IMPORT_ENABLED`. Retenção, exportação e eliminação: [RETENCAO_E_ELIMINACAO.md](docs/RETENCAO_E_ELIMINACAO.md). Teste local da stack `minuta-fase0`: [TESTE_LOCAL.md](docs/TESTE_LOCAL.md). Sem `AI_API_KEY` o produto usa **apenas regras determinísticas + heurísticas locais** e a interface avisa isso (“Sugestões locais — IA externa não configurada”).
 
 ## Rodar sem Docker (desenvolvimento)
 
