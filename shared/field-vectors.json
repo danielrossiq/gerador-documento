@@ -487,6 +487,46 @@
    "canonical": "1500.00",
    "formatted": "R$ 1.500,00",
    "error": null
+  },
+  {
+   "type": "date",
+   "config": {
+    "date_format": "words"
+   },
+   "input": "21/09/2026",
+   "canonical": "2026-09-21",
+   "formatted": "vinte e um de setembro de dois mil e vinte e seis",
+   "error": null
+  },
+  {
+   "type": "date",
+   "config": {
+    "date_format": "words"
+   },
+   "input": "01/01/2027",
+   "canonical": "2027-01-01",
+   "formatted": "primeiro de janeiro de dois mil e vinte e sete",
+   "error": null
+  },
+  {
+   "type": "date",
+   "config": {
+    "date_format": "words"
+   },
+   "input": "15/11/1999",
+   "canonical": "1999-11-15",
+   "formatted": "quinze de novembro de mil novecentos e noventa e nove",
+   "error": null
+  },
+  {
+   "type": "date",
+   "config": {
+    "date_format": "words"
+   },
+   "input": "31/12/2000",
+   "canonical": "2000-12-31",
+   "formatted": "trinta e um de dezembro de dois mil",
+   "error": null
   }
  ]
 }

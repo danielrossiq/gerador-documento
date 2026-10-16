@@ -74,6 +74,12 @@ def integer_words(n: int) -> str:
     return out
 
 
+def date_words(day: int, month_name: str, year: int) -> str:
+    """21/09/2026 → "vinte e um de setembro de dois mil e vinte e seis" (dia 1 = "primeiro")."""
+    d = "primeiro" if day == 1 else integer_words(day)
+    return f"{d} de {month_name} de {integer_words(year)}"
+
+
 def currency_words(value: Decimal) -> str:
     """Decimal em reais → "mil e quinhentos reais e dez centavos"."""
     v = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

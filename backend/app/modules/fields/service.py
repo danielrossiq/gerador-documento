@@ -105,7 +105,7 @@ def clean_config(cfg: dict[str, Any] | None) -> dict[str, Any] | None:
     if not cfg:
         return None
     out = {k: v for k, v in cfg.items() if k in ALLOWED_CONFIG_KEYS and v not in (None, "")}
-    if "date_format" in out and out["date_format"] not in ("short", "long"):
+    if "date_format" in out and out["date_format"] not in ("short", "long", "words"):
         raise ValidationFailed("Formato de data inválido.", code="INVALID_CONFIG")
     if "currency_format" in out and out["currency_format"] not in ("short", "words"):
         raise ValidationFailed("Formato de valor inválido.", code="INVALID_CONFIG")

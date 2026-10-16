@@ -252,6 +252,8 @@ def format_value(fd: FieldDef, value: Any) -> str:
             return str(value)
         if fd.config.get("date_format") == "long":
             return f"{d2.day} de {MONTHS[d2.month - 1]} de {d2.year}"
+        if fd.config.get("date_format") == "words":
+            return extenso.date_words(d2.day, MONTHS[d2.month - 1], d2.year)
         return d2.strftime("%d/%m/%Y")
     if t == "cpf":
         return format_cpf(str(value)) if len(str(value)) == 11 else str(value)

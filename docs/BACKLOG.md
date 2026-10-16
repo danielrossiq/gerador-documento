@@ -3,8 +3,8 @@
 Estratégia provisória ([ESTRATEGIA_COMERCIAL.md](ESTRATEGIA_COMERCIAL.md), D29): **escritórios pequenos de advocacia (1–5 pessoas)**, **self-service** (a pessoa se cadastra e usa sozinha), "Minuta" como nome de trabalho; sem gastos, cobrança ou publicação. Meta do piloto: primeiro documento em até 5 min (ativação) e retorno em D7. Este backlog traduz isso no que o código precisa ter, ordenado por valor ÷ (risco × esforço).
 
 Baseline (15/10/2026, branch `claude/blissful-pasteur-hvkev9`, ver README "Resultados verificados — Fase 0"):
-- pytest 301 passed (273 da Fase 0 + 12 do item 1 + 8 do item 2 + 8 do item 4);
-- vitest 98 passed;
+- pytest 305 passed (273 da Fase 0 + 12 do item 1 + 8 do item 2 + 8 do item 4 + 4 do item 3);
+- vitest 102 passed;
 - tsc, build e ruff sem erros; eslint com 0 erros e 15 avisos;
 - E2E no Edge 16/16 na stack Docker `minuta-fase0`, reconstruída com os itens 1 e 2.
 
@@ -20,7 +20,7 @@ Escalas usadas abaixo:
 |---|---|---|---|---|---|---|---|
 | 1 | **Valor por extenso** ("R$ 1.500,00 (mil e quinhentos reais)") — **feito** (3d41964) | A | B | P | — | — | Opção "Como o valor sai no documento" no campo Valor. Mesmo texto no servidor e na prévia, garantido pelos vetores compartilhados. Documento gerado contém o extenso (`test_currency_in_words_goes_to_the_document`). |
 | 2 | Sugestão automática reconhece "R$ X (por extenso)" no documento enviado e já cria o campo com extenso — **feito** | A | M (motor de regras, não IA; decidido: não é "parser" para o gate) | P | 1 | — | Contrato com "R$ 5.000,00 (cinco mil reais)" vira **um** campo Valor com `currency_format=words`, e o texto entre parênteses é substituído junto. Sem regressão em `test_suggestion_rules.py`. |
-| 3 | Data por extenso "jurídica" ("aos 21 dias do mês de setembro de 2026" / ano por extenso) | M | B | P | — | — | Nova opção em `date_format`, coberta pelos vetores compartilhados. |
+| 3 | Data por extenso — **feito**: "vinte e um de setembro de dois mil e vinte e seis" (dia 1 = "primeiro"). A forma "aos … dias do mês de …" fica para quando houver pedido real | M | B | P | — | — | Opção `date_format=words` no campo Data, com 4 vetores compartilhados (servidor e prévia iguais). |
 | 4 | Listas prontas para qualificação das partes — **feito para estado civil e regime de bens**. Nacionalidade e profissão ficam fora: são listas abertas demais para uma lista fixa | M | B | P | — | — | Documento com "casada"/"comunhão parcial de bens" sugere Lista de opções completa, no gênero e na caixa do texto, um campo por parte ("Estado civil — Outorgante"). Tudo local, sem IA (`test_qualification_suggestion.py`). |
 | 5 | Tipo de campo **OAB** (UF + número) com validação de formato | M | B | P | — | — | Aceita "OAB/ES 12.345" e "ES 12345"; recusa UF inválida. Vetores compartilhados. |
 
@@ -44,7 +44,7 @@ Escalas usadas abaixo:
 ## Plano sem custo para o restante
 | Ordem | Item | Pode começar já? | Bloqueio concreto |
 |---|---|---|---|
-| 1 | 3 Data por extenso jurídica | sim | nenhum: local, vetores compartilhados |
+| 1 | 3 Data por extenso | feito | — |
 | 2 | 5 Campo OAB | sim | nenhum: local. O tipo do campo é texto na tabela (sem enum no banco), então um tipo novo não exige migration; exige vetores compartilhados e o seletor de tipo no editor |
 | 3 | 9a Instrumentação de ativação sem conteúdo | não | Security review de privacidade/retenção (gate) |
 | 4 | 6 Biblioteca de modelos jurídicos | não | handoff de design (galeria) e revisão jurídica dos textos (custo: parecer profissional, adiado) |

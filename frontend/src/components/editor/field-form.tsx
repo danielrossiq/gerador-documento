@@ -32,7 +32,7 @@ const schema = z.object({
   decimals: z.string().refine((v) => v === "" || /^\d$/.test(v), "Use um número de 0 a 9."),
   min: z.string(),
   max: z.string(),
-  date_format: z.enum(["short", "long"]),
+  date_format: z.enum(["short", "long", "words"]),
   currency_format: z.enum(["short", "words"]),
   max_length: z.string().refine((v) => v === "" || /^\d+$/.test(v), "Use um número inteiro."),
   checked_text: z.string().max(20),
@@ -56,7 +56,7 @@ function valuesFromField(f?: FieldOut, seed?: { label: string; type: FieldType; 
     group_name: f?.group_name ?? "",
     mask: f?.mask ?? "",
     decimals: s("decimals"), min: s("min"), max: s("max"),
-    date_format: c.date_format === "long" ? "long" : "short",
+    date_format: c.date_format === "long" || c.date_format === "words" ? c.date_format : "short",
     currency_format: c.currency_format === "words" ? "words" : "short",
     max_length: s("max_length"), checked_text: s("checked_text"), unchecked_text: s("unchecked_text"),
   };
@@ -67,7 +67,7 @@ function toPayload(v: Values, options: Opt[]) {
   if (v.type === "number" && v.decimals !== "") config.decimals = Number(v.decimals);
   if ((v.type === "number" || v.type === "currency") && v.min.trim()) config.min = v.min.trim();
   if ((v.type === "number" || v.type === "currency") && v.max.trim()) config.max = v.max.trim();
-  if (v.type === "date" && v.date_format === "long") config.date_format = "long";
+  if (v.type === "date" && v.date_format !== "short") config.date_format = v.date_format;
   if (v.type === "currency" && v.currency_format === "words") config.currency_format = "words";
   if (v.type === "text_short" && v.max_length) config.max_length = Number(v.max_length);
   if (v.type === "checkbox") {
@@ -371,6 +371,7 @@ export function FieldForm({ mode, generatorId, field, siblings, issues = [], see
                 <Select {...a} {...register("date_format")}>
                   <option value="short">21/09/2026</option>
                   <option value="long">21 de setembro de 2026</option>
+                  <option value="words">vinte e um de setembro de dois mil e vinte e seis</option>
                 </Select>
               )}
             </Field>

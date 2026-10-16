@@ -53,6 +53,11 @@ export function integerWords(n: bigint): string {
   return out;
 }
 
+/** 21/09/2026 → "vinte e um de setembro de dois mil e vinte e seis" (dia 1 = "primeiro"). */
+export function dateWords(day: number, monthName: string, year: number): string {
+  return `${day === 1 ? "primeiro" : integerWords(BigInt(day))} de ${monthName} de ${integerWords(BigInt(year))}`;
+}
+
 /** Valor canônico ("1500.00") → "mil e quinhentos reais"; null se não for um decimal canônico no intervalo. */
 export function currencyWords(canonical: string): string | null {
   const m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(canonical);

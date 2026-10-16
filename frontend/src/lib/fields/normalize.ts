@@ -1,6 +1,6 @@
 // Espelho de backend/app/modules/fields/normalize.py (o servidor é a autoridade; aqui é feedback imediato).
 // shared/field-vectors.json é executado nas duas suítes para impedir divergência.
-import { currencyWords } from "@/lib/fields/extenso";
+import { currencyWords, dateWords } from "@/lib/fields/extenso";
 import type { FieldOption, FieldType } from "@/lib/types";
 
 export type FieldSpec = {
@@ -273,6 +273,7 @@ export function formatValue(fd: FieldSpec, value: unknown): string {
   }
   if (t === "date") {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (fd.config.date_format === "words") return dateWords(Number(s.slice(8, 10)), MONTHS[Number(s.slice(5, 7)) - 1], Number(s.slice(0, 4)));
     return fd.config.date_format === "long" ? `${Number(s.slice(8, 10))} de ${MONTHS[Number(s.slice(5, 7)) - 1]} de ${s.slice(0, 4)}` : isoToBr(s);
   }
   if (t === "cpf") return s.length === 11 ? formatCpf(s) : s;
