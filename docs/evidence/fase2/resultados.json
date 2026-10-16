@@ -1066,5 +1066,53 @@
   "horizontalOverflow": false,
   "overflowingElements": [],
   "axe": []
+ },
+ {
+  "id": "M9-kit-usar-erro",
+  "route": "/kits/[id]/use",
+  "state": "erros de validação ao gerar vazio",
+  "viewport": "1440",
+  "screenshot": "1440/M9-kit-usar-erro.png",
+  "pageScrollWidth": 1440,
+  "clientWidth": 1440,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M9-kit-usar-erro",
+  "route": "/kits/[id]/use",
+  "state": "erros de validação ao gerar vazio",
+  "viewport": "1024",
+  "screenshot": "1024/M9-kit-usar-erro.png",
+  "pageScrollWidth": 1024,
+  "clientWidth": 1024,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M9-kit-usar-erro",
+  "route": "/kits/[id]/use",
+  "state": "erros de validação ao gerar vazio",
+  "viewport": "390",
+  "screenshot": "390/M9-kit-usar-erro.png",
+  "pageScrollWidth": 390,
+  "clientWidth": 390,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M9-kit-usar-erro",
+  "route": "/kits/[id]/use",
+  "state": "erros de validação ao gerar vazio",
+  "viewport": "320",
+  "screenshot": "320/M9-kit-usar-erro.png",
+  "pageScrollWidth": 320,
+  "clientWidth": 320,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
  }
 ]

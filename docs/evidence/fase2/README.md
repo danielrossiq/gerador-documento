@@ -18,10 +18,10 @@ O resultado vai para `resultados.json`. As capturas (PNG, cerca de 6 MB) não s�
 
 | Viewport | Rotas/estados | Rolagem horizontal da página | Violações axe (WCAG 2.2 A/AA) |
 |---|---|---|---|
-| 1440×900 | 22 | 0 | 0 |
-| 1024×768 | 22 | 0 | 0 |
-| 390×844 | 22 | 0 | 0 |
-| 320×720 | 22 | 0 | 0 |
+| 1440×900 | 23 | 0 | 0 |
+| 1024×768 | 23 | 0 | 0 |
+| 390×844 | 23 | 0 | 0 |
+| 320×720 | 23 | 0 | 0 |
 
 Rotas e estados cobertos:
 - **Sem sessão:** A1 login (inicial e erro de campo), A2 cadastro, A3 esqueci a senha, A4 redefinir (sem token e com token).
@@ -31,7 +31,7 @@ Rotas e estados cobertos:
   - M3 editor e M3b revisão;
   - M4 preencher (inicial e com erros);
   - M5 lote;
-  - M6 kits, M7 novo kit, M8 editar kit e M9 usar kit (kit de exemplo criado pela coleta, se a conta não tiver);
+  - M6 kits, M7 novo kit, M8 editar kit e M9 usar kit (formulário e erros ao gerar vazio; kit de exemplo criado pela coleta, se a conta não tiver);
   - M10 histórico;
   - M11 detalhe do histórico (sucesso e parcial).
 

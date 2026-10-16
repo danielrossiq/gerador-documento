@@ -121,6 +121,8 @@ for (const vp of VIEWPORTS) {
       await record(page, "M8-kit-editar", "/kits/[id]/edit", "mapeamento", vp.name);
       await page.goto(`/kits/${kits.items[0].id}/use`);
       await record(page, "M9-kit-usar", "/kits/[id]/use", "formulário", vp.name);
+      await page.getByTestId("generate-kit").click();
+      await record(page, "M9-kit-usar-erro", "/kits/[id]/use", "erros de validação ao gerar vazio", vp.name);
     }
     await page.goto("/history");
     await record(page, "M10-historico", "/history", "lista", vp.name);
