@@ -546,8 +546,15 @@ def _build_artifacts(db: Session, storage: StorageAdapter, job: GenerationJob, r
 
 def cleanup_expired(batch: int = 500) -> int:
     """Remove do storage os arquivos gerados expirados e marca o registro (agendar via `python -m app.cli cleanup`)."""
+    return cleanup_expired_report(batch)["removidos"]
+
+
+def cleanup_expired_report(batch: int = 500) -> dict[str, int]:
+    """Como `cleanup_expired`, mas devolve contadores para monitoração: removidos, falhas e ainda pendentes
+    (expirados e não removidos depois desta rodada — se crescer entre rodadas, o cleanup não está dando conta)."""
     storage = get_storage()
     removed = 0
+    failed = 0
     with get_factory()() as db:
         rows = db.scalars(
             select(GeneratedFile)
@@ -560,6 +567,7 @@ def cleanup_expired(batch: int = 500) -> int:
                 f.deleted_at = utcnow()
                 removed += 1
             except TransientError:
+                failed += 1
                 log.warning("cleanup_falhou_para_arquivo", extra={"file_id": str(f.id)})
         db.execute(
             delete(GeneratedFile).where(
@@ -568,4 +576,11 @@ def cleanup_expired(batch: int = 500) -> int:
             )
         )
         db.commit()
-    return removed
+        pending = db.scalar(
+            select(func.count())
+            .select_from(GeneratedFile)
+            .where(GeneratedFile.deleted_at.is_(None), GeneratedFile.expires_at <= utcnow())
+        )
+    report = {"removidos": removed, "falhas": failed, "pendentes": int(pending or 0)}
+    log.info("cleanup_concluido", extra=report)
+    return report

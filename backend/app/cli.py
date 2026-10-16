@@ -22,11 +22,14 @@ from app.core.logging import configure_logging
 
 
 def cmd_cleanup(_: argparse.Namespace) -> int:
-    from app.modules.generation.runner import cleanup_expired
+    """Saída != 0 quando algum arquivo expirado não pôde ser removido: o agendador (cron/CronJob) deve alertar."""
+    from app.modules.generation.runner import cleanup_expired_report
 
-    n = cleanup_expired()
-    print(f"arquivos expirados removidos: {n}")
-    return 0
+    r = cleanup_expired_report()
+    print(
+        f"arquivos expirados removidos: {r['removidos']} · falhas: {r['falhas']} · ainda pendentes: {r['pendentes']}"
+    )
+    return 1 if r["falhas"] else 0
 
 
 def cmd_requeue(_: argparse.Namespace) -> int:
@@ -77,40 +80,23 @@ def cmd_export(args: argparse.Namespace) -> int:
 
 
 def cmd_purge(args: argparse.Namespace) -> int:
-    from app.adapters.storage import get_storage
-    from app.db import models as m
-    from app.db.session import get_factory
+    from app.modules.privacy import purge_workspace
 
     if not args.yes:
         print("Operação irreversível. Repita com --yes para confirmar.")
         return 2
-    ws_id = uuid.UUID(args.workspace_id)
-    storage = get_storage()
-    removed = 0
-    with get_factory()() as db:
-        keys = [
-            k
-            for (k,) in db.execute(
-                select(m.TemplateFile.storage_key).where(m.TemplateFile.workspace_id == ws_id)
-            )
-        ]
-        keys += [
-            k
-            for (k,) in db.execute(
-                select(m.GeneratedFile.storage_key).where(m.GeneratedFile.workspace_id == ws_id)
-            )
-        ]
-        for k in keys:
-            try:
-                storage.delete(k)
-                removed += 1
-            except Exception as exc:
-                print(f"aviso: não removeu {k}: {type(exc).__name__}", file=sys.stderr)
-        ws = db.get(m.Workspace, ws_id)
-        if ws is not None:
-            db.delete(ws)  # FKs em cascata removem geradores, versões, campos, jobs, itens…
-        db.commit()
-    print(f"workspace removido; {removed} arquivo(s) apagados do storage")
+    r = purge_workspace(uuid.UUID(args.workspace_id))
+    if not r.found:
+        print("workspace não encontrado (talvez já eliminado)")
+        return 0
+    if r.pending:
+        print(
+            f"ELIMINAÇÃO PENDENTE: {len(r.failed_keys)} arquivo(s) não saíram do storage; os registros foram "
+            f"mantidos e o acesso já está bloqueado. Rode o mesmo comando de novo.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"workspace removido; {r.removed_files} arquivo(s) apagados do storage")
     return 0
 
 
