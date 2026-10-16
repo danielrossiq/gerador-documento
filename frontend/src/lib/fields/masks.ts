@@ -6,8 +6,10 @@ import {
   formatCep,
   formatCnpj,
   formatCpf,
+  formatOab,
   formatPhone,
   isoToBr,
+  normalizeOab,
   normalizeValue,
   parseDate,
   parseDecimal,
@@ -70,6 +72,10 @@ export function displayFor(fd: FieldSpec, text: string): string {
     case "phone": {
       const { value, error } = normalizeValue(fd, t);
       return !error && typeof value === "string" ? formatPhone(value) : liveMask("phone", t);
+    }
+    case "oab": {
+      const o = normalizeOab(t);
+      return o ? formatOab(o) : t;
     }
     case "date": {
       const iso = parseDate(t);

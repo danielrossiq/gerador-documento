@@ -204,3 +204,9 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
 - **Cleanup monitorado**: saída ≠ 0 em falha e evento `cleanup_concluido` com contadores.
 - **Retenção/exportação documentadas com precisão** em [RETENCAO_E_ELIMINACAO.md](RETENCAO_E_ELIMINACAO.md), inclusive o que ainda não expira (`template_files`, `generation_items.values`), logs e backups (fora do repositório).
 - Sem nova arquitetura: só configuração, uma função e documentação. Testes: `test_pilot_safety.py` e `test_privacy_cli.py`; o E2E `pdf.spec.ts` cobre os dois modos.
+
+## D31 — Tipo de campo OAB com migration própria (0005)
+- **Decisão (Product Owner, opção A)**: o tipo `oab` entra no vocabulário de tipos (`fields` e `kit_fields`), em vez de virar uma máscara de texto curto, para ter validação, formatação, sugestão automática e coluna própria na planilha-modelo.
+- **Canônico** "UF NÚMERO[-SUFIXO]" (ex.: "ES 12345", "SP 123456-A"); **no documento** "OAB/ES 12.345". Aceita "OAB/ES 12.345", "ES 12345", "12.345/ES", "OAB-SP nº 123.456-A"; sufixos A (suplementar), B (transferência), E (estagiário); recusa UF inexistente, zero e mais de 6 dígitos. Mesma regra no servidor e no cliente (vetores compartilhados).
+- **Sugestão**: "OAB/UF [nº] número" vira campo OAB (com o papel da parte, ex.: `oab_outorgado`). "inscrita na OAB/SP sob o nº …" fica de fora, porque substituir o trecho mudaria a redação.
+- **Migration 0005**: troca a restrição CHECK das duas tabelas. O downgrade converte campos `oab` em `text_short` antes de recriar a restrição antiga, então não falha com dados existentes. Testada em PostgreSQL 17 (`MIGRATION_DATABASE_URL`): 0004 → head → dado `oab` → downgrade (vira `text_short`) → head → `alembic check`. Aplicada na stack `minuta-fase0` pelo serviço `migrate`.

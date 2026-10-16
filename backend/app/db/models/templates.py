@@ -24,6 +24,7 @@ FIELD_TYPES = (
     "cep",
     "email",
     "phone",
+    "oab",
     "select",
     "yes_no",
     "checkbox",

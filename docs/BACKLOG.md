@@ -22,7 +22,7 @@ Escalas usadas abaixo:
 | 2 | Sugestão automática reconhece "R$ X (por extenso)" no documento enviado e já cria o campo com extenso — **feito** | A | M (motor de regras, não IA; decidido: não é "parser" para o gate) | P | 1 | — | Contrato com "R$ 5.000,00 (cinco mil reais)" vira **um** campo Valor com `currency_format=words`, e o texto entre parênteses é substituído junto. Sem regressão em `test_suggestion_rules.py`. |
 | 3 | Data por extenso — **feito**: "vinte e um de setembro de dois mil e vinte e seis" (dia 1 = "primeiro"). A forma "aos … dias do mês de …" fica para quando houver pedido real | M | B | P | — | — | Opção `date_format=words` no campo Data, com 4 vetores compartilhados (servidor e prévia iguais). |
 | 4 | Listas prontas para qualificação das partes — **feito para estado civil e regime de bens**. Nacionalidade e profissão ficam fora: são listas abertas demais para uma lista fixa | M | B | P | — | — | Documento com "casada"/"comunhão parcial de bens" sugere Lista de opções completa, no gênero e na caixa do texto, um campo por parte ("Estado civil — Outorgante"). Tudo local, sem IA (`test_qualification_suggestion.py`). |
-| 5 | Tipo de campo **OAB** (UF + número) com validação de formato | M | B | P | — | — | Aceita "OAB/ES 12.345" e "ES 12345"; recusa UF inválida. Vetores compartilhados. |
+| 5 | Tipo de campo **OAB** — **feito** (opção A, migration 0005) | M | M (schema) | P | — | — | Aceita "OAB/ES 12.345", "ES 12345", "12.345/ES" e sufixos A/B/E; recusa UF inválida e número com mais de 6 dígitos; sai como "OAB/ES 12.345". Sugestão automática para "OAB/UF [nº] número". 8 vetores compartilhados; migration testada em PostgreSQL 17 (`test_oab.py`). |
 
 ### Item 2 — riscos e evidências
 - **Processamento local**: a regra roda em `suggestions/rules.py`, que são funções puras sobre o texto do bloco. Não faz chamada de rede, não usa IA e não grava telemetria; o texto do documento continua só no banco do workspace. `test_currency_words_suggestion.py` bloqueia `socket.connect`/`create_connection`/`getaddrinfo` durante a detecção e durante o upload com análise.
@@ -45,7 +45,7 @@ Escalas usadas abaixo:
 | Ordem | Item | Pode começar já? | Bloqueio concreto |
 |---|---|---|---|
 | 1 | 3 Data por extenso | feito | — |
-| 2 | 5 Campo OAB | sim, com cuidado | local e sem custo, mas o banco tem CHECK em `fields.type` (e nos campos de kit): um tipo novo exige a migration 0005 (upgrade e downgrade testados em PostgreSQL), além de vetores compartilhados, seletor de tipo, importação, kits e prévia. Alternativa sem migration: validação "OAB" como máscara de um campo Texto curto |
+| 2 | 5 Campo OAB | feito (0005) | — |
 | 3 | 9a Instrumentação de ativação sem conteúdo | não | Security review de privacidade/retenção (gate) |
 | 4 | 6 Biblioteca de modelos jurídicos | não | handoff de design (galeria) e revisão jurídica dos textos (custo: parecer profissional, adiado) |
 | 5 | 7/8 Condicionais e partes repetíveis | não | Security review (mexe no parser/compilador DOCX) e design do editor |

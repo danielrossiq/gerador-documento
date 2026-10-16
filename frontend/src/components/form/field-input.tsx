@@ -87,6 +87,8 @@ export function FieldInput({ field, value, onChange, onBlur, error }: {
                 <Input inputMode="decimal" className={f.type === "currency" ? "pl-9" : undefined} placeholder={f.example?.replace(/^R\$\s*/, "") ?? undefined} value={str} onChange={(e) => onChange(e.target.value)} {...common} onBlur={() => { onChange(displayFor({ ...f, default_value: f.default_value }, str)); onBlur?.(); }} />
               </div>
             );
+          case "oab":
+            return <Input autoComplete="off" placeholder={f.example ?? "OAB/ES 12.345"} value={str} onChange={(e) => onChange(e.target.value)} {...common} onBlur={() => { onChange(displayFor(f, str)); onBlur?.(); }} />;
           case "email":
             return <Input type="email" autoComplete="off" placeholder={f.example ?? undefined} value={str} onChange={(e) => onChange(e.target.value)} {...common} />;
           default:

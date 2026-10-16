@@ -527,6 +527,62 @@
    "canonical": "2000-12-31",
    "formatted": "trinta e um de dezembro de dois mil",
    "error": null
+  },
+  {
+   "type": "oab",
+   "input": "OAB/ES 12.345",
+   "canonical": "ES 12345",
+   "formatted": "OAB/ES 12.345",
+   "error": null
+  },
+  {
+   "type": "oab",
+   "input": "es 12345",
+   "canonical": "ES 12345",
+   "formatted": "OAB/ES 12.345",
+   "error": null
+  },
+  {
+   "type": "oab",
+   "input": "12.345/ES",
+   "canonical": "ES 12345",
+   "formatted": "OAB/ES 12.345",
+   "error": null
+  },
+  {
+   "type": "oab",
+   "input": "OAB-SP nº 123.456-A",
+   "canonical": "SP 123456-A",
+   "formatted": "OAB/SP 123.456-A",
+   "error": null
+  },
+  {
+   "type": "oab",
+   "input": "OAB/RJ 987 E",
+   "canonical": "RJ 987-E",
+   "formatted": "OAB/RJ 987-E",
+   "error": null
+  },
+  {
+   "type": "oab",
+   "input": "OAB/XX 123",
+   "canonical": "OAB/XX 123",
+   "formatted": null,
+   "error": "OAB inválida. Use UF e número (ex.: OAB/ES 12.345)."
+  },
+  {
+   "type": "oab",
+   "input": "OAB/ES 1234567",
+   "canonical": "OAB/ES 1234567",
+   "formatted": null,
+   "error": "OAB inválida. Use UF e número (ex.: OAB/ES 12.345)."
+  },
+  {
+   "type": "oab",
+   "input": "12345",
+   "canonical": "12345",
+   "formatted": null,
+   "error": "OAB inválida. Use UF e número (ex.: OAB/ES 12.345)."
   }
  ]
 }

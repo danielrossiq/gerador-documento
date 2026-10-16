@@ -14,7 +14,7 @@ const ROW_H = 36;
 const HEAD_H = 56;
 const NUM_W = 88;
 const WIDTH: Record<FieldType, number> = {
-  text_short: 210, text_long: 260, number: 120, currency: 130, date: 140, cpf: 150, cnpj: 180, cep: 110, email: 230, phone: 150, select: 220, yes_no: 100, checkbox: 96,
+  text_short: 210, text_long: 260, number: 120, currency: 130, date: 140, cpf: 150, cnpj: 180, cep: 110, email: 230, phone: 150, oab: 150, select: 220, yes_no: 100, checkbox: 96,
 };
 
 type Sel = { ar: number; ac: number; fr: number; fc: number };

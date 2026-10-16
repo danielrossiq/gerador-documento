@@ -1,5 +1,5 @@
 export type FieldType =
-  | "text_short" | "text_long" | "number" | "currency" | "date" | "cpf" | "cnpj" | "cep"
+  | "text_short" | "text_long" | "number" | "currency" | "date" | "cpf" | "cnpj" | "cep" | "oab"
   | "email" | "phone" | "select" | "yes_no" | "checkbox";
 
 export type FieldOption = { id?: string; label: string; value: string };

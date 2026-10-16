@@ -167,3 +167,69 @@ def mask_regex(mask: str) -> re.Pattern[str]:
         else:
             out.append(re.escape(ch))
     return re.compile("^" + "".join(out) + "$")
+
+
+# ---------------------------------------------------------------- OAB (inscrição de advogado)
+UFS = frozenset(
+    [
+        "AC",
+        "AL",
+        "AP",
+        "AM",
+        "BA",
+        "CE",
+        "DF",
+        "ES",
+        "GO",
+        "MA",
+        "MT",
+        "MS",
+        "MG",
+        "PA",
+        "PB",
+        "PR",
+        "PE",
+        "PI",
+        "RJ",
+        "RN",
+        "RS",
+        "RO",
+        "RR",
+        "SC",
+        "SP",
+        "SE",
+        "TO",
+    ]
+)
+_OAB_UF_FIRST = re.compile(
+    r"(?:OAB\s*[/\-]?\s*)?([A-Z]{2})\s*(?:N[º°O.]?\s*)?([\d.]{1,8})(?:\s*-?\s*([ABE]))?"
+)
+_OAB_NUM_FIRST = re.compile(r"(?:OAB\s*(?:N[º°O.]?\s*)?)?([\d.]{1,8})(?:\s*-?\s*([ABE]))?\s*/\s*([A-Z]{2})")
+
+
+def normalize_oab(value: str) -> str | None:
+    """ "OAB/ES 12.345", "ES 12345", "12.345/ES", "OAB-SP nº 123.456-A" → "ES 12345" / "SP 123456-A".
+
+    Sufixo opcional: A (suplementar), B (transferência), E (estagiário). Número com até 6 dígitos."""
+    s = re.sub(r"\s+", " ", (value or "").strip().upper())
+    m = _OAB_UF_FIRST.fullmatch(s)
+    if m:
+        uf, num, suf = m.group(1), m.group(2), m.group(3)
+    else:
+        m = _OAB_NUM_FIRST.fullmatch(s)
+        if not m:
+            return None
+        num, suf, uf = m.group(1), m.group(2), m.group(3)
+    n = num.replace(".", "")
+    if uf not in UFS or not n.isdigit() or not 1 <= len(n.lstrip("0") or "0") <= 6 or int(n) == 0:
+        return None
+    return f"{uf} {int(n)}" + (f"-{suf}" if suf else "")
+
+
+def format_oab(canonical: str) -> str:
+    """ "ES 12345-A" → "OAB/ES 12.345-A"."""
+    uf, _, rest = canonical.partition(" ")
+    num, _, suf = rest.partition("-")
+    if not num.isdigit():
+        return canonical
+    return f"OAB/{uf} {int(num):,}".replace(",", ".") + (f"-{suf}" if suf else "")

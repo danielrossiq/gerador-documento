@@ -177,7 +177,7 @@ def build_template_xlsx(generator_name: str, defs: list[FieldDef]) -> bytes:
             )
             for r in range(2, 1002):
                 ws.cell(row=r, column=i).number_format = "DD/MM/YYYY"
-        elif d.type in ("cpf", "cnpj", "cep", "phone"):
+        elif d.type in ("cpf", "cnpj", "cep", "phone", "oab"):
             for r in range(2, 1002):
                 ws.cell(row=r, column=i).number_format = "@"  # texto: preserva zeros à esquerda
         if dv is not None:
@@ -198,6 +198,7 @@ def build_template_xlsx(generator_name: str, defs: list[FieldDef]) -> bytes:
         "cnpj": "11.222.333/0001-81",
         "cep": "01310-100",
         "phone": "(11) 91234-5678",
+        "oab": "OAB/ES 12.345",
         "date": "21/09/2026",
         "currency": "1.234,56",
         "number": "1.234,5",

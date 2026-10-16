@@ -22,11 +22,13 @@ from app.modules.fields.validators import (
     format_cep,
     format_cnpj,
     format_cpf,
+    format_oab,
     format_phone,
     is_valid_cnpj,
     is_valid_cpf,
     is_valid_email,
     mask_regex,
+    normalize_oab,
     normalize_phone,
 )
 
@@ -210,6 +212,9 @@ def normalize_value(fd: FieldDef, raw: Any) -> tuple[Any, str | None]:
     if t == "phone":
         p = normalize_phone(str(raw))
         return (p, None) if p else (str(raw), "Telefone inválido. Use DDD + número.")
+    if t == "oab":
+        o = normalize_oab(str(raw))
+        return (o, None) if o else (str(raw), "OAB inválida. Use UF e número (ex.: OAB/ES 12.345).")
     if t == "select":
         s = str(raw).strip()
         for o in fd.options:
@@ -263,6 +268,8 @@ def format_value(fd: FieldDef, value: Any) -> str:
         return format_cep(str(value)) if len(str(value)) == 8 else str(value)
     if t == "phone":
         return format_phone(str(value)) if len(str(value)) in (10, 11) else str(value)
+    if t == "oab":
+        return format_oab(str(value))
     if t == "select":
         return next((o.label for o in fd.options if o.value == value), str(value))
     if t == "yes_no":

@@ -14,7 +14,7 @@ from app.modules.fields.types import FieldDef, normalize_key, to_snake_case, uni
 # configuradas por documento. `select`/`yes_no`/`checkbox` ficam de fora do auto-detect (o usuário pode
 # mapear manualmente se quiser) — o conjunto de opções costuma ser específico de cada documento.
 AUTO_MERGEABLE_TYPES = frozenset(
-    {"text_short", "text_long", "number", "currency", "date", "cpf", "cnpj", "cep", "email", "phone"}
+    {"text_short", "text_long", "number", "currency", "date", "cpf", "cnpj", "cep", "email", "phone", "oab"}
 )
 SIMILARITY_CUTOFF = (
     0.82  # mesmo limiar da sugestão de mapeamento da importação de planilha (app.modules.generation.imports)

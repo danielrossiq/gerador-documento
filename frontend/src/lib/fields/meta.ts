@@ -1,5 +1,5 @@
 import {
-  AtSign, Calendar, CheckSquare, ChevronDown, CircleDollarSign, Fingerprint, Hash, MapPin, Phone, ToggleLeft, Type, AlignLeft, Building2,
+  AtSign, Calendar, CheckSquare, ChevronDown, CircleDollarSign, Fingerprint, Hash, MapPin, Phone, Scale, ToggleLeft, Type, AlignLeft, Building2,
   type LucideIcon,
 } from "lucide-react";
 import type { FieldType } from "@/lib/types";
@@ -15,6 +15,7 @@ export const FIELD_TYPE_META: Record<FieldType, { label: string; icon: LucideIco
   cep: { label: "CEP", icon: MapPin, hint: "00000-000" },
   email: { label: "E-mail", icon: AtSign, hint: "nome@empresa.com" },
   phone: { label: "Telefone", icon: Phone, hint: "(11) 91234-5678" },
+  oab: { label: "OAB", icon: Scale, hint: "Inscrição de advogado: sai como OAB/ES 12.345" },
   select: { label: "Lista de opções", icon: ChevronDown, hint: "Quem preenche escolhe uma das opções que você definir" },
   yes_no: { label: "Sim/Não", icon: ToggleLeft, hint: "Escreve “Sim” ou “Não” no documento" },
   checkbox: { label: "Caixa de marcar", icon: CheckSquare, hint: "Escreve ☒ quando marcada e ☐ quando não" },

@@ -83,6 +83,8 @@ Veja o passo a passo completo em [docs/DEMO.md](docs/DEMO.md). Resumo, com os ar
 cd backend && .venv/Scripts/python -m pytest
 # Backend contra PostgreSQL real
 TEST_DATABASE_URL=postgresql://usuario:senha@localhost:5432/teste .venv/Scripts/python -m pytest
+# Migrations (0001 → head, downgrade com dados, upgrade, alembic check) num PostgreSQL DESCARTÁVEL (o teste recria o schema)
+MIGRATION_DATABASE_URL=postgresql://usuario:senha@localhost:5432/descartavel .venv/Scripts/python -m pytest tests/test_oab.py -k migration
 # Frontend: unidade (vetores compartilhados com o backend + grade) e tipos
 cd frontend && npm test && npm run typecheck
 # E2E + acessibilidade (stack já em execução em :3000, ou E2E_BASE_URL=http://localhost:PORTA; E2E_CHANNEL=msedge usa o Edge instalado;

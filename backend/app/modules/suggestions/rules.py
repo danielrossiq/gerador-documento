@@ -14,9 +14,9 @@ from typing import Any
 from app.modules.fields.extenso import currency_words
 from app.modules.fields.normalize import MONTHS, normalize_value, parse_date
 from app.modules.fields.types import FieldDef, role_before, to_snake_case
-from app.modules.fields.validators import is_valid_cnpj, is_valid_cpf, normalize_phone
+from app.modules.fields.validators import is_valid_cnpj, is_valid_cpf, normalize_oab, normalize_phone
 
-RULES_VERSION = "r4"
+RULES_VERSION = "r5"
 _MONTH_RE = "|".join(MONTHS)
 MONTH_OPTIONS = [{"label": m.capitalize(), "value": to_snake_case(m)} for m in MONTHS]
 # "(cinco mil reais)" logo depois do valor: só letras/espaços/vírgulas/hífen e termina em real/reais/centavo(s)
@@ -143,6 +143,14 @@ def detect_rules(blocks: Sequence[tuple[str, str]]) -> list[Hit]:
                     0.55,
                     "Parece um CNPJ, mas os dígitos verificadores não conferem",
                 )
+        # inscrição na OAB: "OAB/ES 12.345", "OAB/ES 12345", "OAB/ES nº 12.345-A" (o trecho inteiro vira o campo,
+        # que sai como "OAB/ES 12.345"). "OAB/SP sob o nº …" fica de fora: trocar o trecho mudaria a redação.
+        for m in re.finditer(
+            r"\bOAB\s*[/\-]\s*[A-Z]{2}\s*(?:n[º°o.]?\s*)?(?:\d{1,3}(?:\.\d{3})+|\d{1,6})(?!\d|\.\d)(?:\s*-\s*[ABE]\b)?",
+            text,
+        ):
+            if normalize_oab(m.group(0)):
+                add(m, "oab", "OAB", "oab", 0.95, "Número de inscrição na OAB")
         for m in re.finditer(r"(?<![\d\-])\d{5}-\d{3}(?![\d\-])", text):
             add(m, "cep", "CEP", "cep", 0.9, "Formato de CEP (00000-000)", role=False)
         for m in re.finditer(r"(?<![\w.@])[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+", text):

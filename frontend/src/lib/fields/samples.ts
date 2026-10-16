@@ -15,6 +15,7 @@ const GENERIC: Record<FieldType, string> = {
   cep: "01310-100",
   email: "maria.souza@exemplo.com.br",
   phone: "(11) 91234-5678",
+  oab: "OAB/ES 12.345",
   select: "",
   yes_no: "Sim",
   checkbox: "Sim",

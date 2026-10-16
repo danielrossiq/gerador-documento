@@ -71,6 +71,34 @@ export function normalizePhone(value: string): string | null {
 
 export const isValidEmail = (v: string) => v.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(v);
 
+// ---- OAB (espelho de validators.normalize_oab / format_oab)
+const UFS = new Set("AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" "));
+const OAB_UF_FIRST = /^(?:OAB\s*[/-]?\s*)?([A-Z]{2})\s*(?:N[º°O.]?\s*)?([\d.]{1,8})(?:\s*-?\s*([ABE]))?$/;
+const OAB_NUM_FIRST = /^(?:OAB\s*(?:N[º°O.]?\s*)?)?([\d.]{1,8})(?:\s*-?\s*([ABE]))?\s*\/\s*([A-Z]{2})$/;
+
+/** "OAB/ES 12.345", "ES 12345", "12.345/ES", "OAB-SP nº 123.456-A" → "ES 12345" / "SP 123456-A"; null se inválida. */
+export function normalizeOab(value: string): string | null {
+  const s = value.trim().toUpperCase().replace(/\s+/g, " ");
+  let uf: string, num: string, suf: string | undefined;
+  const a = OAB_UF_FIRST.exec(s);
+  if (a) [, uf, num, suf] = a;
+  else {
+    const b = OAB_NUM_FIRST.exec(s);
+    if (!b) return null;
+    [, num, suf, uf] = b;
+  }
+  const n = num.replace(/\./g, "");
+  if (!UFS.has(uf) || !/^\d+$/.test(n) || Number(n) === 0 || String(Number(n)).length > 6) return null;
+  return `${uf} ${Number(n)}${suf ? `-${suf}` : ""}`;
+}
+
+/** "ES 12345-A" → "OAB/ES 12.345-A". */
+export function formatOab(canonical: string): string {
+  const m = /^([A-Z]{2}) (\d+)(?:-([ABE]))?$/.exec(canonical);
+  if (!m) return canonical;
+  return `OAB/${m[1]} ${m[2].replace(/\B(?=(\d{3})+(?!\d))/g, ".")}${m[3] ? `-${m[3]}` : ""}`;
+}
+
 export function maskRegex(mask: string): RegExp {
   const out = [...mask].map((ch) => {
     if (ch === "#" || ch === "0") return "\\d";
@@ -235,6 +263,10 @@ export function normalizeValue(fd: FieldSpec, raw: unknown): { value: unknown; e
     const s = str.trim().toLowerCase();
     return isValidEmail(s) ? { value: s, error: null } : { value: str, error: "E-mail inválido." };
   }
+  if (t === "oab") {
+    const o = normalizeOab(str);
+    return o ? { value: o, error: null } : { value: str, error: "OAB inválida. Use UF e número (ex.: OAB/ES 12.345)." };
+  }
   if (t === "phone") {
     const p = normalizePhone(str);
     return p ? { value: p, error: null } : { value: str, error: "Telefone inválido. Use DDD + número." };
@@ -280,6 +312,7 @@ export function formatValue(fd: FieldSpec, value: unknown): string {
   if (t === "cnpj") return s.length === 14 ? formatCnpj(s) : s;
   if (t === "cep") return s.length === 8 ? formatCep(s) : s;
   if (t === "phone") return s.length === 10 || s.length === 11 ? formatPhone(s) : s;
+  if (t === "oab") return formatOab(s);
   if (t === "select") return fd.options.find((o) => o.value === s)?.label ?? s;
   if (t === "yes_no") return value === true ? "Sim" : "Não";
   return s;
