@@ -70,7 +70,7 @@ export default function NewKitPage() {
             {(a) => <Input autoFocus {...a} value={name} onChange={(e) => setName(e.target.value)} />}
           </Field>
 
-          <fieldset>
+          <fieldset className="min-w-0">
             <legend className="mb-2 text-sm font-medium">
               Quais documentos fazem parte do kit? <span className="font-normal text-muted">({picked.length} {picked.length === 1 ? "escolhido" : "escolhidos"})</span>
             </legend>
@@ -86,7 +86,7 @@ export default function NewKitPage() {
                 </div>
               </div>
             ) : (
-              <ul className="grid gap-2 sm:grid-cols-2">
+              <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2">
                 {ready.map((g) => {
                   const on = picked.includes(g.id);
                   return (

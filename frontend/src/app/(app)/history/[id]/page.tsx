@@ -79,7 +79,7 @@ export default function JobDetailPage() {
               </>
             }
           />
-          <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
             <Card className="h-fit p-5">
               <h2 className="mb-3 text-sm font-semibold">Resumo e arquivos</h2>
               <JobResult jobId={id} />
@@ -91,7 +91,7 @@ export default function JobDetailPage() {
               </dl>
             </Card>
 
-            <div>
+            <div className="min-w-0">
               {j.kind === "batch" ? (
                 <>
                   <div className="mb-3 flex items-center justify-between gap-3">

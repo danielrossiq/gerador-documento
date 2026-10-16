@@ -2,9 +2,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { demoGeneratorId, login } from "./helpers";
 
-// Verificação automática de acessibilidade (WCAG 2.x A/AA) nas telas críticas. Não substitui teste manual com leitor de tela.
+// Verificação automática de acessibilidade (WCAG 2.0/2.1/2.2 A/AA) nas telas críticas. Não substitui teste manual com leitor de tela.
 async function scan(page: Page, name: string) {
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   const summary = results.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.length} nó(s) — ${v.nodes[0]?.html.slice(0, 140)}`);
   expect(summary, `Violações de acessibilidade em ${name}`).toEqual([]);
 }
@@ -81,4 +81,28 @@ test("navegação por teclado: etapas, menu de ações e diálogo", async ({ pag
   const id = await demoGeneratorId(page);
   await page.goto(`/generators/${id}/review`);
   await expect(page.getByRole("navigation", { name: "Etapas do modelo" }).locator('[aria-current="step"]')).toContainText("Revisão");
+});
+
+test("recuperação de senha, kits e detalhe do histórico", async ({ page }) => {
+  await page.goto("/forgot-password");
+  await scan(page, "esqueci a senha");
+  await page.goto("/reset-password?token=token-invalido-de-teste");
+  await scan(page, "redefinir senha");
+  await login(page);
+  await page.goto("/kits");
+  await scan(page, "kits");
+  await page.goto("/kits/new");
+  await scan(page, "novo kit");
+  const kits = (await (await page.request.get("/api/v1/kits")).json()) as { items: { id: string }[] };
+  if (kits.items[0]) {
+    await page.goto(`/kits/${kits.items[0].id}/edit`);
+    await scan(page, "editar kit");
+    await page.goto(`/kits/${kits.items[0].id}/use`);
+    await scan(page, "usar kit");
+  }
+  const jobs = (await (await page.request.get("/api/v1/jobs")).json()) as { items: { id: string }[] };
+  if (jobs.items[0]) {
+    await page.goto(`/history/${jobs.items[0].id}`);
+    await scan(page, "detalhe do histórico");
+  }
 });

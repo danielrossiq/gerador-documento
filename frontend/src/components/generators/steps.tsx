@@ -70,7 +70,8 @@ export function GeneratorSteps({ id, current, hasTemplate, fieldsCount, onNaviga
           );
           const text = (
             <span className={cn("whitespace-nowrap", compact ? "text-xs sm:text-sm" : "text-sm", isCurrent ? "font-semibold text-fg" : "text-muted")}>
-              {s.label}
+              {/* em telas muito estreitas (< 400 px) só a etapa atual mostra o nome; as demais ficam com o número (nome para leitor de tela) */}
+              <span className={isCurrent ? undefined : "max-[399px]:sr-only"}>{s.label}</span>
               <span className="sr-only">{isCurrent ? " (etapa atual)" : s.done ? " (concluída)" : s.blocked ? ` (indisponível: ${s.blocked})` : ""}</span>
             </span>
           );
@@ -103,10 +104,10 @@ export function GenerateModeTabs({ id, current }: { id: string; current: "use" |
     <nav aria-label="Como gerar" className="inline-flex max-w-full rounded-lg border border-border bg-surface-2 p-0.5">
       {items.map(({ key, label, sub, href, icon: Icon }) => {
         const active = key === current;
-        const cls = cn("flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors", active ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg");
+        const cls = cn("flex h-9 items-center gap-1.5 rounded-md px-2 text-sm font-medium whitespace-nowrap transition-colors sm:px-3", active ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg");
         const body = (
           <>
-            <Icon className="h-4 w-4" aria-hidden />
+            <Icon className="hidden h-4 w-4 min-[400px]:block" aria-hidden />
             {label}
             <span className="hidden text-xs font-normal text-muted md:inline">({sub})</span>
           </>

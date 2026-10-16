@@ -366,3 +366,9 @@ body {
   color: var(--muted);
   opacity: 1;
 }
+
+/* Barra de ações fixa no rodapé (formulário de geração): o campo que recebe foco não pode ficar escondido
+   atrás dela (WCAG 2.2 — 2.4.11 Foco não encoberto). O valor é a altura da barra no celular mais uma folga. */
+html:has([data-sticky-actions]) {
+  scroll-padding-bottom: 11rem;
+}

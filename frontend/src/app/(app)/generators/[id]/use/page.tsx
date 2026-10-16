@@ -227,7 +227,7 @@ function UseForm({ data }: { data: FormPayload }) {
           <ul className="mt-1 space-y-0.5">
             {errorFields.map((f) => (
               <li key={f.id}>
-                <button type="button" className="text-left underline underline-offset-2" onClick={() => focusField(f)}>
+                <button type="button" className="inline-block min-h-6 py-0.5 text-left underline underline-offset-2" onClick={() => focusField(f)}>
                   {f.label}: {String(errors[f.name]?.message ?? "")}
                 </button>
               </li>
@@ -273,7 +273,7 @@ function UseForm({ data }: { data: FormPayload }) {
         )}
       </div>
 
-      <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5">
+      <div data-sticky-actions className="sticky bottom-0 -mx-4 space-y-2 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5">
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" loading={busy === "docx"} disabled={!!busy} onClick={() => generate("docx")} data-testid="generate-docx">
             <FileText className="h-4 w-4" aria-hidden /> Gerar documento Word

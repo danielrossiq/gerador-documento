@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import path from "node:path";
-import { login } from "./helpers";
+import { demoGeneratorId, login } from "./helpers";
 
 // Celular (390 px): a home, a lista de modelos e a colagem de planilha não rolam na horizontal e mantêm
 // as ações principais ao alcance.
@@ -42,4 +42,24 @@ test("home e modelos no celular: sem rolagem horizontal e com as ações princip
   await page.goto("/generators/new");
   await expect(page.getByTestId("docx-input")).toBeAttached();
   await noHorizontalScroll(page, "novo modelo");
+});
+
+test("formulário no celular (320 px): campo com foco não fica atrás da barra de ações fixa", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await login(page);
+  const id = await demoGeneratorId(page);
+  await page.goto(`/generators/${id}/use`);
+  const bar = page.locator("[data-sticky-actions]");
+  await expect(bar).toBeVisible();
+  const inputs = page.locator("form input:not([type=hidden]):not([type=radio]), form select, form textarea");
+  const n = await inputs.count();
+  expect(n).toBeGreaterThan(2);
+  for (let i = 0; i < n; i++) {
+    const el = inputs.nth(i);
+    if (!(await el.isVisible())) continue;
+    await el.focus();
+    const [box, barBox] = [await el.boundingBox(), await bar.boundingBox()];
+    expect(box && barBox && box.y + box.height <= barBox.y + 1, `campo ${i} encoberto pela barra fixa`).toBeTruthy();
+  }
+  await noHorizontalScroll(page, "formulário 320 px");
 });

@@ -233,7 +233,7 @@ function BatchView({ data, maxRows }: { data: FormPayload; maxRows: number }) {
         </div>
       </div>
 
-      <div className={panelOpen ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" : ""}>
+      <div className={panelOpen ? "grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]" : ""}>
         <BatchGrid
           ref={gridRef} specs={specs} rows={state.rows} view={view} errorsFor={errorsFor} blank={isBlank} dispatch={dispatch} maxRows={maxRows}
           onNotice={(msg) => toast.push({ tone: "info", title: msg })} onSelectionChange={setSelCount}
