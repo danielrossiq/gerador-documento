@@ -22,6 +22,7 @@
 - Nome interno aleatório; o nome enviado pelo usuário nunca vira caminho. O original é imutável.
 - Planilhas de importação: mesma proteção de ZIP; leitura `read_only`/`data_only`; CSV de saída protegido contra injeção de fórmula.
 - LibreOffice roda com perfil temporário limpo, timeout e sem rede.
+- **PDF como modelo: desligado por padrão** (`PDF_IMPORT_ENABLED=false`). A conversão roda num processo filho com tempo limitado, mas os limites de memória/CPU só valem no Linux e o processo **não** fica isolado de rede nem do sistema de arquivos. Só ligar depois de um isolamento real (contêiner/sandbox dedicado, sem rede). Desligado, o servidor recusa PDF com `PDF_IMPORT_DISABLED` e a interface só oferece Word.
 
 ## Dados pessoais e logs
 - **Nunca** registramos conteúdo de documentos, CPF, CNPJ, valores ou e-mails em log: o filtro de log mascara esses padrões como rede de segurança, e o código não os passa aos logs.
@@ -29,6 +30,7 @@
 - Mensagens de erro de itens são genéricas (não incluem valores).
 
 ## IA
+- **Trava do piloto: `EXTERNAL_AI_ENABLED=false` (padrão).** Desligada, nenhum serviço externo é chamado — nem Anthropic, nem o classificador TypeSafe/Jev —, **mesmo** com `AI_PROVIDER=anthropic`/`auto` e chaves configuradas. Valem só as regras e heurísticas locais (`tests/test_pilot_safety.py`). `/auth/me` informa `features.external_ai`.
 - Chamada **somente** na análise/reanálise do modelo, nunca na geração de documentos.
 - **O que é enviado** ao provedor: blocos de texto do modelo (ex.: parágrafos do contrato original) e suas chaves — até `AI_MAX_CHARS` (60.000). **Não** são enviados: valores preenchidos em formulários/lotes, arquivos binários, dados de usuários.
 - Recomendação: envie ao provedor apenas modelos **sem dados pessoais reais** (use nomes/CPF fictícios no modelo). Configure `AI_PROVIDER=local` ou `none` para nenhuma saída de dados.
@@ -36,9 +38,10 @@
 - Sem chave configurada, o produto usa só regras determinísticas + heurísticas locais, e a interface informa isso.
 
 ## Retenção, exportação e exclusão (LGPD)
-- **Retenção**: arquivos gerados expiram (`FILE_RETENTION_DAYS`, padrão 7 dias). Agende `python -m app.cli cleanup` (cron/CronJob) para remover do storage. Links recusam arquivos expirados.
-- **Exportação** (portabilidade): `python -m app.cli export-workspace <id> saida.json` exporta metadados (geradores, versões, campos, jobs, itens, arquivos, auditoria).
-- **Eliminação**: `python -m app.cli purge-workspace <id> --yes` apaga o workspace (cascata no banco) e os arquivos no storage.
+Política completa e runbook: **[RETENCAO_E_ELIMINACAO.md](RETENCAO_E_ELIMINACAO.md)**.
+- **Retenção**: arquivos gerados expiram (`FILE_RETENTION_DAYS`, padrão 7 dias). `python -m app.cli cleanup` remove do storage, sai com código ≠ 0 quando algo falha e registra `cleanup_concluido` (removidos/falhas/pendentes) para alerta. Modelos enviados (`template_files`) e valores preenchidos (`generation_items.values`) **não** expiram hoje: só saem com a eliminação do workspace.
+- **Exportação** (portabilidade): `python -m app.cli export-workspace <id> saida.json` gera um JSON com metadados e **valores preenchidos** (dados pessoais), **sem** arquivos binários (só a `storage_key` de cada arquivo) e sem blocos do modelo, sugestões, kits ou usuários.
+- **Eliminação**: `python -m app.cli purge-workspace <id> --yes` marca a eliminação como pendente (acesso bloqueado), apaga os arquivos do storage e **só então** apaga os registros. Se o storage falhar, sai com código 1 e mantém os registros para nova tentativa (idempotente).
 - Geradores excluídos pelo usuário sofrem *soft delete*; a exclusão definitiva ocorre via `purge-workspace`.
 
 ## Transporte e repouso

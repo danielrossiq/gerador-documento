@@ -4,7 +4,7 @@ Transforme documentos repetitivos (contratos, declarações, propostas, procura�
 
 Cada modelo passa por 4 etapas, sempre visíveis no topo da tela — **Documento → Campos → Revisão → Gerar**:
 
-1. **Documento**: envie um `.docx` ou um **PDF digitado** (exportado do Word, Google Docs ou de um sistema) que você já usa; o PDF vira Word editável. **PDF digitalizado** (foto ou escaneamento) é recusado de propósito, com explicação. Dá para trocar o documento depois; os campos são reposicionados.
+1. **Documento**: envie um `.docx` que você já usa. **PDF digitado** (exportado do Word, Google Docs ou de um sistema) também vira Word editável, mas fica **desligado por padrão** no piloto (`PDF_IMPORT_ENABLED`, ver D30); PDF digitalizado é sempre recusado, com explicação. Dá para trocar o documento depois; os campos são reposicionados.
 2. **Campos**: no editor visual, **selecione** um trecho como “João da Silva” e clique em **Transformar em campo** — sem escrever `{{placeholders}}`. Sugestões automáticas (CPF, CNPJ, datas, valores…) e avisos de nome repetido, lista sem opções e campo fora do documento.
 3. **Revisão**: o documento com **dados de exemplo**, a lista do que falta ajustar e o nome dos arquivos gerados.
 4. **Gerar**: **um documento** num formulário automático (máscaras e validações brasileiras, prévia ao vivo, rascunho salvo sozinho) ou **vários** numa grade estilo Excel (colar do Excel, importar XLSX/CSV, erros por célula, resumo antes de gerar).
@@ -43,7 +43,7 @@ docker compose down                    # parar (mantém dados)
 docker compose down -v                 # parar e APAGAR bancos/arquivos
 ```
 
-Variáveis principais (todas em [.env.example](.env.example)): `SECRET_KEY`, `COOKIE_SECURE`, `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL`, `FILE_RETENTION_DAYS`, `SEED_DEMO`. Sem `AI_API_KEY` o produto usa **apenas regras determinísticas + heurísticas locais** e a interface avisa isso (“Sugestões locais — IA externa não configurada”).
+Variáveis principais (todas em [.env.example](.env.example)): `SECRET_KEY`, `COOKIE_SECURE`, `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL`, `FILE_RETENTION_DAYS`, `SEED_DEMO`. **Travas do piloto** (padrão desligado): `EXTERNAL_AI_ENABLED` (sem ela nenhuma IA externa é chamada, mesmo com chave) e `PDF_IMPORT_ENABLED`. Retenção, exportação e eliminação: [RETENCAO_E_ELIMINACAO.md](docs/RETENCAO_E_ELIMINACAO.md). Sem `AI_API_KEY` o produto usa **apenas regras determinísticas + heurísticas locais** e a interface avisa isso (“Sugestões locais — IA externa não configurada”).
 
 ## Rodar sem Docker (desenvolvimento)
 

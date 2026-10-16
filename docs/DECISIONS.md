@@ -196,3 +196,11 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
 - **Gastos e atos externos**: adiar domínio, registro de marca, contratação de hospedagem/gateway/e-mail, pesquisa paga, jurídico, anúncios, cobrança e publicação. Trabalho local e uso de infraestrutura já disponível continuam permitidos; sem apagar dados ou enviar conteúdo documental a terceiros.
 - **Consequências**: estratégia e design podem avançar sem custo. Preço, demanda, nome e viabilidade de piloto seguem hipóteses até validação; o lançamento continua bloqueado pelos gates de segurança/LGPD, pareceres profissionais, custos e aprovação final do Daniel.
 - **Registro detalhado**: [ESTRATEGIA_COMERCIAL.md](ESTRATEGIA_COMERCIAL.md).
+
+## D30 — Travas do piloto pós-revisão de segurança (PDF, IA externa, eliminação, retenção)
+- **PDF como modelo desligado** (`PDF_IMPORT_ENABLED=false` por padrão no código e no compose). Motivo: a conversão (pdfplumber/pypdfium2) roda em processo filho, mas sem isolamento real de rede ou sistema de arquivos, e os limites de recurso só valem no Linux. Religar exige um sandbox dedicado. Recusa: `PDF_IMPORT_DISABLED`; a interface lê `features.pdf_import` em `/auth/me` e só oferece Word.
+- **IA externa desligada** (`EXTERNAL_AI_ENABLED=false`): `get_ai_provider` devolve só o provedor local e `get_role_classifier` devolve `None`, mesmo com chaves configuradas. `AI_PROVIDER=none` continua significando "só regras".
+- **`purge-workspace` em duas fases** (`app/modules/privacy.py`): primeiro marca `deleted_at` (acesso bloqueado), depois apaga o storage, e só sem falhas apaga o banco, com DELETE direto e cascata das FKs. O código anterior apagava os registros mesmo quando o storage falhava (arquivos órfãos sem chave para achá-los) e, pelo ORM, nem conseguia apagar um workspace com membros (tentava anular `workspace_members.workspace_id`).
+- **Cleanup monitorado**: saída ≠ 0 em falha e evento `cleanup_concluido` com contadores.
+- **Retenção/exportação documentadas com precisão** em [RETENCAO_E_ELIMINACAO.md](RETENCAO_E_ELIMINACAO.md), inclusive o que ainda não expira (`template_files`, `generation_items.values`), logs e backups (fora do repositório).
+- Sem nova arquitetura: só configuração, uma função e documentação. Testes: `test_pilot_safety.py` e `test_privacy_cli.py`; o E2E `pdf.spec.ts` cobre os dois modos.
