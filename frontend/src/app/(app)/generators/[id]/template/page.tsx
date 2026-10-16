@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { VersionsDialog } from "@/components/editor/dialogs";
 import { GeneratorHeader, stepHrefs } from "@/components/generators/steps";
-import { AnalysisStep, checkUpload, DocxDropzone, UploadErrorAlert, type UploadError } from "@/components/generators/template-upload";
+import { AnalysisStep, checkUpload, DocxDropzone, UploadErrorAlert, usePdfImport, type UploadError } from "@/components/generators/template-upload";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Alert, Badge, Card, Skeleton } from "@/components/ui/misc";
@@ -29,6 +29,7 @@ export default function TemplateStepPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<UploadError | null>(null);
+  const allowPdf = usePdfImport();
   const [analysing, setAnalysing] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
 
@@ -43,7 +44,7 @@ export default function TemplateStepPage() {
 
   async function send(f: File) {
     setError(null);
-    const bad = checkUpload(f);
+    const bad = checkUpload(f, allowPdf);
     if (bad) return setError(bad);
     const replacing = !!g?.has_template;
     setFile(f);
@@ -146,7 +147,7 @@ export default function TemplateStepPage() {
         ) : (
           <Card className="space-y-4 p-6">
             <Alert tone="warning" title="Este modelo ainda não tem documento">
-              Envie o documento (Word .docx ou PDF digitado) para marcar os campos e começar a gerar.
+              Envie o documento ({allowPdf ? "Word .docx ou PDF digitado" : "Word .docx"}) para marcar os campos e começar a gerar.
             </Alert>
             <DocxDropzone busy={uploading} file={file} onPick={send} />
           </Card>

@@ -566,7 +566,7 @@ function EditorLoader() {
     return (
       <main id="main" className="mx-auto max-w-lg space-y-4 p-8">
         <Alert tone={noDoc ? "warning" : "danger"} title={noDoc ? "Falta enviar o documento" : e.code === "NOT_FOUND" ? "Modelo não encontrado" : "Não foi possível abrir o editor"}>
-          {noDoc ? "Para criar campos, primeiro envie o documento deste modelo (Word .docx ou PDF digitado)." : errorMessage(e)}
+          {noDoc ? "Para criar campos, primeiro envie o documento deste modelo." : errorMessage(e)}
         </Alert>
         <div className="flex flex-wrap gap-2">
           {noDoc && <ButtonLink href={stepHrefs(id).template} variant="primary">Enviar o documento</ButtonLink>}

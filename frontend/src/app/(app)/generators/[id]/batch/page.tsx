@@ -301,7 +301,7 @@ function BatchLoader() {
       ) : q.error ? (
         <div className="space-y-3">
           <Alert tone={noDoc ? "warning" : "danger"} title={noDoc ? "Falta enviar o documento" : "Não foi possível abrir a planilha"}>
-            {noDoc ? "Este modelo ainda não tem o documento (Word ou PDF)." : errorMessage(q.error)}
+            {noDoc ? "Este modelo ainda não tem o documento." : errorMessage(q.error)}
           </Alert>
           <div className="flex flex-wrap gap-2">
             {noDoc ? <ButtonLink href={h.template} variant="primary">Enviar o documento</ButtonLink> : <Button onClick={() => q.refetch()}>Tentar de novo</Button>}

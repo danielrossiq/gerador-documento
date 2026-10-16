@@ -47,7 +47,7 @@ export function TrySampleButton({ kind = "generator", children, ...rest }: { kin
 
 // As mesmas etapas que a pessoa vai ver no topo de cada tela do modelo (Documento → Campos → Revisão → Gerar).
 const STEPS = [
-  { icon: FileUp, title: "Documento", text: "Envie um documento que você já usa: contrato, recibo, declaração… em Word (.docx) ou PDF digitado." },
+  { icon: FileUp, title: "Documento", text: "Envie um documento que você já usa: contrato, recibo, declaração… em Word (.docx)." },
   { icon: MousePointerClick, title: "Campos", text: "Selecione o que muda (nome, CPF, valor…) e transforme em campo. Sugerimos os mais comuns." },
   { icon: ClipboardCheck, title: "Revisão", text: "Veja o documento com dados de exemplo e confira o que falta ajustar." },
   { icon: Sparkles, title: "Gerar", text: "Preencha um formulário e baixe Word ou PDF — ou gere vários de uma vez com uma planilha." },

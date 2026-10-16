@@ -65,8 +65,15 @@ class Settings(BaseSettings):
     soffice_path: str = "soffice"
     pdf_timeout_seconds: int = 120
     pdf_chunk_size: int = 20
+    # Importar PDF digitado como modelo (docx_engine.pdf_import). Desligado por padrão: o processo filho só tem
+    # limites de memória/CPU no Linux e não roda isolado de rede/sistema de arquivos — ligar só depois de um
+    # isolamento real (sandbox/contêiner dedicado). Ver docs/SECURITY_AND_LGPD.md.
+    pdf_import_enabled: bool = False
 
     # IA
+    # Trava geral de serviços externos de IA (Anthropic e TypeSafe/Jev). Desligada por padrão (piloto): mesmo com
+    # AI_PROVIDER=anthropic/auto e chaves configuradas, nada sai do servidor; valem só regras e heurísticas locais.
+    external_ai_enabled: bool = False
     ai_provider: Literal["auto", "local", "anthropic", "none"] = "auto"
     ai_api_key: str | None = None
     ai_base_url: str = "https://api.anthropic.com"

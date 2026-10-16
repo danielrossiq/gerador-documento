@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.adapters.queue import enqueue
 from app.adapters.storage import get_storage
+from app.core.config import get_settings
 from app.core.deps import Ctx
 from app.core.errors import Conflict, NotFound, ServiceUnavailable, TransientError, ValidationFailed
 from app.core.logging import get_logger
@@ -62,6 +63,11 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
     is_pdf = (filename or "").lower().endswith(".pdf") or looks_like_pdf(data)
     conversion: PdfConversion | None = None
     try:
+        if is_pdf and not get_settings().pdf_import_enabled:
+            raise DocxRejected(
+                "PDF_IMPORT_DISABLED",
+                "O envio de PDF está desativado por enquanto. Envie o documento em Word (.docx).",
+            )
         if is_pdf:
             conversion = convert_pdf(data, max_bytes=max_bytes)
             data = conversion.docx

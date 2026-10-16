@@ -347,6 +347,9 @@ def test_ai_provider_selection_from_env(monkeypatch):
     assert get_ai_provider().name == "local"
     monkeypatch.setenv("AI_API_KEY", "sk-teste")
     reset_settings_cache()
+    assert get_ai_provider().name == "local"  # trava do piloto (D30): sem EXTERNAL_AI_ENABLED, a chave não basta
+    monkeypatch.setenv("EXTERNAL_AI_ENABLED", "true")
+    reset_settings_cache()
     assert get_ai_provider().name == "anthropic"
     monkeypatch.setenv("AI_PROVIDER", "none")
     reset_settings_cache()

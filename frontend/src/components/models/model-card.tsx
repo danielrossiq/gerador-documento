@@ -52,7 +52,7 @@ export const isReady = (g: GeneratorOut) => g.has_template && g.fields_count > 0
 /** Em que pé está o modelo e qual é a próxima ação — a mesma lógica das etapas Documento → Campos → Revisão → Gerar. */
 export function statusOf(g: GeneratorOut) {
   const h = stepHrefs(g.id);
-  if (!g.has_template) return { tone: "warning" as const, label: "Falta o documento", hint: "Envie o documento (.docx ou PDF) para começar.", action: { label: "Enviar documento", href: h.template, icon: FileUp } };
+  if (!g.has_template) return { tone: "warning" as const, label: "Falta o documento", hint: "Envie o documento para começar.", action: { label: "Enviar documento", href: h.template, icon: FileUp } };
   if (g.fields_count === 0) {
     const analysing = g.analysis_status === "pending" || g.analysis_status === "running";
     return { tone: "warning" as const, label: analysing ? "Analisando…" : "Sem campos", hint: "Marque no documento o que muda de um para outro.", action: { label: "Criar campos", href: h.fields, icon: PencilRuler } };

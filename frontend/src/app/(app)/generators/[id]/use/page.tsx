@@ -352,7 +352,7 @@ function UseLoader() {
       ) : q.error ? (
         <div className="space-y-3">
           <Alert tone={noDoc ? "warning" : "danger"} title={noDoc ? "Falta enviar o documento" : "Não foi possível abrir o formulário"}>
-            {noDoc ? "Este modelo ainda não tem documento. Envie o arquivo (Word ou PDF digitado) e marque os campos para poder gerar." : errorMessage(q.error)}
+            {noDoc ? "Este modelo ainda não tem documento. Envie o documento e marque os campos para poder gerar." : errorMessage(q.error)}
           </Alert>
           <div className="flex flex-wrap gap-2">
             {noDoc ? <ButtonLink href={stepHrefs(id).template} variant="primary">Enviar o documento</ButtonLink> : <Button onClick={() => q.refetch()}>Tentar de novo</Button>}

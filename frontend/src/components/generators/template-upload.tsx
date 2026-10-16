@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, FileText, Loader2, Sparkles, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useState } from "react";
+import { useMe } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Alert, Card } from "@/components/ui/misc";
 import { api, ApiError, errorMessage } from "@/lib/api";
@@ -19,6 +20,7 @@ const HINTS: Record<string, string> = {
   DOCX_PARSE_FAILED: "Abra o arquivo no Word e salve-o novamente como .docx.",
   EMPTY_DOCUMENT: "O arquivo não tem texto. Confira se enviou o documento certo.",
   FILE_TOO_LARGE: `Reduza imagens do documento ou envie um arquivo de até ${MAX_MB} MB.`,
+  PDF_IMPORT_DISABLED: "No Word, use Arquivo → Salvar como → Documento do Word (.docx). Se só tiver o PDF, abra-o no Word para convertê-lo.",
   PDF_SCANNED: "PDF digitado é o que sai do próprio Word, Google Docs ou sistema. Foto, scanner e apps como CamScanner geram imagem — nesse caso envie o arquivo original.",
   PDF_TEXT_UNREADABLE: "Gere o PDF de novo a partir do documento original, ou envie o próprio .docx.",
   PDF_TOO_MANY_PAGES: "Documentos longos funcionam melhor enviados em Word (.docx).",
@@ -29,9 +31,15 @@ export type UploadError = { message: string; code?: string };
 
 const ACCEPTED = /\.(docx|pdf)$/i;
 
+/** O servidor aceita PDF? (PDF_IMPORT_ENABLED — desligado no piloto até haver isolamento real da conversão.) */
+export function usePdfImport(): boolean {
+  return useMe().data?.features?.pdf_import === true;
+}
+
 /** Validação local antes de enviar (o servidor valida de novo: segurança do arquivo e se o PDF é digitado). */
-export function checkUpload(f: File): UploadError | null {
-  if (!ACCEPTED.test(f.name)) return { message: "Envie um documento Word (.docx) ou PDF.", code: "NOT_A_DOCX" };
+export function checkUpload(f: File, allowPdf = false): UploadError | null {
+  if (!allowPdf && /\.pdf$/i.test(f.name)) return { message: "O envio de PDF está desativado por enquanto. Envie o documento em Word (.docx).", code: "PDF_IMPORT_DISABLED" };
+  if (!ACCEPTED.test(f.name)) return { message: allowPdf ? "Envie um documento Word (.docx) ou PDF." : "Envie um documento Word (.docx).", code: "NOT_A_DOCX" };
   if (f.size > MAX_MB * 1024 * 1024) return { message: `O arquivo tem ${formatBytes(f.size)} e o limite é ${MAX_MB} MB.`, code: "FILE_TOO_LARGE" };
   return null;
 }
@@ -47,6 +55,7 @@ export function modelNameFromFile(filename: string): string {
  * (ex.: PDF digitalizado), ele é apagado para não ficar "órfão" na lista.
  */
 export function useNewModelUpload() {
+  const allowPdf = usePdfImport();
   const qc = useQueryClient();
   const [generatorId, setGeneratorId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -55,7 +64,7 @@ export function useNewModelUpload() {
 
   async function send(f: File, name?: string) {
     setError(null);
-    const bad = checkUpload(f);
+    const bad = checkUpload(f, allowPdf);
     if (bad) return setError(bad);
     setFile(f);
     setUploading(true);
@@ -102,6 +111,7 @@ export function DocxDropzone({ busy, file, onPick, title = "Arraste seu document
 }) {
   const id = useId();
   const [drag, setDrag] = useState(false);
+  const pdf = usePdfImport();
   return (
     <div
       onDragOver={(e) => {
@@ -128,12 +138,12 @@ export function DocxDropzone({ busy, file, onPick, title = "Arraste seu document
         <>
           <UploadCloud className="h-10 w-10 text-primary" aria-hidden />
           <p className="text-base font-semibold">{title}</p>
-          <p className="text-sm text-muted">Word (.docx) ou PDF digitado — contrato, recibo, declaração, procuração… até {MAX_MB} MB.</p>
+          <p className="text-sm text-muted">{pdf ? "Word (.docx) ou PDF digitado" : "Word (.docx)"} — contrato, recibo, declaração, procuração… até {MAX_MB} MB.</p>
           <input
             id={id}
             data-testid="docx-input"
             type="file"
-            accept=".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
+            accept={pdf ? ".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" : ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
             className="peer sr-only"
             onChange={(e) => {
               const f = e.target.files?.[0];

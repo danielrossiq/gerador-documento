@@ -28,6 +28,7 @@ export type Me = {
   workspace: { id: string; name: string; slug: string; role: "owner" | "member" };
   csrf_token: string | null;
   limits?: { max_generators: number; max_batch_rows: number; max_upload_mb: number; max_docs_per_month: number };
+  features?: { pdf_import: boolean; external_ai: boolean };
 };
 
 export type GeneratorOut = {

@@ -16,6 +16,9 @@ os.environ.setdefault("AI_PROVIDER", "local")
 os.environ.setdefault("LOG_JSON", "false")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("PDF_CONVERTER", "none")
+os.environ.setdefault(
+    "PDF_IMPORT_ENABLED", "true"
+)  # a suíte testa o importador; o padrão do produto é desligado
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))

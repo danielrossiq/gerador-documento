@@ -37,7 +37,7 @@ export default function ModelsPage() {
     <AppShell>
       <PageHeader
         title="Modelos"
-        description="Cada modelo transforma um documento (Word ou PDF digitado) em um formulário: preencha e baixe o documento pronto — um de cada vez ou vários com uma planilha."
+        description="Cada modelo transforma um documento que você já usa em um formulário: preencha e baixe o documento pronto — um de cada vez ou vários com uma planilha."
         actions={<ButtonLink href="/generators/new" variant="primary"><FilePlus2 className="h-4 w-4" aria-hidden /> Novo modelo</ButtonLink>}
       />
 

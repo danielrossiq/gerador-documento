@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { GeneratorSteps } from "@/components/generators/steps";
-import { AnalysisStep, DocxDropzone, UploadErrorAlert, useNewModelUpload } from "@/components/generators/template-upload";
+import { AnalysisStep, DocxDropzone, UploadErrorAlert, useNewModelUpload, usePdfImport } from "@/components/generators/template-upload";
 import { AppShell } from "@/components/layout/app-shell";
 import { TrySampleButton } from "@/components/onboarding/samples";
 import { Field, Input } from "@/components/ui/form";
@@ -18,6 +18,7 @@ function NewModel() {
   const legacyId = params.get("id"); // links antigos (?id=) para modelo sem documento: a etapa Documento desse modelo
   const [name, setName] = useState("");
   const upload = useNewModelUpload();
+  const pdf = usePdfImport();
 
   useEffect(() => {
     if (legacyId) router.replace(`/generators/${legacyId}/template`);
@@ -51,7 +52,7 @@ function NewModel() {
             <ul className="grid gap-2 text-sm text-muted sm:grid-cols-3">
               <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />Formatação, tabelas, cabeçalho e rodapé preservados</li>
               <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />CPF, CNPJ, datas e valores sugeridos na hora</li>
-              <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />PDF digitado vira Word editável; escaneado não é aceito</li>
+              <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />{pdf ? "PDF digitado vira Word editável; escaneado não é aceito" : "Seu arquivo original não é alterado"}</li>
             </ul>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <span className="text-sm text-muted">Não tem um documento à mão?</span>

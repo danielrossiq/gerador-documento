@@ -79,7 +79,7 @@ export default function NewKitPage() {
             ) : ready.length < 2 ? (
               <div className="rounded-md border border-dashed border-border-strong p-5 text-sm">
                 <p className="font-medium">Você precisa de pelo menos 2 modelos prontos (com documento enviado) para montar um kit.</p>
-                <p className="mt-1 text-muted">{ready.length === 1 ? "Você tem 1 até agora." : "Você ainda não tem nenhum."} Crie outro a partir de um documento Word ou PDF — ou veja como funciona com o exemplo.</p>
+                <p className="mt-1 text-muted">{ready.length === 1 ? "Você tem 1 até agora." : "Você ainda não tem nenhum."} Crie outro a partir de um documento que você já usa — ou veja como funciona com o exemplo.</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <ButtonLink href="/generators/new" variant="primary" size="sm">Novo modelo</ButtonLink>
                   <TrySampleButton kind="kit" size="sm" />

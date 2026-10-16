@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { APP_NAME } from "@/lib/utils";
 
 const POINTS = [
-  "Envie o contrato, recibo ou declaração que você já usa (Word ou PDF digitado)",
+  "Envie o contrato, recibo ou declaração que você já usa",
   "Nome, CPF, datas e valores viram campos sozinhos",
   "Preencha um formulário e baixe DOCX ou PDF pronto",
   "Centenas de uma vez a partir de uma planilha",
