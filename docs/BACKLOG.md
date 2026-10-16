@@ -45,7 +45,7 @@ Escalas usadas abaixo:
 | Ordem | Item | Pode começar já? | Bloqueio concreto |
 |---|---|---|---|
 | 1 | 3 Data por extenso | feito | — |
-| 2 | 5 Campo OAB | sim | nenhum: local. O tipo do campo é texto na tabela (sem enum no banco), então um tipo novo não exige migration; exige vetores compartilhados e o seletor de tipo no editor |
+| 2 | 5 Campo OAB | sim, com cuidado | local e sem custo, mas o banco tem CHECK em `fields.type` (e nos campos de kit): um tipo novo exige a migration 0005 (upgrade e downgrade testados em PostgreSQL), além de vetores compartilhados, seletor de tipo, importação, kits e prévia. Alternativa sem migration: validação "OAB" como máscara de um campo Texto curto |
 | 3 | 9a Instrumentação de ativação sem conteúdo | não | Security review de privacidade/retenção (gate) |
 | 4 | 6 Biblioteca de modelos jurídicos | não | handoff de design (galeria) e revisão jurídica dos textos (custo: parecer profissional, adiado) |
 | 5 | 7/8 Condicionais e partes repetíveis | não | Security review (mexe no parser/compilador DOCX) e design do editor |
