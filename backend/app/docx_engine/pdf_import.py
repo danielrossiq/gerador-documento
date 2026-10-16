@@ -119,7 +119,8 @@ def _run_isolated(data: bytes, max_pages: int, timeout: int = PDF_TIMEOUT_S) -> 
         return PdfConversion(**payload)
     if status == "rejected":
         raise DocxRejected(*payload)
-    log.error("pdf_conversao_falhou", extra={"detail": str(payload)[:300]})
+    # só o tipo da exceção: a mensagem pode trazer trechos do PDF (conteúdo do cliente)
+    log.error("pdf_conversao_falhou", extra={"error_type": str(payload)[:80]})
     raise DocxRejected(
         "PDF_CONVERSION_FAILED", "Não foi possível converter este PDF. Envie o documento em Word (.docx)."
     )
@@ -135,7 +136,7 @@ def _child_main(
     except DocxRejected as exc:
         conn.send(("rejected", (exc.code, exc.message)))
     except BaseException as exc:
-        conn.send(("error", repr(exc)[:300]))
+        conn.send(("error", type(exc).__name__))  # nunca a mensagem: pode conter texto do documento
     finally:
         conn.close()
 

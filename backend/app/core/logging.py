@@ -13,6 +13,7 @@ import logging
 import re
 import sys
 import time
+import traceback
 from typing import Any
 
 _request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("request_id", default=None)
@@ -55,6 +56,36 @@ class RedactFilter(logging.Filter):
 _RESERVED = set(logging.LogRecord("", 0, "", 0, "", None, None).__dict__) | {"message", "asctime"}
 
 
+def safe_exception_text(exc_info: Any) -> str:
+    """Traceback SEM a mensagem das exceções: só arquivo/linha/função e o tipo. Mensagens de exceção de
+    bibliotecas (lxml, python-docx, pdfplumber, SQLAlchemy…) podem citar trechos do documento ou valores
+    preenchidos; o tipo e o ponto do código bastam para diagnosticar."""
+    _, exc, _ = exc_info
+    parts: list[str] = []
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        frames = "".join(traceback.format_tb(exc.__traceback__)) if exc.__traceback__ else ""
+        parts.append(f"{frames}{type(exc).__module__}.{type(exc).__qualname__}")
+        exc = exc.__cause__ or exc.__context__
+    return redact("\n--- causa/contexto ---\n".join(parts))
+
+
+class SafeTextFormatter(logging.Formatter):
+    """Formato de texto (desenvolvimento) com a mesma regra de exceções do JSON."""
+
+    def formatException(self, ei: Any) -> str:
+        return safe_exception_text(ei)
+
+    def format(self, record: logging.LogRecord) -> str:
+        # outro handler pode ter guardado em exc_text o traceback COM a mensagem; nunca reaproveita esse texto
+        cached, record.exc_text = record.exc_text, None
+        try:
+            return super().format(record)
+        finally:
+            record.exc_text = cached
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
@@ -72,7 +103,7 @@ class JsonFormatter(logging.Formatter):
             if key not in _RESERVED and not key.startswith("_"):
                 payload[key] = value if isinstance(value, (str, int, float, bool, type(None))) else str(value)
         if record.exc_info:
-            payload["exc"] = redact(self.formatException(record.exc_info))
+            payload["exc"] = safe_exception_text(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
 
 
@@ -80,7 +111,7 @@ def configure_logging(level: str = "INFO", json_logs: bool = True) -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.addFilter(RedactFilter())
     handler.setFormatter(
-        JsonFormatter() if json_logs else logging.Formatter("%(levelname)s %(name)s: %(message)s")
+        JsonFormatter() if json_logs else SafeTextFormatter("%(levelname)s %(name)s: %(message)s")
     )
     root = logging.getLogger()
     root.handlers[:] = [handler]
