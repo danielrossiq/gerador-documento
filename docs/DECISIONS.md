@@ -187,3 +187,12 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
 - **Cole aqui**: `POST /batch/identify` escolhe o modelo pela tabela colada (nome do título, grafia parecida, conteúdo; semântico opcional). A tela leva as linhas ao lote pelo `sessionStorage`.
 - **Segurança (classificador externo)**: o classificador semântico recebe só rótulos de colunas e de campos. Se a 1ª linha colada parece **dado** (CPF, CNPJ, e-mail, data, CEP, valor, número, telefone), ela não é tratada como título: entra como amostra, só o casamento local roda e nada vai ao serviço externo (`header_looks_like_data`). Teste com espião no classificador em `test_identify.py`.
 - **Correção**: a data "01/02/2027" tem 8 dígitos e era lida como CEP no casamento por conteúdo; agora a data é testada antes.
+
+## D29 — Hipótese de entrada comercial e restrição de gastos
+- **Pedido**: continuar todas as fases, tomando decisões e deixando para depois tudo que gere custo.
+- **Decisão de trabalho**: priorizar escritórios pequenos de advocacia (1–5 pessoas) que já usam documentos próprios em Word; começar com self-service para automatizar preenchimento e geração em lote/kit, sem prometer aconselhamento jurídico. Minuta continua nome de trabalho.
+- **Preço para pesquisa, não para cobrança**: testar R$ 49,90/mês individual e R$ 99,90/mês equipe; documentos por mês como eixo principal e limites de modelos/usuários como secundários. São valores hipotéticos, ancorados em páginas públicas de alternativas consultadas em 15/10/2026. Não publicar nem cobrar.
+- **Validação**: buscar 8–12 escritórios para entrevistas/testes; meta direcional do piloto: 60% dos participantes ativados em até 5 min e 40% dos ativados retornando em D7, sem incidente crítico.
+- **Gastos e atos externos**: adiar domínio, registro de marca, contratação de hospedagem/gateway/e-mail, pesquisa paga, jurídico, anúncios, cobrança e publicação. Trabalho local e uso de infraestrutura já disponível continuam permitidos; sem apagar dados ou enviar conteúdo documental a terceiros.
+- **Consequências**: estratégia e design podem avançar sem custo. Preço, demanda, nome e viabilidade de piloto seguem hipóteses até validação; o lançamento continua bloqueado pelos gates de segurança/LGPD, pareceres profissionais, custos e aprovação final do Daniel.
+- **Registro detalhado**: [ESTRATEGIA_COMERCIAL.md](ESTRATEGIA_COMERCIAL.md).
