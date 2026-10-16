@@ -26,6 +26,7 @@
 
 ## Dados pessoais e logs
 - **Nunca** registramos conteúdo de documentos, CPF, CNPJ, valores ou e-mails em log: o filtro de log mascara esses padrões como rede de segurança, e o código não os passa aos logs.
+- **Exceções** vão ao log **sem a mensagem** (só tipo, arquivo e linha, inclusive causas encadeadas): mensagens de bibliotecas podem citar trechos do documento. O erro da conversão de PDF envia ao processo pai só o tipo da exceção.
 - Auditoria (`audit_events`) guarda ação, entidade, IP e contadores; chaves como `values`, `content`, `cpf`, `email` são descartadas antes de gravar.
 - Mensagens de erro de itens são genéricas (não incluem valores).
 
@@ -40,8 +41,8 @@
 ## Retenção, exportação e exclusão (LGPD)
 Política completa e runbook: **[RETENCAO_E_ELIMINACAO.md](RETENCAO_E_ELIMINACAO.md)**.
 - **Retenção**: arquivos gerados expiram (`FILE_RETENTION_DAYS`, padrão 7 dias). `python -m app.cli cleanup` remove do storage, sai com código ≠ 0 quando algo falha e registra `cleanup_concluido` (removidos/falhas/pendentes) para alerta. Modelos enviados (`template_files`) e valores preenchidos (`generation_items.values`) **não** expiram hoje: só saem com a eliminação do workspace.
-- **Exportação** (portabilidade): `python -m app.cli export-workspace <id> saida.json` gera um JSON com metadados e **valores preenchidos** (dados pessoais), **sem** arquivos binários (só a `storage_key` de cada arquivo) e sem blocos do modelo, sugestões, kits ou usuários.
-- **Eliminação**: `python -m app.cli purge-workspace <id> --yes` marca a eliminação como pendente (acesso bloqueado), apaga os arquivos do storage e **só então** apaga os registros. Se o storage falhar, sai com código 1 e mantém os registros para nova tentativa (idempotente).
+- **Exportação** (portabilidade): `python -m app.cli export-workspace <id> saida.json [--files PASTA]` gera um JSON com **todas** as tabelas do workspace (inclusive valores preenchidos, blocos do modelo, sugestões, kits e importações) e os dados de conta dos membros, **sem** segredos (sessões, hashes de senha, tokens, chaves de idempotência). Com `--files`, copia também os arquivos do storage.
+- **Eliminação**: `python -m app.cli purge-workspace <id> --yes` marca a eliminação como pendente (acesso bloqueado), apaga os arquivos do storage e **só então** apaga os registros. Se o storage falhar, sai com código 1 e mantém os registros para nova tentativa (idempotente). Na mesma transação, apaga as contas que ficaram sem nenhum workspace.
 - Geradores excluídos pelo usuário sofrem *soft delete*; a exclusão definitiva ocorre via `purge-workspace`.
 
 ## Transporte e repouso

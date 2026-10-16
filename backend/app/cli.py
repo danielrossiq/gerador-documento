@@ -3,33 +3,31 @@
 seed                      cria workspace/usuário/gerador de demonstração (idempotente)
 cleanup                   remove arquivos gerados expirados (agendar via cron/Kubernetes CronJob)
 requeue-stuck             reenfileira jobs abandonados por um worker que caiu (o worker já faz isso sozinho)
-export-workspace ID OUT   exporta os dados do workspace em JSON (LGPD: portabilidade)
-purge-workspace ID --yes  apaga workspace e arquivos (LGPD: eliminação)
+export-workspace ID OUT [--files DIR]  exporta o workspace em JSON (+ arquivos) — LGPD: portabilidade
+purge-workspace ID --yes  apaga workspace, arquivos e contas sem outro workspace (LGPD: eliminação)
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import uuid
 from pathlib import Path
-
-from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 
 
 def cmd_cleanup(_: argparse.Namespace) -> int:
-    """Saída != 0 quando algum arquivo expirado não pôde ser removido: o agendador (cron/CronJob) deve alertar."""
+    """Remove todos os expirados (em lotes). Saída != 0 se algum não saiu do storage ou ainda há pendentes:
+    o agendador (cron/CronJob) deve alertar."""
     from app.modules.generation.runner import cleanup_expired_report
 
     r = cleanup_expired_report()
     print(
         f"arquivos expirados removidos: {r['removidos']} · falhas: {r['falhas']} · ainda pendentes: {r['pendentes']}"
     )
-    return 1 if r["falhas"] else 0
+    return 1 if r["falhas"] or r["pendentes"] else 0
 
 
 def cmd_requeue(_: argparse.Namespace) -> int:
@@ -47,36 +45,23 @@ def cmd_seed(_: argparse.Namespace) -> int:
 
 
 def cmd_export(args: argparse.Namespace) -> int:
-    from app.db import models as m
-    from app.db.session import get_factory
+    """JSON com todas as tabelas do workspace, sem segredos; --files DIR copia também os arquivos do storage."""
+    from app.modules.privacy import export_workspace
 
-    ws_id = uuid.UUID(args.workspace_id)
-
-    def rows(model, **flt):  # type: ignore[no-untyped-def]
-        with get_factory()() as db:
-            items = db.scalars(select(model).where(model.workspace_id == ws_id)).all()
-        return [
-            {
-                c.key: (str(getattr(i, c.key)) if getattr(i, c.key) is not None else None)
-                for c in model.__table__.columns
-            }
-            for i in items
-        ]
-
-    data = {
-        "workspace_id": args.workspace_id,
-        "generators": rows(m.DocumentGenerator),
-        "versions": rows(m.TemplateVersion),
-        "fields": rows(m.Field),
-        "jobs": rows(m.GenerationJob),
-        "items": rows(m.GenerationItem),
-        "files": rows(m.GeneratedFile),
-        "audit_events": rows(m.AuditEvent),
-        "observacao": "Valores dos itens ficam em generation_items.values; arquivos estão no storage (chaves em files.storage_key).",
-    }
-    Path(args.out).write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"exportado para {args.out}")
-    return 0
+    try:
+        summary = export_workspace(
+            uuid.UUID(args.workspace_id), Path(args.out), Path(args.files) if args.files else None
+        )
+    except LookupError:
+        print("workspace não encontrado", file=sys.stderr)
+        return 1
+    total = sum(summary["tabelas"].values())
+    print(f"exportado para {args.out}: {total} registro(s) em {len(summary['tabelas'])} tabela(s)", end="")
+    if args.files:
+        print(f"; {summary['arquivos']} arquivo(s) em {args.files}, {summary['falhas_arquivo']} falha(s)")
+    else:
+        print(" (sem os arquivos: use --files DIR para incluí-los)")
+    return 1 if summary["falhas_arquivo"] else 0
 
 
 def cmd_purge(args: argparse.Namespace) -> int:
@@ -96,7 +81,10 @@ def cmd_purge(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"workspace removido; {r.removed_files} arquivo(s) apagados do storage")
+    print(
+        f"workspace removido; {r.removed_files} arquivo(s) apagados do storage; "
+        f"{r.users_deleted} conta(s) sem outro workspace removida(s)"
+    )
     return 0
 
 
@@ -111,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("export-workspace")
     e.add_argument("workspace_id")
     e.add_argument("out")
+    e.add_argument("--files", help="pasta para copiar os arquivos do storage (modelos e documentos gerados)")
     e.set_defaults(fn=cmd_export)
     d = sub.add_parser("purge-workspace")
     d.add_argument("workspace_id")

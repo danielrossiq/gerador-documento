@@ -549,26 +549,33 @@ def cleanup_expired(batch: int = 500) -> int:
     return cleanup_expired_report(batch)["removidos"]
 
 
-def cleanup_expired_report(batch: int = 500) -> dict[str, int]:
-    """Como `cleanup_expired`, mas devolve contadores para monitoração: removidos, falhas e ainda pendentes
-    (expirados e não removidos depois desta rodada — se crescer entre rodadas, o cleanup não está dando conta)."""
+def cleanup_expired_report(batch: int = 500, max_batches: int = 1000) -> dict[str, int]:
+    """Remove TODOS os arquivos gerados expirados, em lotes, até não sobrar nenhum ou só sobrarem falhas.
+    Devolve contadores para monitoração: removidos, falhas e ainda pendentes (expirados e não removidos —
+    diferente de zero só quando o storage falhou ou o limite de lotes foi atingido)."""
     storage = get_storage()
     removed = 0
-    failed = 0
+    failed_ids: set[uuid.UUID] = set()
+    for _ in range(max_batches):
+        with get_factory()() as db:
+            q = select(GeneratedFile).where(
+                GeneratedFile.deleted_at.is_(None), GeneratedFile.expires_at <= utcnow()
+            )
+            if failed_ids:
+                q = q.where(GeneratedFile.id.not_in(failed_ids))  # não insiste no mesmo arquivo nesta rodada
+            rows = db.scalars(q.limit(batch)).all()
+            if not rows:
+                break
+            for f in rows:
+                try:
+                    storage.delete(f.storage_key)
+                    f.deleted_at = utcnow()
+                    removed += 1
+                except TransientError:
+                    failed_ids.add(f.id)
+                    log.warning("cleanup_falhou_para_arquivo", extra={"file_id": str(f.id)})
+            db.commit()
     with get_factory()() as db:
-        rows = db.scalars(
-            select(GeneratedFile)
-            .where(GeneratedFile.deleted_at.is_(None), GeneratedFile.expires_at <= utcnow())
-            .limit(batch)
-        ).all()
-        for f in rows:
-            try:
-                storage.delete(f.storage_key)
-                f.deleted_at = utcnow()
-                removed += 1
-            except TransientError:
-                failed += 1
-                log.warning("cleanup_falhou_para_arquivo", extra={"file_id": str(f.id)})
         db.execute(
             delete(GeneratedFile).where(
                 GeneratedFile.deleted_at.is_not(None),
@@ -581,6 +588,6 @@ def cleanup_expired_report(batch: int = 500) -> dict[str, int]:
             .select_from(GeneratedFile)
             .where(GeneratedFile.deleted_at.is_(None), GeneratedFile.expires_at <= utcnow())
         )
-    report = {"removidos": removed, "falhas": failed, "pendentes": int(pending or 0)}
+    report = {"removidos": removed, "falhas": len(failed_ids), "pendentes": int(pending or 0)}
     log.info("cleanup_concluido", extra=report)
     return report

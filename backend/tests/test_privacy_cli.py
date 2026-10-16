@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import timedelta
 
 from sqlalchemy import func, select
 
 from app import cli
 from app.adapters.storage import StorageError, get_storage
-from app.db.models import GeneratedFile, TemplateFile, Workspace
+from app.db.base import utcnow
+from app.db.models import GeneratedFile, TemplateFile, User, Workspace, WorkspaceMember
 from app.db.session import get_factory
+from app.modules.generation.runner import cleanup_expired_report
 from app.modules.privacy import purge_workspace
 from tests.flows import SAMPLE_VALUES, build_generator
 
@@ -86,17 +89,105 @@ def test_purge_cli_exit_codes(api, demo_docx, monkeypatch, capsys):  # type: ign
     assert cli.main(["purge-workspace", str(ws_id), "--yes"]) == 0  # já eliminado: nada a fazer
 
 
-def test_export_has_metadata_and_values_but_no_file_contents(api, demo_docx, tmp_path):
+def test_export_covers_every_workspace_table_without_secrets(api, demo_docx, tmp_path):
     ws_id = _workspace_with_files(api, demo_docx)
+    api.post("/samples/kit")  # kits também entram na exportação
     out = tmp_path / "export.json"
     assert cli.main(["export-workspace", str(ws_id), str(out)]) == 0
-    data = json.loads(out.read_text(encoding="utf-8"))
-    assert {"generators", "versions", "fields", "jobs", "items", "files", "audit_events"} <= set(data)
-    assert data["generators"] and data["fields"] and data["files"]
-    assert "Maria Souza" in json.dumps(data["items"], ensure_ascii=False)  # valores preenchidos vão no export
     raw = out.read_text(encoding="utf-8")
-    assert "PK\u0003\u0004" not in raw and "word/document.xml" not in raw  # nenhum .docx embutido
-    assert all("storage_key" in f for f in data["files"])  # só a referência ao arquivo
+    data = json.loads(raw)
+    tables = data["tabelas"]
+    expected = {
+        "document_generators", "template_versions", "template_blocks", "fields", "field_options",
+        "field_occurrences", "field_suggestions", "template_files", "generation_jobs", "generation_items",
+        "generated_files", "audit_events", "workspace_members", "document_kits", "document_kit_items",
+        "kit_fields", "batch_imports", "kit_runs", "ai_analysis_runs", "kit_field_options",
+    }  # fmt: skip
+    assert expected <= set(tables)
+    assert "user_sessions" not in tables
+    assert tables["template_blocks"] and tables["generation_items"] and tables["document_kits"]
+    assert "Maria Souza" in json.dumps(tables["generation_items"], ensure_ascii=False)  # valores preenchidos
+    assert data["usuarios"] and all("password_hash" not in u for u in data["usuarios"])
+    for secret in ("password_hash", "token_hash", "csrf_token", "idempotency_key", "argon2"):
+        assert secret not in raw
+    assert "PK" not in raw  # sem --files, nenhum binário
+    assert all("arquivo_exportado" not in f for f in tables["generated_files"])
+
+
+def test_export_with_files_copies_the_binaries(api, demo_docx, tmp_path):
+    ws_id = _workspace_with_files(api, demo_docx)
+    out, files = tmp_path / "export.json", tmp_path / "arquivos"
+    assert cli.main(["export-workspace", str(ws_id), str(out), "--files", str(files)]) == 0
+    data = json.loads(out.read_text(encoding="utf-8"))
+    recs = data["tabelas"]["template_files"] + data["tabelas"]["generated_files"]
+    assert recs and all(r["arquivo_exportado"] for r in recs)
+    storage = get_storage()
+    for r in recs:
+        assert (files / r["arquivo_exportado"]).read_bytes() == storage.get(r["storage_key"])
+
+
+def test_purge_removes_accounts_left_without_workspace_but_keeps_shared_ones(api, api2, demo_docx):
+    ws_id = _workspace_with_files(api, demo_docx)
+    owner_email = api.get("/auth/me").json()["user"]["email"]
+    other = api2.register()
+    other_ws = uuid.UUID(api2.get("/auth/me").json()["workspace"]["id"])
+    with get_factory()() as db:  # a segunda pessoa também é membro do workspace eliminado
+        uid = db.scalar(select(User.id).where(User.email == other["email"]))
+        db.add(WorkspaceMember(workspace_id=ws_id, user_id=uid, role="member"))
+        db.commit()
+    r = purge_workspace(ws_id)
+    assert r.records_deleted and r.users_deleted == 1
+    with get_factory()() as db:
+        assert (
+            db.scalar(select(User).where(User.email == owner_email)) is None
+        )  # sem outro workspace: removida
+        kept = db.scalar(select(User).where(User.email == other["email"]))
+        assert kept is not None  # continua: ainda é membro do próprio workspace
+        assert (
+            db.scalar(
+                select(func.count()).select_from(WorkspaceMember).where(WorkspaceMember.user_id == kept.id)
+            )
+            == 1
+        )
+        assert db.get(Workspace, other_ws) is not None
+
+
+def _expire_all(ws_id: uuid.UUID) -> int:
+    with get_factory()() as db:
+        files = db.scalars(select(GeneratedFile).where(GeneratedFile.workspace_id == ws_id)).all()
+        for f in files:
+            f.expires_at = utcnow() - timedelta(days=1)
+        db.commit()
+        return len(files)
+
+
+def test_cleanup_removes_every_expired_file_in_batches(api, demo_docx):
+    ws_id = _workspace_with_files(api, demo_docx)
+    gid = api.get("/generators").json()["items"][0]["id"]
+    for _ in range(2):
+        api.post(f"/generators/{gid}/generate", json={"values": SAMPLE_VALUES, "format": "docx"})
+    n = _expire_all(ws_id)
+    assert n >= 3
+    report = cleanup_expired_report(batch=1)  # lote de 1: precisa repetir até zerar
+    assert report == {"removidos": n, "falhas": 0, "pendentes": 0}
+    with get_factory()() as db:
+        left = db.scalars(select(GeneratedFile).where(GeneratedFile.workspace_id == ws_id)).all()
+        assert all(f.deleted_at is not None for f in left)
+        assert not any(get_storage().exists(f.storage_key) for f in left)
+
+
+def test_cleanup_with_storage_failure_reports_pending_and_exits_1(api, demo_docx, monkeypatch, capsys):  # type: ignore[no-untyped-def]
+    ws_id = _workspace_with_files(api, demo_docx)
+    n = _expire_all(ws_id)
+
+    class Down:
+        def delete(self, key: str) -> None:
+            raise StorageError("S3 indisponível")
+
+    monkeypatch.setattr("app.modules.generation.runner.get_storage", lambda: Down())
+    assert cli.main(["cleanup"]) == 1
+    out = capsys.readouterr().out
+    assert f"falhas: {n}" in out and f"ainda pendentes: {n}" in out
 
 
 def test_cleanup_exit_code_reports_failures(monkeypatch, capsys):  # type: ignore[no-untyped-def]
@@ -106,6 +197,11 @@ def test_cleanup_exit_code_reports_failures(monkeypatch, capsys):  # type: ignor
     )
     assert cli.main(["cleanup"]) == 1
     assert "falhas: 1" in capsys.readouterr().out
+    monkeypatch.setattr(
+        "app.modules.generation.runner.cleanup_expired_report",
+        lambda batch=500: {"removidos": 0, "falhas": 0, "pendentes": 2},
+    )
+    assert cli.main(["cleanup"]) == 1  # pendentes sem falha (ex.: limite de lotes) também alerta
     monkeypatch.setattr(
         "app.modules.generation.runner.cleanup_expired_report",
         lambda batch=500: {"removidos": 0, "falhas": 0, "pendentes": 0},
