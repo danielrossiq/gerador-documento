@@ -28,6 +28,7 @@ x-app-env: &app-env
   # travas do piloto (padrão desligado): importar PDF como modelo e qualquer IA externa (Anthropic, TypeSafe)
   PDF_IMPORT_ENABLED: ${PDF_IMPORT_ENABLED:-false}
   EXTERNAL_AI_ENABLED: ${EXTERNAL_AI_ENABLED:-false}
+  ACTIVATION_METRICS_ENABLED: ${ACTIVATION_METRICS_ENABLED:-false}   # agregados de ativação (D32), opt-in
   FILE_RETENTION_DAYS: ${FILE_RETENTION_DAYS:-7}
   SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-demo12345}
   LOG_JSON: "true"

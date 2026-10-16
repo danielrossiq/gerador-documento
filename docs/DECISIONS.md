@@ -210,3 +210,16 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
 - **Canônico** "UF NÚMERO[-SUFIXO]" (ex.: "ES 12345", "SP 123456-A"); **no documento** "OAB/ES 12.345". Aceita "OAB/ES 12.345", "ES 12345", "12.345/ES", "OAB-SP nº 123.456-A"; sufixos A (suplementar), B (transferência), E (estagiário); recusa UF inexistente, zero e mais de 6 dígitos. Mesma regra no servidor e no cliente (vetores compartilhados).
 - **Sugestão**: "OAB/UF [nº] número" vira campo OAB (com o papel da parte, ex.: `oab_outorgado`). "inscrita na OAB/SP sob o nº …" fica de fora, porque substituir o trecho mudaria a redação.
 - **Migration 0005**: troca a restrição CHECK das duas tabelas. O downgrade converte campos `oab` em `text_short` antes de recriar a restrição antiga, então não falha com dados existentes. Testada em PostgreSQL 17 (`MIGRATION_DATABASE_URL`): 0004 → head → dado `oab` → downgrade (vira `text_short`) → head → `alembic check`. Aplicada na stack `minuta-fase0` pelo serviço `migrate`.
+
+## D32 — Métricas de ativação só agregadas e opt-in (item 9a)
+- **Pedido (revisão de segurança + Product Owner)**: medir a meta do piloto (1º documento em até 5 min, retorno em D7) sem eventos individuais, sem IDs pseudônimos, sem horário exato, sem IP/UUID/PII/conteúdo/atributo livre, sem detalhamento por cliente, sem reaproveitar `audit_events` nem `/metrics`; agregados sem FK e retenção máxima de 30 dias com limpeza monitorada.
+- **Decisão**:
+  - Nada de coleta de eventos. Um rollup diário (`python -m app.cli metrics-rollup`) **deriva** contagens das tabelas que já existem (`workspaces`, `template_files`, `generation_jobs`); os identificadores ficam só em memória durante o cálculo.
+  - A tabela `activation_metrics` tem chave natural (tipo de período, início do período, métrica): nada de UUID de linha, workspace, usuário ou horário — só datas. Não tem FK.
+  - Métricas, lista fechada com CHECK: `workspaces_novos`, `modelos_enviados`, `primeiro_documento`, `primeiro_documento_ate_5min`, `lotes_concluidos` (por dia UTC, só dias completos) e `coorte_tamanho`, `coorte_retorno_d7` (por semana de criação, só coortes cuja janela de 14 dias terminou).
+  - **Supressão < 5**: o valor não é gravado (NULL + `suppressed`). O banco recusa `value < 5` (CHECK). Dias sem evento também viram linha suprimida, então 0 e 1–4 ficam indistinguíveis.
+  - **Opt-in** (`ACTIVATION_METRICS_ENABLED=false` por padrão): desligado, nada é calculado nem gravado.
+  - **Retenção**: rollup e `cleanup` apagam o que tiver mais de 30 dias, mesmo desligado.
+  - **Leitura**: só por CLI (`metrics-report`). Não há rota de API nem visão por workspace.
+- **Gate que continua aberto**: ligar no piloto exige base legal e aviso aos participantes documentados (D29/D30). Até lá, desligado.
+- Migration `0006`. Testes: `test_activation_metrics.py`.

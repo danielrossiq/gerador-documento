@@ -13,6 +13,7 @@
 | Auditoria — `audit_events` | banco | enquanto o workspace existir; não guarda valores, conteúdo, CPF nem e-mail | `purge-workspace` |
 | Usuários e sessões | banco | enquanto a pessoa for membro de algum workspace; sessões expiram (`SESSION_TTL_HOURS`) | `purge-workspace` apaga as contas que ficam **sem nenhum workspace** (com sessões, tokens de recuperação e identidades). Quem é membro de outro workspace continua |
 | Logs da aplicação | saída padrão (JSON) → coletor da infraestrutura | definido pela infraestrutura | **política**: até 30 dias. Os logs não levam conteúdo de documento nem valores: o código não os passa, um filtro mascara CPF/CNPJ/e-mail/telefone e exceções são registradas **sem a mensagem**, só com tipo e linha do código (`safe_exception_text`). Levam IDs e IP |
+| Métricas de ativação agregadas — `activation_metrics` (D32; só se `ACTIVATION_METRICS_ENABLED=true`) | banco | **no máximo 30 dias** | `metrics-rollup` e `cleanup` apagam o que tiver mais de 30 dias, mesmo com as métricas desligadas. Sem vínculo com workspace, então não entra no export nem no purge: não há dado pessoal |
 | Backups do PostgreSQL e do MinIO | infraestrutura | **não existem no repositório** | **política**: até 35 dias, criptografados. Um workspace eliminado só some dos backups quando eles expiram; registrar a data da eliminação para não restaurá-lo |
 
 Pendências (registradas, não resolvidas aqui):

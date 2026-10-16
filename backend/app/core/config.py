@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     # Trava geral de serviços externos de IA (Anthropic e TypeSafe/Jev). Desligada por padrão (piloto): mesmo com
     # AI_PROVIDER=anthropic/auto e chaves configuradas, nada sai do servidor; valem só regras e heurísticas locais.
     external_ai_enabled: bool = False
+    # Métricas de ativação agregadas (D32): opt-in. Desligadas, nada é calculado nem gravado.
+    activation_metrics_enabled: bool = False
     ai_provider: Literal["auto", "local", "anthropic", "none"] = "auto"
     ai_api_key: str | None = None
     ai_base_url: str = "https://api.anthropic.com"

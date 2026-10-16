@@ -190,7 +190,7 @@ def test_cleanup_with_storage_failure_reports_pending_and_exits_1(api, demo_docx
     assert f"falhas: {n}" in out and f"ainda pendentes: {n}" in out
 
 
-def test_cleanup_exit_code_reports_failures(monkeypatch, capsys):  # type: ignore[no-untyped-def]
+def test_cleanup_exit_code_reports_failures(api, monkeypatch, capsys):  # type: ignore[no-untyped-def]
     monkeypatch.setattr(
         "app.modules.generation.runner.cleanup_expired_report",
         lambda batch=500: {"removidos": 3, "falhas": 1, "pendentes": 1},

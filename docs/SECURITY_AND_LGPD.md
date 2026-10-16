@@ -46,6 +46,12 @@ Política completa e runbook: **[RETENCAO_E_ELIMINACAO.md](RETENCAO_E_ELIMINACAO
 - **Eliminação**: `python -m app.cli purge-workspace <id> --yes` marca a eliminação como pendente (acesso bloqueado), apaga os arquivos do storage e **só então** apaga os registros. Se o storage falhar, sai com código 1 e mantém os registros para nova tentativa (idempotente). Na mesma transação, apaga as contas que ficaram sem nenhum workspace.
 - Geradores excluídos pelo usuário sofrem *soft delete*; a exclusão definitiva ocorre via `purge-workspace`.
 
+## Métricas de ativação (D32)
+- Desligadas por padrão (`ACTIVATION_METRICS_ENABLED`). Quando ligadas, só contagens por dia ou por semana de coorte, derivadas uma vez por dia das tabelas existentes. Não há eventos, IDs, horários, IP nem conteúdo.
+- Grupos com menos de 5 são suprimidos, e o banco recusa valores abaixo de 5.
+- Sem FK, sem leitura por workspace, sem API. Retenção máxima de 30 dias.
+- Ligar no piloto depende de base legal e aviso aos participantes.
+
 ## Transporte e repouso
 - TLS deve ser terminado no proxy reverso (o compose de desenvolvimento é HTTP). Cabeçalhos de segurança básicos (`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`) e `Cache-Control: no-store` nas respostas de API.
 - Criptografia em repouso: `S3_SSE=true` habilita SSE-S3; para disco/banco use a criptografia do provedor de infraestrutura.

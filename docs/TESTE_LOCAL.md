@@ -39,7 +39,7 @@ Rodar na raiz do repositório (Git Bash):
 
 ```bash
 export WEB_PORT=3210 API_PORT=8110 MINIO_CONSOLE_PORT=9111   # PowerShell: $env:WEB_PORT="3210"; …
-docker compose -p minuta-fase0 up -d --build    # aplica migrations (até 0005) e o seed, sem apagar dados
+docker compose -p minuta-fase0 up -d --build    # aplica migrations (até 0006) e o seed, sem apagar dados
 docker compose -p minuta-fase0 ps
 docker compose -p minuta-fase0 stop             # parar (mantém dados)
 ```
@@ -78,6 +78,8 @@ docker exec minuta-fase0-redis-1 sh -c 'for k in $(redis-cli --scan --pattern "r
 
 ```bash
 docker exec minuta-fase0-api-1 python -m app.cli cleanup                              # sai com 1 se sobrar pendente
+docker exec minuta-fase0-api-1 python -m app.cli metrics-rollup                       # agregados de ativação (só com ACTIVATION_METRICS_ENABLED=true)
+docker exec minuta-fase0-api-1 python -m app.cli metrics-report
 docker exec minuta-fase0-api-1 python -m app.cli export-workspace <id> /tmp/x.json --files /tmp/arquivos
 docker exec minuta-fase0-api-1 python -m app.cli purge-workspace <id> --yes           # IRREVERSÍVEL
 ```

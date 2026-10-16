@@ -2,6 +2,8 @@
 
 seed                      cria workspace/usuário/gerador de demonstração (idempotente)
 cleanup                   remove arquivos gerados expirados (agendar via cron/Kubernetes CronJob)
+metrics-rollup            agregados diários de ativação (opt-in; D32)
+metrics-report            lista os agregados de ativação
 requeue-stuck             reenfileira jobs abandonados por um worker que caiu (o worker já faz isso sozinho)
 export-workspace ID OUT [--files DIR]  exporta o workspace em JSON (+ arquivos) — LGPD: portabilidade
 purge-workspace ID --yes  apaga workspace, arquivos e contas sem outro workspace (LGPD: eliminação)
@@ -21,13 +23,48 @@ from app.core.logging import configure_logging
 def cmd_cleanup(_: argparse.Namespace) -> int:
     """Remove todos os expirados (em lotes). Saída != 0 se algum não saiu do storage ou ainda há pendentes:
     o agendador (cron/CronJob) deve alertar."""
+    from app.db.session import get_factory
     from app.modules.generation.runner import cleanup_expired_report
+    from app.modules.metrics.activation import purge_expired
 
     r = cleanup_expired_report()
+    with get_factory()() as db:  # agregados de ativação com mais de 30 dias (D32)
+        expired_metrics = purge_expired(db)
+        db.commit()
+    print(f"agregados de ativação expirados removidos: {expired_metrics}")
     print(
         f"arquivos expirados removidos: {r['removidos']} · falhas: {r['falhas']} · ainda pendentes: {r['pendentes']}"
     )
     return 1 if r["falhas"] or r["pendentes"] else 0
+
+
+def cmd_metrics_rollup(_: argparse.Namespace) -> int:
+    """Agregados diários de ativação (opt-in, D32). Agendar 1x/dia; também aplica a retenção de 30 dias."""
+    from app.modules.metrics.activation import rollup
+
+    r = rollup()
+    if not r.enabled:
+        print(
+            f"métricas de ativação desligadas (ACTIVATION_METRICS_ENABLED); expiradas removidas: {r.rows_expired}"
+        )
+        return 0
+    print(
+        f"agregados gravados: {r.rows_written} ({r.rows_suppressed} suprimidos por < 5); expirados: {r.rows_expired}"
+    )
+    return 0
+
+
+def cmd_metrics_report(_: argparse.Namespace) -> int:
+    """Lista os agregados (só período × métrica × contagem; '<5' quando suprimido)."""
+    from app.modules.metrics.activation import report
+
+    rows = report()
+    if not rows:
+        print("sem agregados (métricas desligadas ou ainda não calculadas)")
+    for r in rows:
+        value = "<5" if r.suppressed else str(r.value)
+        print(f"{r.period_kind} | {r.period_start.isoformat()} | {r.metric} | {value}")
+    return 0
 
 
 def cmd_requeue(_: argparse.Namespace) -> int:
@@ -96,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("seed").set_defaults(fn=cmd_seed)
     sub.add_parser("cleanup").set_defaults(fn=cmd_cleanup)
     sub.add_parser("requeue-stuck").set_defaults(fn=cmd_requeue)
+    sub.add_parser("metrics-rollup").set_defaults(fn=cmd_metrics_rollup)
+    sub.add_parser("metrics-report").set_defaults(fn=cmd_metrics_report)
     e = sub.add_parser("export-workspace")
     e.add_argument("workspace_id")
     e.add_argument("out")

@@ -46,7 +46,7 @@ Escalas usadas abaixo:
 |---|---|---|---|
 | 1 | 3 Data por extenso | feito | — |
 | 2 | 5 Campo OAB | feito (0005) | — |
-| 3 | 9a Instrumentação de ativação sem conteúdo | não | Security review de privacidade/retenção (gate) |
+| 3 | 9a Métricas de ativação | feito (D32, opt-in) | ligar no piloto: base legal + aviso aos participantes |
 | 4 | 6 Biblioteca de modelos jurídicos | não | handoff de design (galeria) e revisão jurídica dos textos (custo: parecer profissional, adiado) |
 | 5 | 7/8 Condicionais e partes repetíveis | não | Security review (mexe no parser/compilador DOCX) e design do editor |
 | 6 | 9 Onboarding por perfil | não | design e Security review (toca o cadastro) |
@@ -59,7 +59,7 @@ Escalas usadas abaixo:
 | 6 | **Biblioteca de modelos jurídicos** (procuração ad judicia, contrato de honorários, substabelecimento, declaração de hipossuficiência) como "Experimentar com um exemplo" | A | B/M (textos precisam de revisão jurídica) | M | design (galeria), revisão jurídica | revisão de conteúdo | Cada modelo gera DOCX e PDF válidos, com campos e extenso. Avisa que é exemplo, não orientação jurídica. |
 | 7 | **Cláusulas condicionais** (bloco que aparece por Sim/Não) | A | M (parser/compilador DOCX) | G | design do editor | Security review: muda o parser | Bloco marcado some ou aparece no DOCX e no PDF sem quebrar numeração nem estilos; testes de compilação para tabela, lista e cabeçalho. |
 | 8 | **Partes repetíveis** (N outorgantes/réus) | A | M (parser) | G | 7 | Security review | Gera N blocos de qualificação; lote e kit continuam funcionando. |
-| 9a | **Instrumentação de ativação sem conteúdo** (`template_upload_started/completed`, `first_generation_completed`, tempo até o 1º documento, lote, retorno D7/D30) gravada localmente, com IDs pseudônimos | A (mede a meta do piloto) | M (dados de uso, LGPD) | M | — | Security review (privacidade/retenção) | Nenhum evento carrega texto do documento, valores de campo, nome ou e-mail; retenção documentada; relatório local de ativação. |
+| 9a | **Métricas de ativação agregadas** — **feito, opt-in (D32)**: contagens por dia/coorte derivadas das tabelas existentes, sem eventos nem IDs; ligar no piloto depende de base legal e aviso aos participantes | A (mede a meta do piloto) | M (dados de uso, LGPD) | M | — | revisão de segurança feita; base legal/aviso antes de ligar | Sem ID, horário exato, IP ou conteúdo; supressão < 5; sem FK; retenção 30 dias no rollup e no cleanup (`test_activation_metrics.py`). |
 | 9 | Onboarding self-service orientado a escritório (perfil "advocacia" no cadastro) | M | M (toca cadastro) | M | design | Security review (auth) | Sem mudar o modelo de sessão ou permissões; só conteúdo inicial. |
 
 ## Depois (área sensível — só depois de Security review)

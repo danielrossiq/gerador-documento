@@ -21,6 +21,7 @@ from app.db.models.kits import (
     KitFieldOption,
     KitRun,
 )
+from app.db.models.metrics import ActivationMetric
 from app.db.models.templates import (
     AIAnalysisRun,
     DocumentGenerator,
@@ -35,6 +36,7 @@ from app.db.models.templates import (
 
 __all__ = [
     "AIAnalysisRun",
+    "ActivationMetric",
     "AuditEvent",
     "AuthIdentity",
     "Base",
