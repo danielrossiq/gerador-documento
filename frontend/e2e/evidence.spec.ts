@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { demoGeneratorId, login } from "./helpers";
+import { csrfHeaders, demoGeneratorId, login } from "./helpers";
 
 // Coleta de evidências para a matriz de aceite da Fase 2 (design/fase2-minuta-especificacao.md):
 // cada rota × viewport (1440, 1024, 390, 320) → captura full-page, rolagem horizontal da página e axe com
@@ -110,7 +110,12 @@ for (const vp of VIEWPORTS) {
     await record(page, "M6-kits", "/kits", "lista ou vazio", vp.name);
     await page.goto("/kits/new");
     await record(page, "M7-novo-kit", "/kits/new", "inicial", vp.name);
-    const kits = (await (await page.request.get("/api/v1/kits")).json()) as { items: { id: string }[] };
+    let kits = (await (await page.request.get("/api/v1/kits")).json()) as { items: { id: string }[] };
+    if (!kits.items.length) {
+      // a conta de demonstração não tem kit: cria o kit de exemplo (o mesmo do botão "Experimentar com um exemplo")
+      await page.request.post("/api/v1/samples/kit", { headers: await csrfHeaders(page) });
+      kits = (await (await page.request.get("/api/v1/kits")).json()) as { items: { id: string }[] };
+    }
     if (kits.items[0]) {
       await page.goto(`/kits/${kits.items[0].id}/edit`);
       await record(page, "M8-kit-editar", "/kits/[id]/edit", "mapeamento", vp.name);

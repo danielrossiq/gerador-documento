@@ -18,10 +18,10 @@ O resultado vai para `resultados.json`. As capturas (PNG, cerca de 6 MB) não s�
 
 | Viewport | Rotas/estados | Rolagem horizontal da página | Violações axe (WCAG 2.2 A/AA) |
 |---|---|---|---|
-| 1440×900 | 20 | 0 | 0 |
-| 1024×768 | 20 | 0 | 0 |
-| 390×844 | 20 | 0 | 0 |
-| 320×720 | 20 | 0 | 0 |
+| 1440×900 | 22 | 0 | 0 |
+| 1024×768 | 22 | 0 | 0 |
+| 390×844 | 22 | 0 | 0 |
+| 320×720 | 22 | 0 | 0 |
 
 Rotas e estados cobertos:
 - **Sem sessão:** A1 login (inicial e erro de campo), A2 cadastro, A3 esqueci a senha, A4 redefinir (sem token e com token).
@@ -31,13 +31,13 @@ Rotas e estados cobertos:
   - M3 editor e M3b revisão;
   - M4 preencher (inicial e com erros);
   - M5 lote;
-  - M6 kits e M7 novo kit;
+  - M6 kits, M7 novo kit, M8 editar kit e M9 usar kit (kit de exemplo criado pela coleta, se a conta não tiver);
   - M10 histórico;
   - M11 detalhe do histórico (sucesso e parcial).
 
 ## Defeitos encontrados e corrigidos nesta coleta
 
-A primeira rodada encontrou 12 casos de rolagem horizontal e uma violação WCAG 2.2:
+Coleta refeita no commit do tipo OAB (6fecfde). A primeira rodada encontrou 12 casos de rolagem horizontal e uma violação WCAG 2.2:
 
 | Defeito | Onde | Correção |
 |---|---|---|
@@ -51,8 +51,7 @@ A primeira rodada encontrou 12 casos de rolagem horizontal e uma violação WCAG
 ## Lacunas desta coleta
 
 - **Sem dados para o estado:**
-  - M8/M9 (editar e usar kit): a conta de demonstração não tem kit;
-  - M11 com falha: não há job falho.
-  - O E2E `kits.spec.ts` percorre o fluxo de kit, mas sem captura nos 4 viewports.
+  - M11 com falha: não há job falho na stack de teste;
+  - resultado da execução de um kit (o E2E `kits.spec.ts` gera e baixa o ZIP, mas sem captura nos 4 viewports).
 - **Estados sem captura:** carregando, sessão expirada e A0 (redirecionamento).
 - **Não automatizável aqui:** teclado virtual real, zoom de 200%, leitor de tela e verificação manual de contraste em hover/disabled. O axe confere contraste só do estado renderizado. Esta coleta **não** declara conformidade WCAG.

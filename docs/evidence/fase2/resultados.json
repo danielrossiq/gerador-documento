@@ -970,5 +970,101 @@
   "horizontalOverflow": false,
   "overflowingElements": [],
   "axe": []
+ },
+ {
+  "id": "M8-kit-editar",
+  "route": "/kits/[id]/edit",
+  "state": "mapeamento",
+  "viewport": "1440",
+  "screenshot": "1440/M8-kit-editar.png",
+  "pageScrollWidth": 1440,
+  "clientWidth": 1440,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M9-kit-usar",
+  "route": "/kits/[id]/use",
+  "state": "formulário",
+  "viewport": "1440",
+  "screenshot": "1440/M9-kit-usar.png",
+  "pageScrollWidth": 1440,
+  "clientWidth": 1440,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M8-kit-editar",
+  "route": "/kits/[id]/edit",
+  "state": "mapeamento",
+  "viewport": "1024",
+  "screenshot": "1024/M8-kit-editar.png",
+  "pageScrollWidth": 1024,
+  "clientWidth": 1024,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M9-kit-usar",
+  "route": "/kits/[id]/use",
+  "state": "formulário",
+  "viewport": "1024",
+  "screenshot": "1024/M9-kit-usar.png",
+  "pageScrollWidth": 1024,
+  "clientWidth": 1024,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M8-kit-editar",
+  "route": "/kits/[id]/edit",
+  "state": "mapeamento",
+  "viewport": "390",
+  "screenshot": "390/M8-kit-editar.png",
+  "pageScrollWidth": 390,
+  "clientWidth": 390,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M9-kit-usar",
+  "route": "/kits/[id]/use",
+  "state": "formulário",
+  "viewport": "390",
+  "screenshot": "390/M9-kit-usar.png",
+  "pageScrollWidth": 390,
+  "clientWidth": 390,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M8-kit-editar",
+  "route": "/kits/[id]/edit",
+  "state": "mapeamento",
+  "viewport": "320",
+  "screenshot": "320/M8-kit-editar.png",
+  "pageScrollWidth": 320,
+  "clientWidth": 320,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
+ },
+ {
+  "id": "M9-kit-usar",
+  "route": "/kits/[id]/use",
+  "state": "formulário",
+  "viewport": "320",
+  "screenshot": "320/M9-kit-usar.png",
+  "pageScrollWidth": 320,
+  "clientWidth": 320,
+  "horizontalOverflow": false,
+  "overflowingElements": [],
+  "axe": []
  }
 ]
