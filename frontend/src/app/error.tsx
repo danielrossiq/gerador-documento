@@ -1,0 +1,3 @@
+"use client";
+import Link from "next/link";
+export default function ErrorPage({reset}:{error:Error & {digest?:string};reset:()=>void}){return <main id="main" className="grid min-h-screen place-items-center p-8 text-center"><div><img src="/assets/error.svg" alt="" width="360" height="230" className="mx-auto mb-8"/><h1 className="text-3xl">Algo interrompeu este passo.</h1><p className="my-5 text-sm text-muted">Tente novamente. Se o problema continuar, volte ao início.</p><div className="flex flex-wrap justify-center gap-4"><button onClick={reset} className="cta">Tentar novamente</button><Link href="/" className="cta cta-secondary">Voltar ao início</Link></div></div></main>}

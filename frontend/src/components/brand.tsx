@@ -1,0 +1,2 @@
+import Link from "next/link";
+export function Brand({href="/"}:{href?:string}){return <Link href={href} className="brand" aria-label="Minuta — início"><svg width="30" height="32" viewBox="0 0 40 44" fill="none" aria-hidden><path d="M7 39V5h9l4 14 4-14h9v34h-8V19l-5 15-5-15v20H7Z" fill="currentColor"/><path d="M2 42h36" stroke="currentColor" strokeWidth="2"/></svg><span>minuta<span className="brand-dot">.</span></span></Link>}

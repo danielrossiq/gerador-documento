@@ -1,101 +1,33 @@
 "use client";
-
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileStack, FileText, History, Home, Layers, LogOut, User } from "lucide-react";
+import {useQuery,useQueryClient} from "@tanstack/react-query";
+import {FileStack,History,Home,Layers,LogOut,User,Sparkles,CreditCard,Menu,X,ArrowUpRight,ChevronRight} from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { ActionMenu } from "@/components/ui/menu";
-import { api } from "@/lib/api";
-import type { Me } from "@/lib/types";
-import { APP_NAME, cn } from "@/lib/utils";
-
-export function useMe() {
-  return useQuery({ queryKey: ["me"], queryFn: () => api.get<Me>("/auth/me"), staleTime: 60_000 });
-}
-
-const NAV = [
-  { href: "/dashboard", label: "Início", icon: Home, also: [] as string[] },
-  { href: "/models", label: "Modelos", icon: FileStack, also: ["/generators"] },
-  { href: "/kits", label: "Kits", icon: Layers, also: [] as string[] },
-  { href: "/history", label: "Histórico", icon: History, also: [] as string[] },
+import {usePathname,useRouter} from "next/navigation";
+import {useEffect,useState,type ReactNode} from "react";
+import {api} from "@/lib/api";
+import type {Me} from "@/lib/types";
+import {Brand} from "@/components/brand";
+import {ThemeToggle} from "@/components/theme-toggle";
+export function useMe(){return useQuery({queryKey:["me"],queryFn:()=>api.get<Me>("/auth/me"),staleTime:60_000});}
+const NAV=[
+ {href:"/dashboard",label:"Visão geral",icon:Home,also:["/home"]},
+ {href:"/models",label:"Meus modelos",icon:FileStack,also:["/generators"]},
+ {href:"/kits",label:"Kits de documentos",icon:Layers,also:[]},
+ {href:"/history",label:"Histórico",icon:History,also:[]},
+ {href:"/assistant",label:"Assistente IA",icon:Sparkles,also:[]},
+ {href:"/billing",label:"Plano e uso",icon:CreditCard,also:[]},
+ {href:"/account",label:"Minha conta",icon:User,also:[]},
 ];
-
-export function AppShell({ children, wide }: { children: ReactNode; wide?: boolean }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const qc = useQueryClient();
-  const me = useMe().data;
-
-  async function logout() {
-    await api.post("/auth/logout").catch(() => undefined);
-    qc.clear();
-    router.replace("/login");
-  }
-
-  return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-border bg-surface">
-        <div className={cn("mx-auto flex h-14 items-center gap-2 px-4 sm:gap-6", wide ? "max-w-[1600px]" : "max-w-6xl")}>
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-primary">
-            <FileText className="h-5 w-5" aria-hidden />
-            <span className="hidden min-[380px]:inline">{APP_NAME}</span>
-            <span className="sr-only min-[380px]:hidden">{APP_NAME}</span>
-          </Link>
-          <nav aria-label="Principal" className="flex gap-1">
-            {NAV.map((n) => {
-              const active = pathname.startsWith(n.href) || n.also.some((p) => pathname.startsWith(p));
-              return (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium",
-                    active ? "bg-primary-soft text-primary" : "text-muted hover:bg-surface-2 hover:text-fg",
-                  )}
-                >
-                  <n.icon className="h-4 w-4" aria-hidden />
-                  {/* no celular só o ícone aparece; o texto continua disponível para leitores de tela */}
-                  <span className="sr-only sm:not-sr-only">{n.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-          <div className="ml-auto">
-            <ActionMenu
-              label="Menu do usuário"
-              trigger={
-                <Button variant="ghost" className="gap-2" aria-label={`Conta de ${me?.user.name ?? "usuário"}`}>
-                  <User className="h-4 w-4" aria-hidden />
-                  <span className="hidden max-w-40 truncate sm:inline">{me?.user.name}</span>
-                </Button>
-              }
-              items={[
-                { label: `${me?.workspace.name ?? ""} (${me?.workspace.role === "owner" ? "proprietário" : "membro"})`, onSelect: () => {}, disabled: true },
-                { separator: true },
-                { label: "Sair", icon: <LogOut className="h-4 w-4" aria-hidden />, onSelect: logout },
-              ]}
-            />
-          </div>
-        </div>
-      </header>
-      <main id="main" className={cn("mx-auto px-4 py-8", wide ? "max-w-[1600px]" : "max-w-6xl")}>
-        {children}
-      </main>
-    </div>
-  );
+export function AppShell({children,wide=false}:{children:ReactNode;wide?:boolean}){
+ const pathname=usePathname();const router=useRouter();const qc=useQueryClient();const {data:me}=useMe();const [open,setOpen]=useState(false);
+ useEffect(()=>{setOpen(false);},[pathname]);
+ useEffect(()=>{if(!open)return;const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape"){setOpen(false);document.getElementById("workspace-menu")?.focus();}};document.addEventListener("keydown",onKey);return()=>document.removeEventListener("keydown",onKey);},[open]);
+ async function logout(){await api.post("/auth/logout").catch(()=>undefined);qc.clear();router.replace("/login");}
+ function active(n:typeof NAV[number]){return pathname===n.href||pathname.startsWith(n.href+"/")||n.also.some(p=>pathname===p||pathname.startsWith(p+"/"));}
+ const current=NAV.find(active)?.label??"Espaço de trabalho";
+ return <div className="workspace">{open&&<button className="workspace-overlay" onClick={()=>setOpen(false)} aria-label="Fechar navegação" tabIndex={-1}/>}
+ <aside className="workspace-sidebar" data-open={open} aria-label="Espaço de trabalho"><Brand href="/dashboard"/><button className="theme-toggle workspace-mobile-close" onClick={()=>setOpen(false)} aria-label="Fechar menu"><X size={17}/></button><p className="workspace-label">SEU ESPAÇO DE TRABALHO</p><nav className="workspace-nav" aria-label="Navegação principal">{NAV.map(n=><Link href={n.href} key={n.href} aria-current={active(n)?"page":undefined}><n.icon size={17} strokeWidth={1.6} aria-hidden/><span>{n.label}</span>{n.href==="/assistant"&&<small className="nav-ai-tag">IA</small>}</Link>)}</nav><div className="workspace-sidebar-bottom"><div className="workspace-tip"><p>Um modelo.<br/>Novas possibilidades.</p><Link href="/generators/new">Criar meu próximo modelo <ArrowUpRight size={13}/></Link></div><button onClick={logout} className="workspace-logout"><LogOut size={16}/> Sair da conta</button></div></aside>
+ <header className="workspace-topbar"><div className="workspace-breadcrumb"><button id="workspace-menu" className="theme-toggle workspace-menu-trigger" onClick={()=>setOpen(!open)} aria-expanded={open} aria-label="Abrir navegação"><Menu size={18}/></button><span>Espaço de trabalho</span><ChevronRight size={12} aria-hidden/><strong>{current}</strong></div><div className="workspace-topbar-right"><ThemeToggle/><Link className="workspace-user" href="/account" aria-label="Minha conta"><span className="workspace-user-email">{me?.user.email??"Minha conta"}</span><span className="workspace-avatar" aria-hidden>{me?.user.email?.slice(0,2).toUpperCase()??"M"}</span></Link></div></header>
+ <main id="main" className={"workspace-main"+(wide?" workspace-main-wide":"")}>{children}</main></div>;
 }
-
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
-  return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted">{description}</p>}
-      </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </div>
-  );
-}
+export function PageHeader({title,description,actions}:{title:string;description?:string;actions?:ReactNode}){return <div className="page-header"><div><h1>{title}</h1>{description&&<p>{description}</p>}</div>{actions&&<div className="page-header-actions">{actions}</div>}</div>}

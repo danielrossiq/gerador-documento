@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Minuta">
-  <rect width="32" height="32" rx="8" fill="#4338ca"/>
-  <path d="M10 7h8l5 5v13a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z" fill="#fff"/>
-  <path d="M18 7v5h5" fill="#c7cafb"/>
-  <rect x="12" y="15" width="8" height="2" rx="1" fill="#4338ca"/>
-  <rect x="12" y="19" width="8" height="2" rx="1" fill="#a5abf0"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" rx="12" fill="#176552"/><path d="M11 36V12h8l5 12 5-12h8v24h-7V23l-6 12-6-12v13h-7Z" fill="#f3f3df"/></svg>
