@@ -6,7 +6,7 @@ Stack Docker separada da stack `minuta` original. Volumes próprios; a stack `mi
 
 | O quê | Onde |
 |---|---|
-| Aplicação | http://localhost:3210 |
+| Aplicação | http://localhost:3210 (landing pública em `/`; ver `docs/SITE.md`) |
 | API (OpenAPI) | http://localhost:8110/api/docs · saúde: http://localhost:8110/health e /ready |
 | Console do MinIO | http://localhost:9111 (usuário e senha: `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` do `.env`) |
 | Login de demonstração | `demo@minuta.app` / `demo12345` (dados fictícios, criados pelo seed) |

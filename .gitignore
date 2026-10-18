@@ -22,3 +22,4 @@ scratch_*
 
 # capturas de evidência (regeráveis com EVIDENCE=1; cópia em Shared/DanielRossi/docs/design/evidencias-fase2)
 docs/evidence/**/*.png
+scripts/.runway-originals/
