@@ -1,0 +1,59 @@
+{
+  "source": "PROVISÓRIO: derivado de landing-spec.md (v1) até chegar Shared/DanielRossi/docs/design/minuta-site/landing-spec-v2.md",
+  "images": [
+    {
+      "slug": "hero-still",
+      "model": "black-forest-labs/flux-3-image",
+      "resolution": "2K",
+      "aspect_ratio": "16:9",
+      "widths": [640, 1024, 1600, 1920],
+      "prompt": "Editorial still life for a calm Brazilian small law office software landing page, an unbranded blank paper form beside a neat stack of blank document sheets and a closed dark navy folder, subtle translucent geometric blocks suggesting structured fields, warm natural side light, muted petroleum blue, warm off-white and restrained amber accents, tactile paper, refined contemporary art direction, generous negative space on the left, no people, no hands, no readable text, no letters, no numbers, no logo, no watermark, no legal cliches, landscape 16:9",
+      "alt": "Ilustração abstrata de folhas em branco organizadas ao lado de uma pasta azul-escura."
+    },
+    {
+      "slug": "workflow-model-fields",
+      "model": "black-forest-labs/flux-3-image",
+      "resolution": "2K",
+      "aspect_ratio": "16:9",
+      "widths": [640, 1024, 1600],
+      "prompt": "Wide editorial still life showing three clear stages with objects only: a blank unbranded document sheet, several small blank amber tabs marking fields, then a clean finished blank page beside a simple review check shape, arranged left to right on a pale warm surface, petroleum blue folder accents, soft daylight, sophisticated restrained product illustration, no people, no readable text, no letters, no numbers, no logo, no watermark, no scales, no gavels, no courthouse columns, landscape 16:9",
+      "alt": "Três etapas abstratas: modelo em branco, marcadores de campos e página pronta para revisão."
+    },
+    {
+      "slug": "batch-spreadsheet",
+      "model": "black-forest-labs/flux-3-image",
+      "resolution": "2K",
+      "aspect_ratio": "1:1",
+      "widths": [400, 720],
+      "prompt": "Square close editorial still life of a blank abstract spreadsheet grid on paper, several aligned rows represented by simple empty rectangles and a small stack of blank output sheets, muted petroleum blue and off-white with tiny amber accents, natural soft light, polished tactile paper illustration, no interface text, no readable text, no letters, no numbers, no logo, no watermark, no people, no legal symbols",
+      "alt": "Grade abstrata sem dados ao lado de folhas geradas em conjunto."
+    },
+    {
+      "slug": "kits-history",
+      "model": "black-forest-labs/flux-3-image",
+      "resolution": "2K",
+      "aspect_ratio": "4:3",
+      "widths": [480, 800, 1200],
+      "prompt": "Editorial still life of three unbranded blank document sheets gathered neatly in one petroleum-blue folder, with a small orderly archive tray in the background, warm off-white tabletop and restrained amber tab accents, soft daylight, minimal premium product art direction, no people, no readable text, no letters, no numbers, no logo, no watermark, no legal cliches, landscape 4:3",
+      "alt": "Modelos em branco reunidos em uma pasta diante de um arquivo organizado."
+    }
+  ],
+  "videos": [
+    {
+      "slug": "hero-loop",
+      "model": "google/veo-3.1-fast",
+      "fallback": "google/veo-3.1-lite",
+      "resolution": "1080p",
+      "aspect_ratio": "16:9",
+      "duration": 8,
+      "frame": "hero-still",
+      "loop": true,
+      "target_bytes": 3000000,
+      "output_width": 1920,
+      "poster_widths": [640, 1024, 1600, 1920],
+      "prompt": "Very slow, calm ambient motion on the same still life: soft daylight drifts gently across the paper, the translucent geometric blocks glide a few millimeters and settle back, subtle shadows breathe; locked-off camera, no cuts, no zoom, no people, no hands, no text appearing, seamless loop that returns exactly to the opening frame",
+      "negative_prompt": "text, letters, numbers, logo, watermark, people, hands, faces, camera shake, fast motion, cuts",
+      "alt": ""
+    }
+  ]
+}

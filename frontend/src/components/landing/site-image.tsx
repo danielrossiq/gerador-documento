@@ -1,12 +1,12 @@
-import manifest from "../../../public/site/manifest.json";
+import media from "./site-media.json";
 
 type Variant = { file: string; width: number; height: number };
 type Entry = { alt: string; variants: Variant[] };
-const images = manifest.images as Record<string, Entry>;
+const images = media.images as Record<string, Entry>;
 
 /**
- * Imagem gerada pela Runway (scripts/generate_site_images.py), servida em AVIF/WebP com larguras responsivas.
- * Sem imagem no manifest (ainda não gerada), não renderiza nada: a página continua completa só com o texto.
+ * Imagem gerada via OpenRouter (scripts/generate_site_media.py), servida em AVIF/WebP com larguras responsivas.
+ * Sem imagem no site-media.json (ainda não gerada), não renderiza nada: a página continua completa só com o texto.
  */
 export function SiteImage({ slug, sizes, className, priority }: { slug: string; sizes: string; className?: string; priority?: boolean }) {
   const img = images[slug];

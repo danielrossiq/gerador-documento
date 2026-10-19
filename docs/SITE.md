@@ -10,23 +10,35 @@ Spec: `Shared/DanielRossi/docs/design/minuta-site/landing-spec.md` (Product Desi
 - Código: `frontend/src/app/page.tsx`, `frontend/src/components/landing/*`, estilos `.landing`/`.lp-*` em `globals.css`
   (escopados; o app autenticado não muda). Fontes Space Grotesk e DM Sans via `next/font` (baixadas no build).
 
-## Imagens (Runway)
+## Imagens e vídeo (OpenRouter)
 
-`scripts/generate_site_images.py` gera as imagens listadas em `scripts/site_images.json` com `gen4_image`
-(`POST /v1/text_to_image`, `X-Runway-Version: 2024-11-06`), faz polling de `GET /v1/tasks/{id}`, baixa o resultado na
-hora (as URLs expiram) e grava AVIF/WebP em larguras responsivas em `frontend/public/site/`.
+`scripts/generate_site_media.py` gera os assets listados em `scripts/site_media.json` pela API da OpenRouter
+(`POST /api/v1/images`; vídeo assíncrono em `POST /api/v1/videos` → polling → `GET /api/v1/videos/{id}/content`),
+baixa o resultado na hora e grava tudo em `frontend/public/site/`, servido pelo próprio site (sem hotlink).
 
 ```bash
-python scripts/generate_site_images.py --dry-run   # plano e custo, sem chamar a API
-python scripts/generate_site_images.py             # gera só as imagens ausentes
-python scripts/generate_site_images.py --optimize-only
+python scripts/generate_site_media.py --dry-run        # plano, limites, preços ao vivo e custo; sem chave
+python scripts/generate_site_media.py                  # gera só os assets ausentes
+python scripts/generate_site_media.py --redo <slug>    # descarta um asset reprovado e gera de novo (conta no orçamento)
+python scripts/generate_site_media.py --optimize-only  # refaz variantes a partir dos originais
+python -m unittest discover -s scripts/tests           # testes do gerador (sem rede; o de vídeo exige ffmpeg)
 ```
 
-- **Chave:** lida apenas do arquivo `~/.minuta/runway.key` (ou do caminho em `RUNWAY_KEY_FILE`), fora do repositório.
-  Nunca vai para argumentos, logs, manifest ou mensagens de erro.
-- **Orçamento:** máximo de 8 chamadas e 6 imagens, contado em `frontend/public/site/manifest.json`. Reexecuções não
-  passam do limite, e uma chamada que falha também conta. Custo do `gen4_image`: 5 créditos em 720p, 8 em 1080p
-  (US$ 0,01 por crédito). O script recusa proporções acima de 10 créditos.
-- **Manifest:** prompt, modelo, proporção, task id, créditos, data e variantes. Não guarda chave, headers nem as URLs assinadas.
-- Originais em `scripts/.runway-originals/` (ignorado pelo git).
-- Sem imagem no manifest, a landing renderiza só o texto (`SiteImage` não desenha nada).
+- **Modelos (allowlist no código):** imagens `black-forest-labs/flux-3-image` em 2K (US$ 0,10) e
+  `google/gemini-nano-banana-2.1` para edição/variação com referência (cobrado por token; estimado em US$ 0,10);
+  vídeo `google/veo-3.1-fast` 1080p sem áudio (US$ 0,10/s, 4/6/8 s), com fallback `google/veo-3.1-lite` (US$ 0,05/s).
+  Loop: a mesma imagem vai como `first_frame` e `last_frame`, e o último quadro (repetido) é cortado na codificação.
+- **Chave:** lida apenas do arquivo `~/.minuta/openrouter.key` (ou do caminho em `OPENROUTER_KEY_FILE`), fora do
+  repositório. Nunca vai para argumentos, logs, manifest ou mensagens de erro; só é enviada a `https://openrouter.ai/api/v1/`
+  e não acompanha redirects. As URLs assinadas de vídeo (`urls`) não são usadas nem gravadas.
+- **Orçamento:** US$ 5,00 no total; imagens até 12 chamadas e 8 finais; vídeo até 4 chamadas, 2 finais e 8 s.
+  Cada chamada é gravada antes de sair e falhas contam. Sem custo devolvido pela API, vale a estimativa. Antes de
+  gastar, os preços ao vivo são conferidos; acima do aprovado, nada é gerado. Job de vídeo interrompido é retomado
+  pelo id, sem pagar outro.
+- **Saídas:** imagens AVIF/WebP responsivas sem metadados; vídeo MP4 H.264 + WebM VP9 sem trilha de áudio e sem
+  metadados (alvo ~3 MB no hero), com pôster AVIF/WebP do primeiro quadro.
+- **Registros:** `scripts/site_media.manifest.json` (prompt, modelo, parâmetros, ids, custo, data e checagens) fica fora
+  de `public/`. A landing importa só `frontend/src/components/landing/site-media.json` (arquivos, dimensões e alt).
+- Originais em `scripts/.media-originals/` (ignorado pelo git). Requer Pillow com AVIF e ffmpeg/ffprobe no PATH
+  (ou `FFMPEG`/`FFPROBE`).
+- Sem asset no `site-media.json`, a landing renderiza só o texto.
