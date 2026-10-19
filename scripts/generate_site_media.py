@@ -19,7 +19,8 @@ Saídas:
 - scripts/site_media.manifest.json: prompt, modelo, parâmetros, ids, custo, data e checagens (sem chave, headers nem URLs)
 - scripts/.media-originals/: originais baixados (ignorado pelo git)
 
-Orçamento autorizado pelo Daniel: US$ 5,00 no total. Imagens: até 12 chamadas e 8 finais. Vídeo: até 4 chamadas,
+Orçamento: US$ 3,00 no total (saldo de US$ 5 na conta; US$ 2 ficam reservados à avaliação da IA, decisão do PO
+no plano ia-integrada-plano.md v0.3). Imagens: até 12 chamadas e 8 finais. Vídeo: até 4 chamadas,
 2 finais e 8 s cada. Cada chamada é gravada no manifest antes de sair, e falhas também contam. Antes de cada chamada,
 o gasto registrado (custo devolvido pela API ou, sem ele, a estimativa) mais a estimativa da próxima não pode passar
 do teto. Antes da primeira chamada paga, os preços ao vivo dos modelos são conferidos; acima do aprovado, o script para.
@@ -58,7 +59,7 @@ UI_DATA = ROOT / "frontend" / "src" / "components" / "landing" / "site-media.jso
 API = "https://openrouter.ai/api/v1"
 API_HOST = "openrouter.ai"
 
-BUDGET_USD = 5.00
+BUDGET_USD = 3.00  # teto do site; os outros US$ 2 do saldo ficam para a avaliação da IA
 LIMITS = {"image": {"calls": 12, "finals": 8}, "video": {"calls": 4, "finals": 2}}
 MAX_VIDEO_SECONDS = 8
 

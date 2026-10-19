@@ -31,7 +31,8 @@ python -m unittest discover -s scripts/tests           # testes do gerador (sem 
 - **Chave:** lida apenas do arquivo `~/.minuta/openrouter.key` (ou do caminho em `OPENROUTER_KEY_FILE`), fora do
   repositório. Nunca vai para argumentos, logs, manifest ou mensagens de erro; só é enviada a `https://openrouter.ai/api/v1/`
   e não acompanha redirects. As URLs assinadas de vídeo (`urls`) não são usadas nem gravadas.
-- **Orçamento:** US$ 5,00 no total; imagens até 12 chamadas e 8 finais; vídeo até 4 chamadas, 2 finais e 8 s.
+- **Orçamento:** US$ 3,00 no total (dos US$ 5 de saldo, US$ 2 ficam para a avaliação da IA); imagens até 12
+  chamadas e 8 finais; vídeo até 4 chamadas, 2 finais e 8 s.
   Cada chamada é gravada antes de sair e falhas contam. Sem custo devolvido pela API, vale a estimativa. Antes de
   gastar, os preços ao vivo são conferidos; acima do aprovado, nada é gerado. Job de vídeo interrompido é retomado
   pelo id, sem pagar outro.

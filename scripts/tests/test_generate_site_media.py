@@ -163,19 +163,25 @@ class Budget(unittest.TestCase):
         self.assertIn("limite de 12", gsm.can_spend(m, "image", 0.1))
         m["calls"] = [{"kind": "video", "status": "ok", "costUsd": 0.8, "estimateUsd": 0.8}] * 4
         self.assertIn("limite de 4", gsm.can_spend(m, "video", 0.8))
-        m["calls"] = [{"kind": "video", "status": "ok", "costUsd": 4.5, "estimateUsd": 0.8}]
+        m["calls"] = [{"kind": "video", "status": "ok", "costUsd": 2.5, "estimateUsd": 0.8}]
         self.assertIn("orçamento", gsm.can_spend(m, "video", 0.8))
         self.assertIsNone(gsm.can_spend(m, "image", 0.1))
         self.assertIn("orçamento", gsm.can_spend(m, "image", 0.6))
 
-    def test_worst_case_with_all_limits_fits_the_ceiling(self):
-        worst = (
-            gsm.LIMITS["image"]["calls"] * max(r["estimate_usd"] for r in gsm.IMAGE_MODELS.values())
-            + gsm.LIMITS["video"]["calls"]
-            * max(r["usd_per_s"] for r in gsm.VIDEO_MODELS.values())
-            * gsm.MAX_VIDEO_SECONDS
-        )
-        self.assertLessEqual(worst, gsm.BUDGET_USD)
+    def test_ceiling_keeps_the_po_split_and_stops_before_exceeding(self):
+        self.assertLessEqual(
+            gsm.BUDGET_USD, 3.00
+        )  # saldo de US$ 5: até US$ 3 para o site, US$ 2 reservados à IA
+        m = gsm.empty_manifest()
+        plan = [("image", 0.10)] * gsm.LIMITS["image"]["calls"] + [("video", 0.80)] * gsm.LIMITS["video"][
+            "calls"
+        ]
+        for kind, estimate in plan:
+            if gsm.can_spend(m, kind, estimate) is None:
+                m["calls"].append(
+                    {"kind": kind, "status": "failed", "costUsd": None, "estimateUsd": estimate}
+                )
+        self.assertLessEqual(gsm.recorded_usd(m), gsm.BUDGET_USD)
 
 
 class SpecValidation(TempPaths):
