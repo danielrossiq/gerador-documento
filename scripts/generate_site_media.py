@@ -609,16 +609,21 @@ class Run:
                 "stop",
                 f"limite da chave: restam US$ {remaining:.2f}, a chamada pode custar US$ {quote.worst_usd:.2f}",
             )
-        if not quote.bounded and (remaining is None or remaining > BUDGET_USD - spent + 1e-9):
-            return "skip", (
-                f"{quote.model} é cobrado por token, sem custo máximo conhecido antes do envio. Só roda com limite de "
-                f"crédito na chave da OpenRouter de no máximo US$ {BUDGET_USD - spent:.2f} (o que resta do orçamento); "
-                + (
-                    "a chave não tem limite."
-                    if remaining is None
-                    else f"o limite restante é US$ {remaining:.2f}."
+        if not quote.bounded:
+            # Cobrado por token: só o limite de crédito CONFIGURADO na chave (campo `limit` de GET /key, não o saldo)
+            # garante o teto. Exige limite > 0, restante informado e restante ≤ o que sobra do orçamento.
+            limit_ok = state["limit"] is not None and state["limit"] > 0
+            if not limit_ok or remaining is None or remaining > BUDGET_USD - spent + 1e-9:
+                return "skip", (
+                    f"{quote.model} é cobrado por token, sem custo máximo conhecido antes do envio. Só roda com limite "
+                    f"de crédito configurado na chave da OpenRouter, restando no máximo US$ {BUDGET_USD - spent:.2f} "
+                    "(o que sobra do orçamento); "
+                    + (
+                        "a chave não tem limite configurado."
+                        if not limit_ok or remaining is None
+                        else f"o limite restante é US$ {remaining:.2f}."
+                    )
                 )
-            )
         return None
 
     def settle(self, call: dict, usage: dict | None) -> bool:

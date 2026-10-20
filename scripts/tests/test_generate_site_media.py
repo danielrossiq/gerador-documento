@@ -481,6 +481,28 @@ class Budget(WithRun):
         m["calls"].append(call(FLUX, 0.5, 0.5, run="r0"))
         self.assertEqual(run.gate(nano)[0], "skip")
 
+    def test_token_priced_model_needs_a_configured_limit_not_just_remaining_credit(self):
+        nano = gsm.quote_image(nano_item(), nano_endpoints())
+        run, _ = self.start_run(limit=3.0)
+        for state in (
+            {
+                "usage": 10.0,
+                "limit": None,
+                "limit_remaining": 2.0,
+            },  # crédito informado, sem limite configurado
+            {"usage": 10.0, "limit": 0.0, "limit_remaining": 0.0},
+            {"usage": 10.0, "limit": 3.0, "limit_remaining": None},
+        ):
+            with mock.patch.object(gsm, "key_state", return_value=state):
+                blocked = run.gate(nano)
+                self.assertIsNotNone(blocked, state)
+                self.assertIn(blocked[0], ("skip", "stop"), state)  # limite 0: já para no limite da chave
+        flux = gsm.quote_image(image_item(), flux_endpoints())
+        with mock.patch.object(
+            gsm, "key_state", return_value={"usage": 10.0, "limit": None, "limit_remaining": None}
+        ):
+            self.assertIsNone(run.gate(flux))  # preço fixo: segue sem limite na chave
+
     def test_reported_cost_above_reservation_is_flagged(self):
         run, _ = self.start_run()
         c = call(FLUX, None, 0.1, run=run.id)
