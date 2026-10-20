@@ -10,7 +10,19 @@ const ANCHORS = [
   { href: "#perguntas-frequentes", label: "Perguntas frequentes" },
 ];
 
-/** Cabeçalho da landing: âncoras inteiras no desktop; no mobile ficam num menu com estado anunciado (aria-expanded). */
+/** Marca tipográfica com a lacuna âmbar decorativa (landing-spec-v2 §3.2). */
+export function Brand({ className = "" }: { className?: string }) {
+  return (
+    <Link href="/" className={`lp-brand ${className}`}>
+      <span className="lp-brand-word">Minuta</span>
+    </Link>
+  );
+}
+
+/**
+ * Cabeçalho da landing: âncoras inteiras a partir de 1024 px; abaixo, num menu com estado anunciado (aria-expanded).
+ * Abaixo de 380 px, "Entrar" sai da barra e vira o primeiro item do menu (continua no rodapé e no CTA final).
+ */
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -29,23 +41,21 @@ export function SiteHeader() {
 
   return (
     <header className="lp-header">
-      <div className="lp-container flex items-center justify-between gap-3 py-4">
-        <Link href="/" className="lp-brand">
-          Minuta
-        </Link>
+      <div className="lp-container lp-header-row">
+        <Brand />
         <nav aria-label="Seções da página" className="hidden lg:block">
           <ul className="flex gap-7">
             {ANCHORS.map((a) => (
               <li key={a.href}>
-                <a href={a.href} className="lp-navlink">
+                <a href={a.href} className="lp-navlink lp-target">
                   {a.label}
                 </a>
               </li>
             ))}
           </ul>
         </nav>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Link href="/login" className="lp-navlink lp-target">
+        <div className="lp-header-actions">
+          <Link href="/login" className="lp-navlink lp-target lp-header-login">
             Entrar
           </Link>
           <Link href="/register" className="lp-btn lp-btn-primary lp-btn-sm">
@@ -66,6 +76,11 @@ export function SiteHeader() {
       </div>
       <nav id="lp-mobile-nav" aria-label="Menu de seções" hidden={!open} className="lg:hidden">
         <ul className="lp-container flex flex-col pb-4">
+          <li className="lp-menu-login">
+            <Link href="/login" className="lp-mobile-link">
+              Entrar
+            </Link>
+          </li>
           {ANCHORS.map((a) => (
             <li key={a.href}>
               <a href={a.href} className="lp-mobile-link" onClick={() => setOpen(false)}>

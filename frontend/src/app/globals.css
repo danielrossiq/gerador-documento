@@ -374,23 +374,44 @@ html:has([data-sticky-actions]) {
 }
 
 /* ---------------------------------------------------------------- Landing pública (/)
-   Paleta e tipografia da spec do Design (minuta-site/landing-spec.md), escopadas em .landing para não
-   alterar o app autenticado. Pares de contraste: tinta/névoa 14,6:1; névoa/petróleo 7,7:1;
-   âmbar-escuro/névoa 6,1:1; tinta/âmbar 5,8:1. */
+   Spec do Design: minuta-site/landing-spec.md (v1) e landing-spec-v2.md (direção de arte e mídia), escopadas em
+   .landing para não alterar o app autenticado. Contrastes medidos (WCAG 2.x, 20/10/2026): tinta/névoa 13,7:1;
+   tinta/papel 14,5:1; texto secundário/névoa 7,1:1 e /papel 7,5:1; névoa/petróleo 7,8:1; petróleo/papel 8,3:1;
+   âmbar-texto/névoa 5,9:1; tinta/âmbar 6,2:1; tinta sobre o marca-texto 10,4:1. Âmbar sobre névoa tem 2,2:1:
+   só como forma decorativa ou fundo de texto tinta. */
 .landing {
   --lp-petrol: #344d68;
   --lp-petrol-dark: #283c52;
   --lp-ink: #20262b;
+  --lp-ink-2: #4a5259;
   --lp-mist: #f3f3ef;
+  --lp-paper: #faf9f5;
   --lp-amber: #c89e68;
   --lp-amber-text: #79572f;
+  --lp-highlight: rgb(200 158 104 / 0.38);
   --lp-line: #d6d6cf;
+  --lp-pad: 40px;
   background: var(--lp-mist);
   color: var(--lp-ink);
   font-family: var(--lp-font-body), var(--font-sans);
   font-size: 1.0625rem;
   line-height: 1.65;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word; /* "anywhere" deixava itens flex encolherem e partia palavras do cabeçalho (P0) */
+}
+@media (max-width: 639px) {
+  .landing {
+    --lp-pad: 20px;
+  }
+}
+@media (max-width: 359px) {
+  .landing {
+    --lp-pad: 16px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing) {
+    scroll-behavior: smooth;
+  }
 }
 .landing :where(a, button, summary):focus-visible {
   outline: 3px solid var(--lp-ink);
@@ -404,13 +425,10 @@ html:has([data-sticky-actions]) {
   width: 100%;
   max-width: 1200px;
   margin-inline: auto;
-  padding-inline: clamp(16px, 5vw, 40px);
+  padding-inline: var(--lp-pad);
 }
-@media (min-width: 360px) and (max-width: 639px) {
-  .lp-container {
-    padding-inline: 20px;
-  }
-}
+
+/* Cabeçalho */
 .lp-header {
   position: sticky;
   top: 0;
@@ -418,15 +436,42 @@ html:has([data-sticky-actions]) {
   background: rgb(243 243 239 / 0.96);
   border-bottom: 1px solid var(--lp-line);
 }
+.lp-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 10px;
+}
+.lp-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lp-header :where(a, button),
+.lp-brand,
+.lp-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .lp-brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-family: var(--lp-font-display), var(--font-sans);
   font-weight: 700;
   font-size: 1.375rem;
   letter-spacing: -0.02em;
   color: var(--lp-petrol);
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
+}
+/* a lacuna âmbar da marca: decorativa, apoiada na linha de base */
+.lp-brand-word::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.14em;
+  margin-left: 0.1em;
+  background: var(--lp-amber);
 }
 .lp-navlink {
   color: var(--lp-ink);
@@ -452,7 +497,13 @@ html:has([data-sticky-actions]) {
   border: 1px solid var(--lp-line);
   border-radius: 10px;
   color: var(--lp-ink);
-  background: #fff;
+  background: var(--lp-paper);
+}
+/* CSS sem camada vence os utilitários do Tailwind (lg:hidden): o breakpoint do menu fica aqui. */
+@media (min-width: 1024px) {
+  .lp-menu-btn {
+    display: none;
+  }
 }
 .lp-mobile-link {
   display: flex;
@@ -462,30 +513,41 @@ html:has([data-sticky-actions]) {
   color: var(--lp-ink);
   font-weight: 500;
 }
-.lp-section {
-  padding-block: clamp(56px, 8vw, 104px);
+.lp-menu-login {
+  display: none;
 }
-.lp-alt {
-  background: #fff;
+@media (max-width: 379px) {
+  /* abaixo de 380 px: "Entrar" vira o primeiro item do menu; ficam marca, Criar conta e menu */
+  .lp-header-login {
+    display: none;
+  }
+  .lp-menu-login {
+    display: block;
+  }
+  .lp-header .lp-brand {
+    font-size: 1.25rem;
+  }
+  .lp-header-actions {
+    gap: 8px;
+  }
+}
+
+/* Seções e ritmo: névoa → papel → névoa → papel → petróleo → névoa → papel → rodapé névoa */
+.lp-section {
+  padding-block: clamp(64px, 9vw, 128px);
+}
+.lp-paper {
+  background: var(--lp-paper);
 }
 .lp-band {
   background: var(--lp-petrol);
   color: var(--lp-mist);
 }
-.lp-hero {
-  display: grid;
-  gap: clamp(32px, 5vw, 64px);
-  align-items: center;
-}
-@media (min-width: 1024px) {
-  .lp-hero {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-}
 .lp-eyebrow {
   display: inline-block;
   font-weight: 600;
   font-size: 0.9375rem;
+  line-height: 1.4;
   color: var(--lp-amber-text);
   border-left: 3px solid var(--lp-amber);
   padding-left: 10px;
@@ -494,36 +556,46 @@ html:has([data-sticky-actions]) {
 .lp-h2,
 .lp-h3 {
   font-family: var(--lp-font-display), var(--font-sans);
-  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 .lp-h1 {
   margin-top: 16px;
-  font-size: clamp(2.125rem, 1.4rem + 3.2vw, 3.75rem);
-  line-height: 1.06;
+  font-size: clamp(2.25rem, 1.35rem + 3vw, 3.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
   font-weight: 700;
-  max-width: 16ch;
 }
 .lp-h2 {
-  font-size: clamp(1.75rem, 1.3rem + 1.8vw, 2.625rem);
-  line-height: 1.12;
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
   font-weight: 700;
   max-width: 24ch;
 }
 .lp-h3 {
   font-size: 1.25rem;
   line-height: 1.3;
+  letter-spacing: -0.01em;
   font-weight: 600;
 }
 .lp-lead {
   margin-top: 20px;
-  font-size: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  font-size: clamp(1.0625rem, 1rem + 0.4vw, 1.3125rem);
+  line-height: 1.6;
   max-width: 60ch;
 }
 .lp-note {
   margin-top: 20px;
   font-size: 0.9375rem;
-  color: #4a5259;
+  line-height: 1.5;
+  color: var(--lp-ink-2);
+}
+/* marca-texto das lacunas grifadas: <span>, não <mark> (leitores de tela anunciam <mark>) */
+.lp-field {
+  background: linear-gradient(transparent 55%, var(--lp-highlight) 55%);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding-inline: 0.06em;
 }
 .lp-actions {
   margin-top: 32px;
@@ -562,7 +634,7 @@ html:has([data-sticky-actions]) {
   background: transparent;
 }
 .lp-btn-secondary:hover {
-  background: #fff;
+  background: var(--lp-paper);
 }
 @media (max-width: 479px) {
   .lp-hero .lp-actions .lp-btn {
@@ -572,30 +644,149 @@ html:has([data-sticky-actions]) {
     padding: 0 12px;
   }
 }
-.lp-img {
+.lp-link {
+  color: var(--lp-petrol);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+/* Hero. < 768: texto no container e mídia de ponta a ponta em 4:3, sem cantos. 768–1199: empilhado, mídia 16:9 na
+   largura do container. ≥ 1200: texto em 540 px e mídia 4:3 sangrando até a borda direita da janela. */
+.lp-hero-text {
+  max-width: calc(720px + 2 * var(--lp-pad));
+  padding-inline: var(--lp-pad);
+}
+.lp-hero:not(.has-media) {
+  max-width: 1200px;
+  margin-inline: auto;
+}
+.lp-hero:not(.has-media) .lp-hero-text {
+  max-width: none;
+}
+.lp-hero:not(.has-media) .lp-hero-text > * {
+  max-width: 720px;
+}
+.lp-hero-media {
+  position: relative;
+  margin-top: 40px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--lp-paper);
+}
+@media (min-width: 768px) {
+  .lp-hero.has-media {
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: var(--lp-pad);
+  }
+  .lp-hero.has-media .lp-hero-text {
+    max-width: 720px;
+    padding-inline: 0;
+  }
+  .lp-hero-media {
+    aspect-ratio: 16 / 9;
+    border-radius: 16px;
+    border: 1px solid var(--lp-line);
+  }
+}
+@media (min-width: 1200px) {
+  .lp-hero.has-media {
+    display: grid;
+    grid-template-columns: 540px minmax(0, 1fr);
+    column-gap: 56px;
+    align-items: center;
+    max-width: none;
+    margin-inline: 0;
+    padding-left: max(var(--lp-pad), calc((100% - 1200px) / 2 + var(--lp-pad)));
+    padding-right: 0;
+  }
+  .lp-hero.has-media .lp-hero-media {
+    margin-top: 0;
+    aspect-ratio: 4 / 3;
+    max-width: 880px;
+    border-radius: 16px 0 0 16px;
+    border-right: 0;
+  }
+}
+/* a mídia para em 880 px e se descola da borda direita (a partir de ~1830 px de janela): quatro cantos */
+@media (min-width: 1832px) {
+  .lp-hero.has-media .lp-hero-media {
+    border-radius: 16px;
+    border-right: 1px solid var(--lp-line);
+  }
+}
+.lp-stage,
+.lp-stage picture {
+  position: absolute;
+  inset: 0;
+}
+.lp-stage img,
+.lp-stage video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+}
+.lp-stage video {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.lp-stage[data-ready="true"] video {
+  opacity: 1;
+}
+/* WCAG 2.2.2: botão visível sempre que o vídeo está ativo; 44 × 44, canto inferior esquerdo */
+.lp-stage-btn {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(32 38 43 / 0.78);
+  color: var(--lp-mist);
+}
+.lp-stage-btn:hover {
+  background: var(--lp-ink);
+}
+
+/* Mídia gerada (passos e cards) */
+.lp-media {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 14px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 16px;
   border: 1px solid var(--lp-line);
 }
-.lp-img-wide {
+.lp-steps-hero {
   margin-top: 40px;
-  aspect-ratio: 16 / 7;
-  object-fit: cover;
 }
-.lp-grid3 {
-  margin-top: 40px;
+
+/* Como funciona */
+.lp-steps {
+  margin-top: 48px;
   display: grid;
-  gap: 24px;
+  gap: 40px 24px;
 }
 @media (min-width: 900px) {
-  .lp-grid3 {
+  .lp-steps {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-.lp-step {
-  border-top: 3px solid var(--lp-petrol);
+.lp-step .lp-media {
+  margin-bottom: 16px;
+}
+.lp-steps.is-text .lp-step {
+  border-top: 3px solid var(--lp-petrol); /* só texto, como na v1; com imagem a borda sai */
   padding-top: 20px;
 }
 .lp-step p,
@@ -614,16 +805,112 @@ html:has([data-sticky-actions]) {
   font-family: var(--lp-font-display), var(--font-sans);
   font-weight: 700;
 }
-.lp-card {
+
+/* Como fica na tela: capturas reais, sem moldura falsa de navegador ou celular */
+.lp-screens {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+.lp-shot {
+  width: 100%;
+  max-width: 300px;
+}
+.lp-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--lp-line);
   background: #fff;
+  box-shadow:
+    0 1px 2px rgb(32 38 43 / 0.06),
+    0 12px 40px rgb(32 38 43 / 0.1);
+}
+.lp-shot figcaption {
+  margin-top: 12px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--lp-ink-2);
+}
+.lp-shot-desktop {
+  display: none;
+}
+@media (min-width: 600px) {
+  .lp-screens {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  .lp-shot {
+    max-width: 320px;
+  }
+}
+@media (min-width: 1024px) {
+  .lp-screens {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 24px;
+    align-items: end;
+    padding-bottom: 48px;
+  }
+  .lp-shot {
+    max-width: none;
+  }
+  .lp-shot-desktop {
+    display: block;
+    grid-column: 1 / span 8;
+    grid-row: 1;
+  }
+  .lp-shot-editor-mobile {
+    display: none;
+  }
+  .lp-shot-form-mobile {
+    grid-column: 8 / span 3;
+    grid-row: 1;
+    position: relative;
+    z-index: 1;
+    transform: translateY(48px); /* 48 px abaixo do pé do editor, sobre a borda dele */
+  }
+}
+
+/* Recursos */
+.lp-cards {
+  margin-top: 48px;
+  display: grid;
+  gap: 24px;
+}
+@media (min-width: 900px) {
+  .lp-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.lp-card {
+  background: var(--lp-paper);
   border: 1px solid var(--lp-line);
   border-radius: 14px;
+  overflow: hidden;
+}
+.lp-card .lp-media {
+  border: 0;
+  border-radius: 0;
+}
+.lp-card-body {
   padding: 24px;
 }
-.lp-card-img {
+
+/* Faixa de revisão, perguntas e CTA */
+.lp-band .lp-h2::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 6px;
   margin-bottom: 20px;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
+  border-radius: 3px;
+  background: var(--lp-amber);
 }
 .lp-narrow {
   max-width: 820px;
@@ -634,6 +921,12 @@ html:has([data-sticky-actions]) {
 .lp-center .lp-h2,
 .lp-center .lp-lead {
   margin-inline: auto;
+}
+.lp-cta-login {
+  margin-top: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--lp-ink-2);
 }
 .lp-faq {
   margin-top: 32px;
@@ -671,4 +964,12 @@ html:has([data-sticky-actions]) {
 .lp-footer {
   background: var(--lp-mist);
   border-top: 1px solid var(--lp-line);
+}
+.lp-footer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 32px;
 }

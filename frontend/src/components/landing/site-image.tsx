@@ -1,36 +1,37 @@
-import media from "./site-media.json";
-
-type Variant = { file: string; width: number; height: number };
-type Entry = { alt: string; variants: Variant[] };
-const images = media.images as Record<string, Entry>;
+import { largestWebp, srcSet, type Variant } from "./site-media";
 
 /**
- * Imagem gerada via OpenRouter (scripts/generate_site_media.py), servida em AVIF/WebP com larguras responsivas.
- * Sem imagem no site-media.json (ainda não gerada), não renderiza nada: a página continua completa só com o texto.
+ * <picture> com AVIF/WebP responsivos. As dimensões do maior WebP reservam o espaço (sem layout shift).
+ * Abaixo da dobra: lazy e decoding assíncrono; o pôster do hero usa `priority` (é o candidato a LCP).
  */
-export function SiteImage({ slug, sizes, className, priority }: { slug: string; sizes: string; className?: string; priority?: boolean }) {
-  const img = images[slug];
-  if (!img?.variants?.length) return null;
-  const set = (ext: string) =>
-    img.variants
-      .filter((v) => v.file.endsWith(`.${ext}`))
-      .map((v) => `${v.file} ${v.width}w`)
-      .join(", ");
-  const webp = img.variants.filter((v) => v.file.endsWith(".webp"));
-  const fallback = webp[webp.length - 1];
+export function Picture({
+  variants,
+  alt,
+  sizes,
+  className,
+  priority,
+}: {
+  variants: Variant[];
+  alt: string;
+  sizes: string;
+  className?: string;
+  priority?: boolean;
+}) {
+  const fallback = largestWebp(variants);
+  if (!fallback) return null;
   return (
     <picture>
-      <source type="image/avif" srcSet={set("avif")} sizes={sizes} />
-      <source type="image/webp" srcSet={set("webp")} sizes={sizes} />
+      <source type="image/avif" srcSet={srcSet(variants, "avif")} sizes={sizes} />
+      <source type="image/webp" srcSet={srcSet(variants, "webp")} sizes={sizes} />
       <img
         src={fallback.file}
         width={fallback.width}
         height={fallback.height}
-        alt={img.alt}
+        alt={alt}
         sizes={sizes}
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : undefined}
-        decoding="async"
+        decoding={priority ? "sync" : "async"}
         className={className}
       />
     </picture>

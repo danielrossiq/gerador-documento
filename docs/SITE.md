@@ -49,8 +49,8 @@ python -m unittest discover -s scripts/tests           # testes do gerador (sem 
      cobranças por imagem de referência; ou preço por segundo do SKU pedido × duração). Unidade de cobrança sem
      máximo conhecido, item de cobrança desconhecido ou preço acima do aprovado: nada sai. Na imagem, o pedido vai
      com `provider.only` (os provedores conferidos) e `allow_fallbacks: false`;
-  2. o uso real da chave é medido (`GET /key`). Para a execução: gasto da chave não explicado pelo manifest, limite
-     de crédito menor que o máximo da chamada ou falha dessa medida;
+  2. o uso real da chave é medido (`GET /key`), e a execução para se houver gasto da chave não explicado pelo
+     manifest, limite de crédito menor que o máximo da chamada ou falha dessa medida;
   3. gasto registrado (ou medido na chave, o que for maior) + máximo da chamada não pode passar de US$ 3,00.
   A chamada é gravada com a reserva antes de sair; custo informado pela API acima da reserva encerra a execução.
 - **Modelo cobrado por token (Nano Banana):** não tem custo máximo verificável antes do envio. Só roda se a chave
