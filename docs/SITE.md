@@ -29,8 +29,16 @@ python -m unittest discover -s scripts/tests           # testes do gerador (sem 
   vídeo `google/veo-3.1-fast` 1080p sem áudio (US$ 0,10/s, 4/6/8 s), com fallback `google/veo-3.1-lite` (US$ 0,05/s).
   Loop: a mesma imagem vai como `first_frame` e `last_frame`, e o último quadro (repetido) é cortado na codificação.
 - **Chave:** lida apenas do arquivo `~/.minuta/openrouter.key` (ou do caminho em `OPENROUTER_KEY_FILE`), fora do
-  repositório. Nunca vai para argumentos, logs, manifest ou mensagens de erro; só é enviada a `https://openrouter.ai/api/v1/`
-  e não acompanha redirects. As URLs assinadas de vídeo (`urls`) não são usadas nem gravadas.
+  repositório, e validada antes do uso (uma linha, prefixo `sk-or-`, até 1 KB). Nunca vai para argumentos, logs,
+  manifest ou mensagens de erro; só é enviada a `https://openrouter.ai/api/v1/` e não acompanha redirects.
+- **Rede e arquivos:** só `https://openrouter.ai` (allowlist fixa, também nos redirects). JSON exige
+  `application/json` e tem teto de tamanho; o vídeo é baixado em streaming para um `.part` e só é movido depois de
+  conferidos Content-Type `video/mp4`, tamanho e assinatura. As URLs assinadas (`urls`) não são usadas nem gravadas.
+  Slugs `^[a-z0-9][a-z0-9-]{0,39}$`, e todo caminho gravado precisa ficar dentro de `frontend/public/site/` ou de
+  `scripts/.media-originals/`.
+- **Concorrência e idempotência:** uma execução por vez (`scripts/.site_media.lock`). Asset pronto não é gerado de
+  novo; job de vídeo é retomado pelo id (inclusive se o download falhar); chamada que caiu sem resultado conhecido
+  só é paga de novo com `--retry-unknown <slug>`.
 - **Orçamento:** US$ 3,00 no total (dos US$ 5 de saldo, US$ 2 ficam para a avaliação da IA); imagens até 12
   chamadas e 8 finais; vídeo até 4 chamadas, 2 finais e 8 s.
   Cada chamada é gravada antes de sair e falhas contam. Sem custo devolvido pela API, vale a estimativa. Antes de

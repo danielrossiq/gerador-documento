@@ -5,13 +5,18 @@ Uso:
     python scripts/generate_site_media.py                    # gera só os assets ausentes, dentro do orçamento
     python scripts/generate_site_media.py --only <slug>      # restringe a um asset
     python scripts/generate_site_media.py --redo <slug>      # descarta um asset reprovado e gera de novo (conta no orçamento)
+    python scripts/generate_site_media.py --retry-unknown <slug>  # chamada anterior caiu sem resultado: paga de novo
     python scripts/generate_site_media.py --optimize-only    # refaz AVIF/WebP/MP4/WebM a partir dos originais baixados
 
 Entradas:
 - scripts/site_media.json: assets da spec do Design (slug, modelo, parâmetros, prompt, alt, larguras).
-- Chave: lida SOMENTE do arquivo em OPENROUTER_KEY_FILE ou ~/.minuta/openrouter.key, fora do repositório. Nunca vai
-  para argumentos, logs, manifest ou mensagens de erro, e só é enviada a https://openrouter.ai/api/v1/ (o cabeçalho
-  Authorization não acompanha redirects).
+- Chave: lida SOMENTE do arquivo em OPENROUTER_KEY_FILE ou ~/.minuta/openrouter.key, fora do repositório, e validada
+  antes do uso (uma linha, prefixo sk-or-, até 1 KB). Nunca vai para argumentos, logs, manifest ou mensagens de erro.
+
+Rede: só https://openrouter.ai (allowlist fixa, também nos redirects, que nunca levam o Authorization). Respostas JSON
+exigem Content-Type application/json e têm teto de tamanho; o vídeo é baixado em streaming para um .part e só é movido
+depois de conferidos Content-Type (video/mp4), tamanho e assinatura do arquivo. Uma execução por vez (trava em
+scripts/.site_media.lock); uma chamada que caiu sem resultado conhecido não é paga de novo sem --retry-unknown.
 
 Saídas:
 - frontend/public/site/: <slug>-<w>.avif|webp, <slug>.webm|mp4 e pôster <slug>-poster-<w>.avif|webp (sem metadados)
@@ -34,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import io
 import json
 import os
@@ -86,7 +92,14 @@ VIDEO_MODELS = {
 }
 VIDEO_SKU = "duration_seconds_without_audio"  # 1080p sem áudio (720p e 4K têm SKUs próprios)
 
-SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+# Únicos hosts aceitos, inclusive em redirect: a doc e as respostas (polling_url, unsigned_urls) só apontam para cá.
+ALLOWED_HOSTS = frozenset({"openrouter.ai"})
+KEY_RE = re.compile(r"^sk-or-[A-Za-z0-9_-]{20,200}$")
+MAX_KEY_FILE_BYTES = 1024
+MAX_JSON_BYTES = 64 * 1024 * 1024  # imagem 2K em base64 cabe com folga
+IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+LOCK = ROOT / "scripts" / ".site_media.lock"
 HTTP_TIMEOUT_S = 300
 POLL_INTERVAL_S = 20
 POLL_TIMEOUT_S = 20 * 60
@@ -120,14 +133,20 @@ def key_path() -> Path:
 
 
 def read_key() -> str:
+    """Lê e valida a chave (uma linha, prefixo sk-or-, tamanho plausível). Nunca exibe o conteúdo."""
     path = key_path()
     if not path.is_file():
         raise SystemExit(f"Arquivo da chave não encontrado: {path}")
     if ROOT in path.resolve().parents:
         raise SystemExit("O arquivo da chave precisa ficar fora do repositório.")
-    key = path.read_text(encoding="utf-8").strip()
-    if not key or any(c.isspace() for c in key):
-        raise SystemExit(f"Arquivo da chave vazio ou inválido: {path}")
+    if path.stat().st_size > MAX_KEY_FILE_BYTES:
+        raise SystemExit(f"Arquivo grande demais para ser a chave: {path}")
+    try:
+        key = path.read_text(encoding="utf-8-sig").strip()  # tolera BOM e quebra de linha no fim
+    except UnicodeDecodeError:
+        key = ""
+    if not KEY_RE.match(key):  # uma linha só: \r ou \n no meio não passam na regex
+        raise SystemExit(f"Arquivo da chave fora do formato esperado (uma linha com prefixo sk-or-): {path}")
     return key
 
 
@@ -145,30 +164,30 @@ def scrub(text: str, key: str | None = None) -> str:
     return _QUERY_RE.sub(r"\1?…", text)
 
 
+def allowed_url(url: str) -> bool:
+    """https, host da allowlist fixa, porta padrão e sem credenciais na URL."""
+    p = urllib.parse.urlsplit(url)
+    return p.scheme == "https" and p.hostname in ALLOWED_HOSTS and p.port is None and not p.username
+
+
 def api_url(path_or_url: str) -> str:
     """Normaliza o destino e garante que é a API da OpenRouter antes de anexar a chave."""
     url = urllib.parse.urljoin(API + "/", path_or_url)
-    p = urllib.parse.urlsplit(url)
-    if (
-        p.scheme != "https"
-        or p.hostname != API_HOST
-        or p.port is not None
-        or p.username
-        or not p.path.startswith("/api/v1/")
-    ):
+    if not allowed_url(url) or not urllib.parse.urlsplit(url).path.startswith("/api/v1/"):
         raise ApiError("Destino fora da API da OpenRouter recusado")
     return url
 
 
-class _HttpsOnlyRedirect(urllib.request.HTTPRedirectHandler):
-    # O handler padrão já não repassa cabeçalhos "unredirected" (onde fica o Authorization); aqui só se exige HTTPS.
+class _AllowlistRedirect(urllib.request.HTTPRedirectHandler):
+    # Só segue redirect para https em host da allowlist. O Authorization vai como cabeçalho "unredirected",
+    # que o urllib não copia para a requisição redirecionada.
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        if urllib.parse.urlsplit(newurl).scheme != "https":
-            raise ApiError(f"Redirect para destino sem HTTPS recusado (HTTP {code})", code)
+        if not allowed_url(urllib.parse.urljoin(req.full_url, newurl)):
+            raise ApiError(f"Redirect para fora da allowlist recusado (HTTP {code})", code)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-_OPENER = urllib.request.build_opener(_HttpsOnlyRedirect())
+_OPENER = urllib.request.build_opener(_AllowlistRedirect())
 
 
 def _request(
@@ -198,42 +217,58 @@ def _http_error(e: urllib.error.HTTPError, method: str, url: str, key: str | Non
 
 def call_api(method: str, path: str, key: str | None = None, body: dict | None = None) -> dict:
     req, url = _request(method, path, key, body)
+    where = f"{method} {urllib.parse.urlsplit(url).path}"
     try:
         with _OPENER.open(req, timeout=HTTP_TIMEOUT_S) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            ctype = resp.headers.get_content_type()
+            if ctype != "application/json":
+                raise ApiError(f"Resposta com Content-Type inesperado ({ctype}) em {where}")
+            raw = resp.read(MAX_JSON_BYTES + 1)
+            if len(raw) > MAX_JSON_BYTES:
+                raise ApiError(f"Resposta acima de {MAX_JSON_BYTES // (1024 * 1024)} MB recusada em {where}")
+            return json.loads(raw.decode("utf-8"))
     except urllib.error.HTTPError as e:
         raise _http_error(e, method, url, key) from None
     except (urllib.error.URLError, OSError) as e:
-        raise ApiError(
-            f"Falha de rede em {method} {urllib.parse.urlsplit(url).path}: {type(e).__name__}"
-        ) from None
+        raise ApiError(f"Falha de rede em {where}: {type(e).__name__}") from None
     except (json.JSONDecodeError, UnicodeDecodeError):
-        raise ApiError(f"Resposta não JSON em {method} {urllib.parse.urlsplit(url).path}") from None
+        raise ApiError(f"Resposta não JSON em {where}") from None
 
 
-def download(path: str, dst: Path, key: str, max_bytes: int) -> int:
-    """Baixa conteúdo autenticado (unsigned_urls) direto para o disco. As URLs assinadas ("urls") nunca são usadas."""
+def is_mp4(head: bytes) -> bool:
+    return head[4:8] == b"ftyp"
+
+
+def download(path: str, dst: Path, key: str, max_bytes: int, content_types: set[str], magic) -> int:
+    """Baixa conteúdo autenticado (unsigned_urls) em streaming para um temporário e só move para `dst` depois de
+    conferir Content-Type, tamanho e assinatura do arquivo. As URLs assinadas ("urls") nunca são usadas."""
     req, url = _request("GET", path, key, None)
+    where = urllib.parse.urlsplit(url).path
     part = dst.with_name(dst.name + ".part")
-    total = 0
+    total, head = 0, b""
     try:
-        with _OPENER.open(req, timeout=HTTP_TIMEOUT_S) as resp, open(part, "wb") as f:
-            while chunk := resp.read(1 << 20):
-                total += len(chunk)
-                if total > max_bytes:
-                    raise ApiError(f"Download acima de {max_bytes // (1024 * 1024)} MB recusado")
-                f.write(chunk)
+        with _OPENER.open(req, timeout=HTTP_TIMEOUT_S) as resp:
+            ctype = resp.headers.get_content_type()
+            if ctype not in content_types:
+                raise ApiError(f"Download com Content-Type inesperado ({ctype}) em {where}")
+            with open(part, "wb") as f:
+                while chunk := resp.read(1 << 20):
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise ApiError(f"Download acima de {max_bytes // (1024 * 1024)} MB recusado")
+                    head += chunk[: max(0, 16 - len(head))]
+                    f.write(chunk)
+        if not magic(head):
+            raise ApiError(f"Conteúdo baixado não confere com {', '.join(sorted(content_types))}")
     except urllib.error.HTTPError as e:
         part.unlink(missing_ok=True)
         raise _http_error(e, "GET", url, key) from None
-    except (urllib.error.URLError, OSError) as e:
-        part.unlink(missing_ok=True)
-        raise ApiError(
-            f"Falha de rede no download {urllib.parse.urlsplit(url).path}: {type(e).__name__}"
-        ) from None
     except ApiError:
         part.unlink(missing_ok=True)
         raise
+    except (urllib.error.URLError, OSError) as e:
+        part.unlink(missing_ok=True)
+        raise ApiError(f"Falha de rede no download {where}: {type(e).__name__}") from None
     part.replace(dst)
     return total
 
@@ -422,14 +457,22 @@ def data_url(path: Path, max_width: int = FRAME_MAX_WIDTH) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
-_ORIGINAL_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}\.(png|jpg|webp|mp4)$")
+_ORIGINAL_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}\.(png|jpg|webp|mp4)$")
+
+
+def inside(path: Path, base: Path) -> Path:
+    """Devolve `path` só se, resolvido, ele ficar dentro de `base` (sem escapar por .., link ou caminho absoluto)."""
+    root = base.resolve()
+    if root not in path.resolve().parents:
+        raise SystemExit(f"Caminho fora de {base.name}/ recusado: {path.name}")
+    return path
 
 
 def original_path(name: str) -> Path:
     """Caminho de um original baixado; o nome vem do manifest e não pode sair de scripts/.media-originals/."""
     if not _ORIGINAL_RE.match(name):
         raise SystemExit(f"Nome de original inválido no manifest: {name!r}")
-    return ORIGINALS / name
+    return inside(ORIGINALS / name, ORIGINALS)
 
 
 def original_of(m: dict, slug: str) -> Path:
@@ -462,12 +505,20 @@ def generate_image(key: str, item: dict, body: dict) -> tuple[Path, dict]:
         err = resp.get("error")
         detail = str((err.get("message") if isinstance(err, dict) else err) or "")[:200]
         raise ApiError(scrub(f"Resposta sem imagem{': ' + detail if detail else ''}", key))
-    raw = base64.b64decode(data[0]["b64_json"])
-    if len(raw) > MAX_IMAGE_BYTES:
+    media_type = data[0].get("media_type")
+    if media_type is not None and media_type not in IMAGE_TYPES:
+        raise ApiError(f"Imagem em formato inesperado: {str(media_type)[:40]}")
+    if len(data[0]["b64_json"]) > MAX_IMAGE_BYTES * 4 // 3 + 4:
         raise ApiError("Imagem acima do tamanho máximo")
+    raw = base64.b64decode(data[0]["b64_json"])
+    ext = sniff_image(raw)  # a assinatura do arquivo precisa bater com o tipo declarado
+    if media_type is not None and IMAGE_TYPES[media_type] != ext:
+        raise ApiError(f"Imagem declarada como {media_type}, mas o conteúdo é {ext}")
     ORIGINALS.mkdir(parents=True, exist_ok=True)
-    dst = ORIGINALS / f"{item['slug']}.{sniff_image(raw)}"
-    dst.write_bytes(raw)
+    dst = inside(ORIGINALS / f"{item['slug']}.{ext}", ORIGINALS)
+    part = dst.with_name(dst.name + ".part")
+    part.write_bytes(raw)
+    part.replace(dst)
     return dst, resp.get("usage") or {}
 
 
@@ -522,12 +573,9 @@ def wait_video(key: str, job: dict) -> dict:
 
 def fetch_video(key: str, job: dict, slug: str) -> Path:
     ORIGINALS.mkdir(parents=True, exist_ok=True)
-    dst = ORIGINALS / f"{slug}.mp4"
+    dst = inside(ORIGINALS / f"{slug}.mp4", ORIGINALS)
     unsigned = (job.get("unsigned_urls") or [f"videos/{job['id']}/content?index=0"])[0]
-    download(unsigned, dst, key, MAX_VIDEO_BYTES)
-    with open(dst, "rb") as f:
-        if f.read(12)[4:8] != b"ftyp":
-            raise ApiError("Download do vídeo não é MP4")
+    download(unsigned, dst, key, MAX_VIDEO_BYTES, {"video/mp4"}, is_mp4)
     return dst
 
 
@@ -558,9 +606,11 @@ def optimize_image(slug: str, src: Path, widths: list[int]) -> list[dict]:
             ("AVIF", "avif", {"quality": 55, "speed": 4}),
             ("WEBP", "webp", {"quality": 78, "method": 6}),
         ):
-            dst = PUBLIC / f"{slug}-{w}.{ext}"
-            resized.save(dst, fmt, **opts)
-            assert_no_metadata(dst)
+            dst = inside(PUBLIC / f"{slug}-{w}.{ext}", PUBLIC)
+            part = dst.with_name(dst.name + ".part")
+            resized.save(part, fmt, **opts)
+            assert_no_metadata(part)  # confere antes de publicar em public/site/
+            part.replace(dst)
             variants.append(
                 {"file": f"/site/{dst.name}", "width": w, "height": h, "bytes": dst.stat().st_size}
             )
@@ -678,9 +728,13 @@ def encode_video(slug: str, src: Path, item: dict) -> dict:
         "-vf",
         f"scale={width}:-2:flags=lanczos,format=yuv420p",
     ]
-    mp4, webm = PUBLIC / f"{slug}.mp4", PUBLIC / f"{slug}.webm"
+    mp4, webm = inside(PUBLIC / f"{slug}.mp4", PUBLIC), inside(PUBLIC / f"{slug}.webm", PUBLIC)
     PUBLIC.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
+        tmp_mp4, tmp_webm = (
+            Path(tmp) / mp4.name,
+            Path(tmp) / webm.name,
+        )  # só vão para public/ depois de conferidos
         log = str(Path(tmp) / "pass")
         h264 = [
             "-c:v",
@@ -699,7 +753,7 @@ def encode_video(slug: str, src: Path, item: dict) -> dict:
             log,
         ]
         _run([*base, *h264, "-pass", "1", "-f", "null", os.devnull])
-        _run([*base, *h264, "-pass", "2", "-movflags", "+faststart", str(mp4)])
+        _run([*base, *h264, "-pass", "2", "-movflags", "+faststart", str(tmp_mp4)])
         vp9 = [
             "-c:v",
             "libvpx-vp9",
@@ -713,11 +767,16 @@ def encode_video(slug: str, src: Path, item: dict) -> dict:
             log + "-vp9",
         ]
         _run([*base, *vp9, "-cpu-used", "4", "-pass", "1", "-f", "null", os.devnull])
-        _run([*base, *vp9, "-cpu-used", "1", "-pass", "2", str(webm)])
+        _run([*base, *vp9, "-cpu-used", "1", "-pass", "2", str(tmp_webm)])
         poster_src = Path(tmp) / "poster.png"
         frame_png(src, poster_src, 0)
+        out_mp4, out_webm = probe(tmp_mp4), probe(tmp_webm)
+        if out_mp4["audio"] or out_webm["audio"]:
+            raise SystemExit(f"{slug}: a codificação manteve uma trilha de áudio")
+        seam = loop_seam(tmp_mp4, out_mp4["frames"]) if item.get("loop") else None
+        shutil.move(tmp_mp4, mp4)
+        shutil.move(tmp_webm, webm)
         poster = optimize_image(f"{slug}-poster", poster_src, item.get("poster_widths", [640, 1280, 1920]))
-    out_mp4, out_webm = probe(mp4), probe(webm)
     return {
         "width": out_mp4["width"],
         "height": out_mp4["height"],
@@ -735,7 +794,7 @@ def encode_video(slug: str, src: Path, item: dict) -> dict:
             "targetBytes": target,
             "mp4WithinTarget": out_mp4["bytes"] <= target * 1.1,
             "webmWithinTarget": out_webm["bytes"] <= target * 1.1,
-            "loopSeamMeanDiff": loop_seam(mp4, out_mp4["frames"]) if item.get("loop") else None,
+            "loopSeamMeanDiff": seam,
         },
     }
 
@@ -820,8 +879,46 @@ def _cost(usage: dict | None) -> tuple[float | None, str]:
     return (float(cost), "api") if cost is not None else (None, "estimate")
 
 
-def run_image(key: str, it: dict, m: dict) -> str:
+@contextlib.contextmanager
+def run_lock():
+    """Uma execução por vez: chamadas pagas nunca saem em paralelo, nem de dois terminais."""
+    try:
+        fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise SystemExit(
+            f"Outra execução está em andamento (ou terminou sem limpar {LOCK.name}). "
+            "Confirme que nenhuma está rodando e apague o arquivo para continuar."
+        ) from None
+    try:
+        os.write(fd, f"{os.getpid()} {now()}\n".encode())
+        os.close(fd)
+        yield
+    finally:
+        LOCK.unlink(missing_ok=True)
+
+
+def unknown_outcome(m: dict, slug: str, retry: set[str]) -> bool:
+    """Chamada anterior que saiu sem resultado registrado (queda no meio) pode ter sido cobrada.
+    Só gera de novo esse asset com --retry-unknown <slug>, depois de conferir o uso na OpenRouter."""
+    stuck = [c for c in m["calls"] if c["slug"] == slug and c["status"] == "pending"]
+    if not stuck:
+        return False
+    if slug in retry:
+        for c in stuck:
+            c["status"] = "unknown"  # continua contando no orçamento pela estimativa
+        save_manifest(m)
+        return False
+    print(
+        f"PULADO {slug}: uma chamada anterior terminou sem resultado conhecido e pode ter sido cobrada. "
+        f"Confira o uso na OpenRouter e, para pagar de novo, rode com --retry-unknown {slug}."
+    )
+    return True
+
+
+def run_image(key: str, it: dict, m: dict, retry: set[str] = frozenset()) -> str:
     """Gera uma imagem. Devolve "ok", "failed" (segue para o próximo asset) ou "stop" (limite, orçamento ou chave)."""
+    if unknown_outcome(m, it["slug"], retry):
+        return "failed"
     estimate = image_estimate(it)
     reason = can_spend(m, "image", estimate)
     if reason:
@@ -869,7 +966,6 @@ def _finish_video(key: str, v: dict, m: dict, call: dict, job: dict) -> str | No
     """Acompanha um job já enviado. Devolve "ok", "stop" (pausado ou chave) ou None (job falhou: tente o fallback)."""
     try:
         done = wait_video(key, job)
-        src = fetch_video(key, done, v["slug"])
     except PollTimeout as e:
         print(f"PAUSADO {v['slug']}: {e}")
         return "stop"
@@ -877,7 +973,17 @@ def _finish_video(key: str, v: dict, m: dict, call: dict, job: dict) -> str | No
         _fail(call, e, key, m)
         return "stop" if e.fatal else None
     cost, source = _cost(done.get("usage"))
-    call.update(status="ok", costUsd=cost, costSource=source, generationId=done.get("generation_id"))
+    call.update(costUsd=cost, costSource=source, generationId=done.get("generation_id"))
+    save_manifest(m)
+    try:
+        src = fetch_video(key, done, v["slug"])
+    except ApiError as e:
+        # O job terminou e foi cobrado: nada de fallback. O id continua no manifest e a próxima execução baixa de novo.
+        print(
+            f"PAUSADO {v['slug']}: download falhou ({scrub(str(e), key)}); rode de novo para baixar sem novo job"
+        )
+        return "stop"
+    call.update(status="ok")
     rec = m["assets"]["videos"][v["slug"]] = {
         "prompt": v["prompt"],
         "model": call["model"],
@@ -899,9 +1005,9 @@ def _finish_video(key: str, v: dict, m: dict, call: dict, job: dict) -> str | No
     return "ok"
 
 
-def run_video(key: str, v: dict, m: dict) -> str:
+def run_video(key: str, v: dict, m: dict, retry: set[str] = frozenset()) -> str:
     """Gera um vídeo (modelo principal e, se falhar, o fallback). Retoma job já enviado em vez de pagar outro."""
-    pending = next(
+    submitted = next(
         (
             c
             for c in m["calls"]
@@ -909,11 +1015,13 @@ def run_video(key: str, v: dict, m: dict) -> str:
         ),
         None,
     )
-    if pending:
-        print(f"  {v['slug']}: retomando job {pending['jobId']}")
-        result = _finish_video(key, v, m, pending, {"id": pending["jobId"], "status": "pending"})
+    if submitted:
+        print(f"  {v['slug']}: retomando job {submitted['jobId']}")
+        result = _finish_video(key, v, m, submitted, {"id": submitted["jobId"], "status": "pending"})
         if result is not None:
             return result
+    if unknown_outcome(m, v["slug"], retry):
+        return "failed"
     for model_id in [v["model"], *([v["fallback"]] if v.get("fallback") else [])]:
         estimate = video_estimate(model_id, v)
         reason = can_spend(m, "video", estimate)
@@ -957,6 +1065,13 @@ def main() -> int:
     ap.add_argument("--redo", help="descarta o asset aprovado anteriormente com este slug e gera de novo")
     ap.add_argument("--reason", default="reprovado na revisão visual", help="motivo registrado com --redo")
     ap.add_argument(
+        "--retry-unknown",
+        action="append",
+        default=[],
+        metavar="SLUG",
+        help="gera de novo um asset cuja chamada anterior ficou sem resultado (pode pagar duas vezes)",
+    )
+    ap.add_argument(
         "--optimize-only", action="store_true", help="refaz variantes a partir dos originais baixados"
     )
     args = ap.parse_args()
@@ -965,18 +1080,22 @@ def main() -> int:
     m = load_manifest()
     images = {a["slug"]: a for a in spec.get("images", [])}
     videos = {v["slug"]: v for v in spec.get("videos", [])}
-    if args.redo and args.redo not in images and args.redo not in videos:
-        raise SystemExit(f"--redo: slug desconhecido {args.redo!r}")
+    for slug in [args.redo, *args.retry_unknown]:
+        if slug and slug not in images and slug not in videos:
+            raise SystemExit(f"Slug desconhecido: {slug!r}")
 
     if args.optimize_only:
-        for slug, rec in m["assets"]["images"].items():
-            if slug in images:
-                rec["variants"] = optimize_image(slug, original_path(rec["original"]), images[slug]["widths"])
-        for slug, rec in m["assets"]["videos"].items():
-            if slug in videos:
-                rec.update(encode_video(slug, original_path(rec["original"]), videos[slug]))
-        save_manifest(m)
-        write_ui_data(m, spec)
+        with run_lock():
+            for slug, rec in m["assets"]["images"].items():
+                if slug in images:
+                    rec["variants"] = optimize_image(
+                        slug, original_path(rec["original"]), images[slug]["widths"]
+                    )
+            for slug, rec in m["assets"]["videos"].items():
+                if slug in videos:
+                    rec.update(encode_video(slug, original_path(rec["original"]), videos[slug]))
+            save_manifest(m)
+            write_ui_data(m, spec)
         print("Variantes refeitas a partir dos originais.")
         return 0
 
@@ -1006,45 +1125,55 @@ def main() -> int:
         return 0
 
     key = read_key()
-    try:
-        start = key_usage(key)  # também valida a chave antes de qualquer chamada paga
-    except ApiError as e:
-        print(f"Nada foi gerado: {scrub(str(e), key)}")
-        return 1
-    if args.redo:
-        for kind in ("images", "videos"):
-            rec = m["assets"][kind].pop(args.redo, None)
-            if rec:
-                m["rejected"].append(
-                    {
-                        "slug": args.redo,
-                        "kind": kind[:-1],
-                        "at": now(),
-                        "reason": args.reason,
-                        "model": rec["model"],
-                        "costUsd": rec.get("costUsd"),
-                    }
-                )
-    m["keyUsage"].append({"at": now(), "phase": "start", **start})
-    save_manifest(m)
+    with run_lock():
+        m = (
+            load_manifest()
+        )  # relê sob a trava: outra execução pode ter terminado enquanto esta conferia preços
+        try:
+            start = key_usage(key)  # também valida a chave antes de qualquer chamada paga
+        except ApiError as e:
+            print(f"Nada foi gerado: {scrub(str(e), key)}")
+            return 1
+        if args.redo:
+            for kind in ("images", "videos"):
+                rec = m["assets"][kind].pop(args.redo, None)
+                if rec:
+                    m["rejected"].append(
+                        {
+                            "slug": args.redo,
+                            "kind": kind[:-1],
+                            "at": now(),
+                            "reason": args.reason,
+                            "model": rec["model"],
+                            "costUsd": rec.get("costUsd"),
+                        }
+                    )
+        m["keyUsage"].append({"at": now(), "phase": "start", **start})
+        save_manifest(m)
 
-    results = []
-    for it in pending_images:
-        results.append(run_image(key, it, m))
-        if results[-1] == "stop":
-            break
-    if "stop" not in results:
-        for v in pending_videos:
-            results.append(run_video(key, v, m))
+        done = {**m["assets"]["images"], **m["assets"]["videos"]}
+        retry = set(args.retry_unknown)
+        results = []
+        for it in pending_images:
+            if it["slug"] in done:
+                continue
+            results.append(run_image(key, it, m, retry))
             if results[-1] == "stop":
                 break
+        if "stop" not in results:
+            for v in pending_videos:
+                if v["slug"] in done:
+                    continue
+                results.append(run_video(key, v, m, retry))
+                if results[-1] == "stop":
+                    break
 
-    try:
-        m["keyUsage"].append({"at": now(), "phase": "end", **key_usage(key)})
-    except ApiError as e:
-        print(f"Aviso: uso final da chave indisponível ({scrub(str(e), key)})")
-    save_manifest(m)
-    write_ui_data(m, spec)
+        try:
+            m["keyUsage"].append({"at": now(), "phase": "end", **key_usage(key)})
+        except ApiError as e:
+            print(f"Aviso: uso final da chave indisponível ({scrub(str(e), key)})")
+        save_manifest(m)
+        write_ui_data(m, spec)
     first, last = m["keyUsage"][-2].get("usageUsd"), m["keyUsage"][-1].get("usageUsd")
     delta = (
         f"; uso da chave nesta rodada: US$ {last - first:.4f}"

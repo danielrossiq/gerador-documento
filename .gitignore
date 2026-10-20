@@ -22,6 +22,10 @@ scratch_*
 
 # capturas de evidência (regeráveis com EVIDENCE=1; cópia em Shared/DanielRossi/docs/design/evidencias-fase2)
 docs/evidence/**/*.png
-# originais baixados pelo gerador de mídia da landing (as versões otimizadas ficam em frontend/public/site/)
+# gerador de mídia da landing: originais baixados, trava de execução e temporários (o que vai ao ar fica em
+# frontend/public/site/; o registro de custos em scripts/site_media.manifest.json é versionado)
 scripts/.media-originals/
+scripts/.site_media.lock
+scripts/site_media.manifest.json.tmp
+frontend/public/site/*.part
 *.key

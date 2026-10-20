@@ -5,6 +5,8 @@ python -m unittest discover -s scripts/tests -v
 
 from __future__ import annotations
 
+import base64
+import email.message
 import io
 import json
 import shutil
@@ -49,6 +51,31 @@ def video_item(**extra) -> dict:
         "alt": "",
         **extra,
     }
+
+
+class FakeResp:
+    def __init__(self, body: bytes, content_type: str):
+        self._buf = io.BytesIO(body)
+        self.headers = email.message.Message()
+        self.headers["Content-Type"] = content_type
+
+    def read(self, n: int = -1) -> bytes:
+        return self._buf.read(n)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class FakeOpener:
+    def __init__(self, resp: FakeResp):
+        self.resp, self.requests = resp, []
+
+    def open(self, req, timeout=None):
+        self.requests.append(req)
+        return self.resp
 
 
 class TempPaths(unittest.TestCase):
@@ -104,18 +131,22 @@ class ScrubAndUrls(unittest.TestCase):
         req, _ = gsm._request("GET", "videos/abc/content?index=0", FAKE_KEY, None)
         self.assertNotIn("Authorization", req.headers)  # fica em unredirected_hdrs
         self.assertEqual(req.unredirected_hdrs["Authorization"], f"Bearer {FAKE_KEY}")
-        new = gsm._HttpsOnlyRedirect().redirect_request(
-            req, None, 302, "Found", {}, "https://storage.example/v.mp4?sig=1"
+        new = gsm._AllowlistRedirect().redirect_request(
+            req, None, 302, "Found", {}, "https://openrouter.ai/api/v1/videos/abc/content?index=0&r=1"
         )
         self.assertIsNone(new.get_header("Authorization"))
         self.assertNotIn("Authorization", new.unredirected_hdrs)
 
-    def test_redirect_to_plain_http_is_refused(self):
+    def test_redirect_outside_allowlist_is_refused(self):
         req, _ = gsm._request("GET", "videos/abc/content", FAKE_KEY, None)
-        with self.assertRaises(gsm.ApiError):
-            gsm._HttpsOnlyRedirect().redirect_request(
-                req, None, 302, "Found", {}, "http://storage.example/v.mp4"
-            )
+        for target in (
+            "http://openrouter.ai/api/v1/videos/abc/content",
+            "https://storage.example/v.mp4?sig=1",
+            "https://openrouter.ai.evil.example/v.mp4",
+            "https://openrouter.ai:8443/v.mp4",
+        ):
+            with self.assertRaises(gsm.ApiError, msg=target):
+                gsm._AllowlistRedirect().redirect_request(req, None, 302, "Found", {}, target)
 
     def test_http_error_message_never_contains_key(self):
         body = json.dumps({"error": {"message": f"Invalid key {FAKE_KEY}", "code": 401}}).encode()
@@ -132,6 +163,50 @@ class ScrubAndUrls(unittest.TestCase):
         for bad in ("../../.minuta/openrouter.key", "..\\x.png", "/etc/passwd", "hero.png.key", "Hero.png"):
             with self.assertRaises(SystemExit, msg=bad):
                 gsm.original_path(bad)
+
+    def test_inside_rejects_paths_that_escape_the_base(self):
+        base = Path(tempfile.mkdtemp())
+        self.assertEqual(gsm.inside(base / "a.webp", base), base / "a.webp")
+        for bad in (base / ".." / "x.webp", base, Path(tempfile.gettempdir()) / "x.webp"):
+            with self.assertRaises(SystemExit, msg=str(bad)):
+                gsm.inside(bad, base)
+
+    def test_slug_is_limited_to_40_safe_characters(self):
+        self.assertTrue(gsm.SLUG_RE.match("a" * 40))
+        for bad in ("a" * 41, "-hero", "Hero", "hero_still", "hero/still", "hero.still", ""):
+            self.assertIsNone(gsm.SLUG_RE.match(bad), bad)
+
+    def test_read_key_validates_format_before_use(self):
+        tmp = Path(tempfile.mkdtemp())
+        cases = {
+            "ok.key": ("﻿" + FAKE_KEY + "\r\n", True),
+            "ok-linha-em-branco.key": (FAKE_KEY + "\n\n", True),
+            "duas-linhas.key": (FAKE_KEY + "\n" + FAKE_KEY + "\n", False),
+            "prefixo.key": ("Bearer " + FAKE_KEY, False),
+            "curta.key": ("sk-or-v1-abc", False),
+            "outro-arquivo.key": ("[core]\nrepositoryformatversion = 0\n", False),
+        }
+        for name, (content, ok) in cases.items():
+            path = tmp / name
+            path.write_bytes(content.encode("utf-8"))
+            with mock.patch.dict("os.environ", {"OPENROUTER_KEY_FILE": str(path)}):
+                if ok:
+                    self.assertEqual(gsm.read_key(), FAKE_KEY)
+                    continue
+                with self.assertRaises(SystemExit, msg=name) as ctx:
+                    gsm.read_key()
+                self.assertNotIn(FAKE_KEY, str(ctx.exception))
+        big = tmp / "grande.key"
+        big.write_bytes(b"sk-or-" + b"a" * 2048)
+        with mock.patch.dict("os.environ", {"OPENROUTER_KEY_FILE": str(big)}), self.assertRaises(SystemExit):
+            gsm.read_key()
+        binary = tmp / "binario.key"
+        binary.write_bytes(b"\xff\xfe\x00\x01")
+        with (
+            mock.patch.dict("os.environ", {"OPENROUTER_KEY_FILE": str(binary)}),
+            self.assertRaises(SystemExit),
+        ):
+            gsm.read_key()
 
     def test_read_key_refuses_file_inside_repo(self):
         inside = gsm.ROOT / "scripts" / "tests" / ".tmp-test.key"
@@ -190,6 +265,7 @@ class SpecValidation(TempPaths):
             ([image_item(model="openai/gpt-image-2")], []),
             ([image_item(resolution="4K")], []),
             ([image_item(slug="../../etc")], []),
+            ([image_item(slug="a" * 41)], []),
             ([image_item()], [video_item(duration=10)]),
             ([image_item()], [video_item(model="google/veo-3.1")]),
             ([image_item(aspect_ratio="4:3")], [video_item()]),
@@ -229,6 +305,59 @@ class Generation(TempPaths):
             gsm, "generate_image", side_effect=gsm.ApiError("HTTP 402 em POST /api/v1/images", 402)
         ):
             self.assertEqual(gsm.run_image(FAKE_KEY, image_item(), m), "stop")
+
+    def test_call_with_unknown_outcome_is_not_paid_again_without_explicit_retry(self):
+        m = gsm.empty_manifest()
+        m["calls"].append(
+            {
+                "kind": "image",
+                "slug": "hero-still",
+                "model": "x",
+                "status": "pending",
+                "estimateUsd": 0.1,
+                "costUsd": None,
+                "at": "t",
+            }
+        )
+        with mock.patch.object(gsm, "generate_image") as gen, mock.patch("sys.stdout", io.StringIO()):
+            self.assertEqual(gsm.run_image(FAKE_KEY, image_item(), m), "failed")
+            gen.assert_not_called()
+            gen.side_effect = gsm.ApiError("HTTP 500", 500)
+            self.assertEqual(gsm.run_image(FAKE_KEY, image_item(), m, {"hero-still"}), "failed")
+            gen.assert_called_once()
+        self.assertEqual([c["status"] for c in m["calls"]], ["unknown", "failed"])
+        self.assertAlmostEqual(gsm.recorded_usd(m), 0.2)  # a chamada incerta continua contando
+
+    def test_image_with_declared_type_that_does_not_match_content_is_refused(self):
+        png = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\0" * 32).decode()
+        for media_type in ("image/jpeg", "text/html"):
+            resp = {"data": [{"b64_json": png, "media_type": media_type}], "usage": {"cost": 0.1}}
+            with mock.patch.object(gsm, "call_api", return_value=resp), self.assertRaises(gsm.ApiError):
+                gsm.generate_image(FAKE_KEY, image_item(), {})
+        self.assertFalse(gsm.ORIGINALS.exists() and any(gsm.ORIGINALS.iterdir()))
+
+    def test_failed_video_download_keeps_job_for_resume_and_skips_fallback(self):
+        m = gsm.empty_manifest()
+        done = {"id": "job-9", "status": "completed", "usage": {"cost": 0.8}, "generation_id": "gen-9"}
+        with (
+            mock.patch.object(gsm, "video_body", return_value={}),
+            mock.patch.object(gsm, "submit_video", return_value={"id": "job-9"}) as submit,
+            mock.patch.object(gsm, "wait_video", return_value=done),
+            mock.patch.object(gsm, "fetch_video", side_effect=gsm.ApiError("Falha de rede no download")),
+            mock.patch("sys.stdout", io.StringIO()),
+        ):
+            self.assertEqual(gsm.run_video(FAKE_KEY, video_item(), m), "stop")
+        submit.assert_called_once()  # nada de fallback depois de um job concluído e cobrado
+        self.assertEqual(len(m["calls"]), 1)
+        self.assertEqual((m["calls"][0]["status"], m["calls"][0]["costUsd"]), ("submitted", 0.8))
+
+    def test_run_lock_blocks_a_second_concurrent_run(self):
+        with mock.patch.object(gsm, "LOCK", self.tmp / ".lock"):
+            with gsm.run_lock():
+                self.assertTrue((self.tmp / ".lock").exists())
+                with self.assertRaises(SystemExit), gsm.run_lock():
+                    pass
+            self.assertFalse((self.tmp / ".lock").exists())
 
     def test_submitted_video_is_resumed_without_new_paid_call(self):
         m = gsm.empty_manifest()
@@ -315,6 +444,53 @@ class Generation(TempPaths):
             mock.patch("sys.stdout", io.StringIO()),
         ):
             self.assertEqual(gsm.main(), 1)
+
+
+class Transport(TempPaths):
+    def test_call_api_refuses_non_json_and_oversized_responses(self):
+        with (
+            mock.patch.object(gsm, "_OPENER", FakeOpener(FakeResp(b"<html>", "text/html"))),
+            self.assertRaises(gsm.ApiError),
+        ):
+            gsm.call_api("GET", "videos/models")
+        with (
+            mock.patch.object(gsm, "MAX_JSON_BYTES", 10),
+            mock.patch.object(
+                gsm, "_OPENER", FakeOpener(FakeResp(b'{"data": [1, 2, 3, 4]}', "application/json"))
+            ),
+            self.assertRaises(gsm.ApiError),
+        ):
+            gsm.call_api("GET", "videos/models")
+        opener = FakeOpener(FakeResp(b'{"ok": true}', "application/json; charset=utf-8"))
+        with mock.patch.object(gsm, "_OPENER", opener):
+            self.assertEqual(gsm.call_api("GET", "key", FAKE_KEY), {"ok": True})
+        self.assertEqual(opener.requests[0].full_url, "https://openrouter.ai/api/v1/key")
+
+    def test_download_validates_type_size_and_signature_before_moving(self):
+        gsm.ORIGINALS.mkdir(parents=True)
+        dst = gsm.ORIGINALS / "hero-loop.mp4"
+        mp4 = b"\0\0\0\x18ftypisom" + b"\0" * 64
+        bad = [
+            (FakeResp(mp4, "text/html"), 1000),  # Content-Type errado
+            (FakeResp(mp4, "video/mp4"), 10),  # passa do tamanho máximo
+            (FakeResp(b"<html>not a video</html>", "video/mp4"), 1000),  # assinatura não é MP4
+        ]
+        for resp, limit in bad:
+            with mock.patch.object(gsm, "_OPENER", FakeOpener(resp)), self.assertRaises(gsm.ApiError):
+                gsm.download("videos/j/content?index=0", dst, FAKE_KEY, limit, {"video/mp4"}, gsm.is_mp4)
+            self.assertEqual(list(gsm.ORIGINALS.iterdir()), [])  # nem o destino nem o .part ficam
+        with mock.patch.object(gsm, "_OPENER", FakeOpener(FakeResp(mp4, "video/mp4"))):
+            self.assertEqual(
+                gsm.download("videos/j/content?index=0", dst, FAKE_KEY, 1000, {"video/mp4"}, gsm.is_mp4),
+                len(mp4),
+            )
+        self.assertEqual([p.name for p in gsm.ORIGINALS.iterdir()], ["hero-loop.mp4"])
+
+    def test_download_never_targets_hosts_outside_the_api(self):
+        with self.assertRaises(gsm.ApiError):
+            gsm.download(
+                "https://storage.example/v.mp4", self.tmp / "x.mp4", FAKE_KEY, 10, {"video/mp4"}, gsm.is_mp4
+            )
 
 
 class Outputs(TempPaths):

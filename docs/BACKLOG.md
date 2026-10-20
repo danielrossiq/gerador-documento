@@ -72,6 +72,7 @@ Escalas usadas abaixo:
 | 13 | Retenção e LGPD para escritórios (sigilo profissional: prazo configurável, **exportação e exclusão do workspace sob demanda**, registro de acesso) — pré-requisito do piloto com documentos reais | A | A | M | Security review |
 | 14 | Assinatura eletrônica | M | A (terceiro) | G | Security review + custo |
 | 15 | OCR para PDF digitalizado (hoje recusado de propósito, D28) | M | A (uploads/parser) | G | Security review |
+| 16 | **Content-Security-Policy completa com nonces** (hoje só `media-src 'self'`). Escopo: `script-src` com nonce por requisição via middleware do Next (sem `'unsafe-inline'`), `style-src`, `img-src 'self' data: blob:`, `connect-src 'self'`, `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`, `object-src 'none'`; rodar antes em `Content-Security-Policy-Report-Only` e cobrir com E2E (editor, prévia, downloads, lote) — **pré-requisito do piloto** | A | A (todas as páginas) | M | Security review |
 
 ## Pendências conhecidas da baseline
 - Não reexecutados nesta fase: pytest contra PostgreSQL real, lote de 1.000 e `scripts/crash_recovery_test.py`.

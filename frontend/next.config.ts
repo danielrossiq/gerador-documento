@@ -19,6 +19,9 @@ const config: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "same-origin" },
+          // Só restringe áudio/vídeo à mesma origem (vídeo da landing em /site/). A CSP completa, com nonces,
+          // é o item 16 do docs/BACKLOG.md e depende de Security review.
+          { key: "Content-Security-Policy", value: "media-src 'self'" },
         ],
       },
     ];
