@@ -769,6 +769,7 @@ html:has([data-sticky-actions]) {
 }
 .lp-steps-hero {
   margin-top: 40px;
+  max-width: 720px; /* só I3 (corte do §10): maior que um passo, sem empurrar os passos para fora da tela */
 }
 
 /* Como funciona */

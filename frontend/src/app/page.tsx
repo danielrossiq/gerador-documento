@@ -92,7 +92,7 @@ export default function Landing() {
             </h2>
             {steps.mode === "middle" && (
               <div className="lp-steps-hero">
-                <Picture variants={steps.item.variants} alt="" sizes="(min-width: 1200px) 1120px, calc(100vw - 40px)" className="lp-media" />
+                <Picture variants={steps.item.variants} alt="" sizes="(min-width: 800px) 720px, calc(100vw - 40px)" className="lp-media" />
               </div>
             )}
             <ol className={`lp-steps ${steps.mode === "three" ? "" : "is-text"}`}>

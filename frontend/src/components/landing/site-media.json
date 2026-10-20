@@ -1,4 +1,200 @@
 {
-  "images": {},
+  "images": {
+    "hero-modelo-vazado": {
+      "alt": "",
+      "variants": [
+        {
+          "file": "/site/hero-modelo-vazado-768.avif",
+          "width": 768,
+          "height": 431
+        },
+        {
+          "file": "/site/hero-modelo-vazado-768.webp",
+          "width": 768,
+          "height": 431
+        },
+        {
+          "file": "/site/hero-modelo-vazado-1024.avif",
+          "width": 1024,
+          "height": 575
+        },
+        {
+          "file": "/site/hero-modelo-vazado-1024.webp",
+          "width": 1024,
+          "height": 575
+        },
+        {
+          "file": "/site/hero-modelo-vazado-1280.avif",
+          "width": 1280,
+          "height": 719
+        },
+        {
+          "file": "/site/hero-modelo-vazado-1280.webp",
+          "width": 1280,
+          "height": 719
+        },
+        {
+          "file": "/site/hero-modelo-vazado-1600.avif",
+          "width": 1600,
+          "height": 898
+        },
+        {
+          "file": "/site/hero-modelo-vazado-1600.webp",
+          "width": 1600,
+          "height": 898
+        },
+        {
+          "file": "/site/hero-modelo-vazado-1920.avif",
+          "width": 1920,
+          "height": 1078
+        },
+        {
+          "file": "/site/hero-modelo-vazado-1920.webp",
+          "width": 1920,
+          "height": 1078
+        }
+      ]
+    },
+    "passo-2-campos": {
+      "alt": "",
+      "variants": [
+        {
+          "file": "/site/passo-2-campos-400.avif",
+          "width": 400,
+          "height": 300
+        },
+        {
+          "file": "/site/passo-2-campos-400.webp",
+          "width": 400,
+          "height": 300
+        },
+        {
+          "file": "/site/passo-2-campos-640.avif",
+          "width": 640,
+          "height": 480
+        },
+        {
+          "file": "/site/passo-2-campos-640.webp",
+          "width": 640,
+          "height": 480
+        },
+        {
+          "file": "/site/passo-2-campos-960.avif",
+          "width": 960,
+          "height": 720
+        },
+        {
+          "file": "/site/passo-2-campos-960.webp",
+          "width": 960,
+          "height": 720
+        }
+      ]
+    },
+    "recurso-lote": {
+      "alt": "",
+      "variants": [
+        {
+          "file": "/site/recurso-lote-400.avif",
+          "width": 400,
+          "height": 300
+        },
+        {
+          "file": "/site/recurso-lote-400.webp",
+          "width": 400,
+          "height": 300
+        },
+        {
+          "file": "/site/recurso-lote-640.avif",
+          "width": 640,
+          "height": 480
+        },
+        {
+          "file": "/site/recurso-lote-640.webp",
+          "width": 640,
+          "height": 480
+        },
+        {
+          "file": "/site/recurso-lote-960.avif",
+          "width": 960,
+          "height": 720
+        },
+        {
+          "file": "/site/recurso-lote-960.webp",
+          "width": 960,
+          "height": 720
+        }
+      ]
+    },
+    "recurso-historico": {
+      "alt": "",
+      "variants": [
+        {
+          "file": "/site/recurso-historico-400.avif",
+          "width": 400,
+          "height": 300
+        },
+        {
+          "file": "/site/recurso-historico-400.webp",
+          "width": 400,
+          "height": 300
+        },
+        {
+          "file": "/site/recurso-historico-640.avif",
+          "width": 640,
+          "height": 480
+        },
+        {
+          "file": "/site/recurso-historico-640.webp",
+          "width": 640,
+          "height": 480
+        },
+        {
+          "file": "/site/recurso-historico-960.avif",
+          "width": 960,
+          "height": 720
+        },
+        {
+          "file": "/site/recurso-historico-960.webp",
+          "width": 960,
+          "height": 720
+        }
+      ]
+    },
+    "recurso-kits": {
+      "alt": "",
+      "variants": [
+        {
+          "file": "/site/recurso-kits-400.avif",
+          "width": 400,
+          "height": 300
+        },
+        {
+          "file": "/site/recurso-kits-400.webp",
+          "width": 400,
+          "height": 300
+        },
+        {
+          "file": "/site/recurso-kits-640.avif",
+          "width": 640,
+          "height": 480
+        },
+        {
+          "file": "/site/recurso-kits-640.webp",
+          "width": 640,
+          "height": 480
+        },
+        {
+          "file": "/site/recurso-kits-960.avif",
+          "width": 960,
+          "height": 720
+        },
+        {
+          "file": "/site/recurso-kits-960.webp",
+          "width": 960,
+          "height": 720
+        }
+      ]
+    }
+  },
   "videos": {}
 }

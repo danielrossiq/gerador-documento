@@ -1,0 +1,569 @@
+{
+  "provider": "openrouter",
+  "budget": {
+    "usd": 3.0,
+    "calls": {
+      "black-forest-labs/flux-3-image": 9,
+      "google/gemini-nano-banana-2.1": 3,
+      "google/veo-3.1-fast": 2
+    },
+    "finals": {
+      "image": 7,
+      "video": 1
+    },
+    "videoMaxSeconds": 8
+  },
+  "calls": [
+    {
+      "kind": "image",
+      "slug": "hero-modelo-vazado",
+      "model": "black-forest-labs/flux-3-image",
+      "at": "2026-10-20T19:05:42+00:00",
+      "run": "r1",
+      "status": "ok",
+      "reservedUsd": 0.1,
+      "bounded": true,
+      "costUsd": 0.1,
+      "provider": [
+        "black-forest-labs"
+      ],
+      "costSource": "api"
+    },
+    {
+      "kind": "video",
+      "slug": "hero-loop",
+      "model": "google/veo-3.1-fast",
+      "at": "2026-10-20T19:07:01+00:00",
+      "run": "r3",
+      "status": "ok",
+      "reservedUsd": 0.8,
+      "bounded": true,
+      "costUsd": 0.8,
+      "seed": 651605726,
+      "jobId": "gen-vid-1792523222-1WgwoCP51FwKwynjNDpo",
+      "costSource": "api",
+      "generationId": "gen-vid-1792523222-1WgwoCP51FwKwynjNDpo"
+    },
+    {
+      "kind": "image",
+      "slug": "passo-2-campos",
+      "model": "black-forest-labs/flux-3-image",
+      "at": "2026-10-20T19:11:11+00:00",
+      "run": "r5",
+      "status": "ok",
+      "reservedUsd": 0.1,
+      "bounded": true,
+      "costUsd": 0.1,
+      "provider": [
+        "black-forest-labs"
+      ],
+      "costSource": "api"
+    },
+    {
+      "kind": "image",
+      "slug": "recurso-lote",
+      "model": "black-forest-labs/flux-3-image",
+      "at": "2026-10-20T19:12:15+00:00",
+      "run": "r9",
+      "status": "ok",
+      "reservedUsd": 0.1,
+      "bounded": true,
+      "costUsd": 0.1,
+      "provider": [
+        "black-forest-labs"
+      ],
+      "costSource": "api"
+    },
+    {
+      "kind": "image",
+      "slug": "recurso-kits",
+      "model": "black-forest-labs/flux-3-image",
+      "at": "2026-10-20T19:12:57+00:00",
+      "run": "r10",
+      "status": "ok",
+      "reservedUsd": 0.1,
+      "bounded": true,
+      "costUsd": 0.1,
+      "provider": [
+        "black-forest-labs"
+      ],
+      "costSource": "api"
+    },
+    {
+      "kind": "image",
+      "slug": "recurso-historico",
+      "model": "black-forest-labs/flux-3-image",
+      "at": "2026-10-20T19:14:04+00:00",
+      "run": "r11",
+      "status": "ok",
+      "reservedUsd": 0.1,
+      "bounded": true,
+      "costUsd": 0.1,
+      "provider": [
+        "black-forest-labs"
+      ],
+      "costSource": "api"
+    },
+    {
+      "kind": "image",
+      "slug": "recurso-kits",
+      "model": "black-forest-labs/flux-3-image",
+      "at": "2026-10-20T19:15:18+00:00",
+      "run": "r13",
+      "status": "ok",
+      "reservedUsd": 0.1,
+      "bounded": true,
+      "costUsd": 0.1,
+      "provider": [
+        "black-forest-labs"
+      ],
+      "costSource": "api"
+    }
+  ],
+  "assets": {
+    "images": {
+      "hero-modelo-vazado": {
+        "prompt": "A wide 16:9 editorial still-life photograph seen from a high three-quarter angle, about 60 degrees above the surface. On a pale warm stone surface, three thick sheets of matte warm off-white cotton paper in A4 proportion overlap in a loose, orderly cascade; the top sheet is rotated about 8 degrees. The top sheet is a document template: rows of very fine blind-debossed horizontal lines, evenly spaced and ending at slightly different lengths like the ragged right edge of typeset paragraphs, grouped into four short paragraph blocks. Seven precise die-cut rectangular windows of different widths sit inline within those rows, like the blanks of a form; through each window a sheet of warm amber paper shows from below. The sheet underneath is identical, but its windows reveal muted petroleum-blue paper instead, as if already filled in. Only the edge of the third sheet is visible. The arrangement sits within the central 60% of the frame, with even margins of calm stone surface on the left and right and open space above. Soft natural morning daylight rakes in from the upper left, leaving a gentle gradient of light across the stone and short crisp shadows inside every cut. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, muted petroleum blue (#344D68), warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/8, everything in sharp focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+        "model": "black-forest-labs/flux-3-image",
+        "resolution": "2K",
+        "aspectRatio": "16:9",
+        "references": [],
+        "provider": [
+          "black-forest-labs"
+        ],
+        "seed": null,
+        "generatedAt": "2026-10-20T19:05:42+00:00",
+        "costUsd": 0.1,
+        "costSource": "api",
+        "original": "hero-modelo-vazado.png",
+        "variants": [
+          {
+            "file": "/site/hero-modelo-vazado-768.avif",
+            "width": 768,
+            "height": 431,
+            "bytes": 17909
+          },
+          {
+            "file": "/site/hero-modelo-vazado-768.webp",
+            "width": 768,
+            "height": 431,
+            "bytes": 25758
+          },
+          {
+            "file": "/site/hero-modelo-vazado-1024.avif",
+            "width": 1024,
+            "height": 575,
+            "bytes": 29897
+          },
+          {
+            "file": "/site/hero-modelo-vazado-1024.webp",
+            "width": 1024,
+            "height": 575,
+            "bytes": 41732
+          },
+          {
+            "file": "/site/hero-modelo-vazado-1280.avif",
+            "width": 1280,
+            "height": 719,
+            "bytes": 46250
+          },
+          {
+            "file": "/site/hero-modelo-vazado-1280.webp",
+            "width": 1280,
+            "height": 719,
+            "bytes": 62774
+          },
+          {
+            "file": "/site/hero-modelo-vazado-1600.avif",
+            "width": 1600,
+            "height": 898,
+            "bytes": 68961
+          },
+          {
+            "file": "/site/hero-modelo-vazado-1600.webp",
+            "width": 1600,
+            "height": 898,
+            "bytes": 94456
+          },
+          {
+            "file": "/site/hero-modelo-vazado-1920.avif",
+            "width": 1920,
+            "height": 1078,
+            "bytes": 95256
+          },
+          {
+            "file": "/site/hero-modelo-vazado-1920.webp",
+            "width": 1920,
+            "height": 1078,
+            "bytes": 127050
+          }
+        ]
+      },
+      "passo-2-campos": {
+        "prompt": "A 4:3 top-down flat-lay photograph, camera perfectly overhead with an orthographic feel. One thick sheet of matte warm off-white cotton paper in A4 proportion lies perfectly straight and centered on a pale warm stone surface, filling about 75% of the frame height, with even margins of stone around it. Across the page, rows of very fine blind-debossed horizontal lines, evenly spaced and ending at slightly different lengths like the ragged right edge of typeset paragraphs, are grouped into four short paragraph blocks under one shorter, slightly heavier line at the top, like a title. Seven precise die-cut rectangular windows of different widths sit inline within the rows, like the blanks of a form; through each window warm amber paper shows from below, and each cut casts a thin crisp shadow onto the amber. Soft natural morning daylight from the upper left. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/8, everything in sharp focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+        "model": "black-forest-labs/flux-3-image",
+        "resolution": "2K",
+        "aspectRatio": "4:3",
+        "references": [],
+        "provider": [
+          "black-forest-labs"
+        ],
+        "seed": null,
+        "generatedAt": "2026-10-20T19:11:11+00:00",
+        "costUsd": 0.1,
+        "costSource": "api",
+        "original": "passo-2-campos.png",
+        "variants": [
+          {
+            "file": "/site/passo-2-campos-400.avif",
+            "width": 400,
+            "height": 300,
+            "bytes": 7292
+          },
+          {
+            "file": "/site/passo-2-campos-400.webp",
+            "width": 400,
+            "height": 300,
+            "bytes": 8858
+          },
+          {
+            "file": "/site/passo-2-campos-640.avif",
+            "width": 640,
+            "height": 480,
+            "bytes": 18651
+          },
+          {
+            "file": "/site/passo-2-campos-640.webp",
+            "width": 640,
+            "height": 480,
+            "bytes": 20352
+          },
+          {
+            "file": "/site/passo-2-campos-960.avif",
+            "width": 960,
+            "height": 720,
+            "bytes": 36256
+          },
+          {
+            "file": "/site/passo-2-campos-960.webp",
+            "width": 960,
+            "height": 720,
+            "bytes": 42086
+          }
+        ]
+      },
+      "recurso-lote": {
+        "prompt": "A 4:3 top-down flat-lay photograph, camera perfectly overhead. On a pale warm stone surface: on the left, one sheet of matte petroleum-blue paper with a precise blind-debossed grid of thin rows and columns, like an empty spreadsheet with nothing written in it; on the right, a neat, slightly fanned stack of six identical thick sheets of matte warm off-white cotton paper in A4 proportion, each with rows of very fine blind-debossed horizontal lines and the same arrangement of small die-cut rectangular windows, all revealing petroleum-blue paper from below. A clear, calm gap between the grid and the stack, and generous margins of stone. Soft natural morning daylight from the upper left, with short crisp shadows. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, muted petroleum blue (#344D68), warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/8, everything in sharp focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+        "model": "black-forest-labs/flux-3-image",
+        "resolution": "2K",
+        "aspectRatio": "4:3",
+        "references": [],
+        "provider": [
+          "black-forest-labs"
+        ],
+        "seed": null,
+        "generatedAt": "2026-10-20T19:12:15+00:00",
+        "costUsd": 0.1,
+        "costSource": "api",
+        "original": "recurso-lote.png",
+        "variants": [
+          {
+            "file": "/site/recurso-lote-400.avif",
+            "width": 400,
+            "height": 300,
+            "bytes": 6493
+          },
+          {
+            "file": "/site/recurso-lote-400.webp",
+            "width": 400,
+            "height": 300,
+            "bytes": 8628
+          },
+          {
+            "file": "/site/recurso-lote-640.avif",
+            "width": 640,
+            "height": 480,
+            "bytes": 15216
+          },
+          {
+            "file": "/site/recurso-lote-640.webp",
+            "width": 640,
+            "height": 480,
+            "bytes": 18826
+          },
+          {
+            "file": "/site/recurso-lote-960.avif",
+            "width": 960,
+            "height": 720,
+            "bytes": 30499
+          },
+          {
+            "file": "/site/recurso-lote-960.webp",
+            "width": 960,
+            "height": 720,
+            "bytes": 39290
+          }
+        ]
+      },
+      "recurso-historico": {
+        "prompt": "A 4:3 still-life photograph seen from a 45-degree angle. On a pale warm stone surface, a shallow, simple tray of pale stone holds a neat row of documents made of thick matte warm off-white cotton paper, standing upright and filed one behind another. Small blank tabs of plain amber paper protrude at staggered heights along their top edges. On the visible upper part of the front sheets: rows of very fine blind-debossed horizontal lines and small die-cut rectangular windows revealing petroleum-blue paper from below. Calm and orderly; the row of documents is centered, with generous margins. Soft natural morning daylight from the upper left, with short crisp shadows. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, muted petroleum blue (#344D68), warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/5.6, the farthest documents very slightly out of focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+        "model": "black-forest-labs/flux-3-image",
+        "resolution": "2K",
+        "aspectRatio": "4:3",
+        "references": [],
+        "provider": [
+          "black-forest-labs"
+        ],
+        "seed": null,
+        "generatedAt": "2026-10-20T19:14:04+00:00",
+        "costUsd": 0.1,
+        "costSource": "api",
+        "original": "recurso-historico.png",
+        "variants": [
+          {
+            "file": "/site/recurso-historico-400.avif",
+            "width": 400,
+            "height": 300,
+            "bytes": 7274
+          },
+          {
+            "file": "/site/recurso-historico-400.webp",
+            "width": 400,
+            "height": 300,
+            "bytes": 9612
+          },
+          {
+            "file": "/site/recurso-historico-640.avif",
+            "width": 640,
+            "height": 480,
+            "bytes": 15434
+          },
+          {
+            "file": "/site/recurso-historico-640.webp",
+            "width": 640,
+            "height": 480,
+            "bytes": 19814
+          },
+          {
+            "file": "/site/recurso-historico-960.avif",
+            "width": 960,
+            "height": 720,
+            "bytes": 29577
+          },
+          {
+            "file": "/site/recurso-historico-960.webp",
+            "width": 960,
+            "height": 720,
+            "bytes": 38114
+          }
+        ]
+      },
+      "recurso-kits": {
+        "prompt": "A 4:3 still-life photograph seen from above at a slight angle, about 75 degrees. On a pale warm stone surface lies an open folder of matte petroleum-blue card. On it, three different document templates made of thick matte warm off-white cotton paper in A4 proportion are slightly fanned; each has rows of very fine blind-debossed horizontal lines and its own arrangement of die-cut rectangular windows revealing warm amber paper from below. One wide band of plain amber paper wraps around the three sheets, holding them together as a set. Generous margins of stone around the folder. Soft natural morning daylight from the upper left, with short crisp shadows. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, muted petroleum blue (#344D68), warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/8, everything in sharp focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+        "model": "black-forest-labs/flux-3-image",
+        "resolution": "2K",
+        "aspectRatio": "4:3",
+        "references": [],
+        "provider": [
+          "black-forest-labs"
+        ],
+        "seed": null,
+        "generatedAt": "2026-10-20T19:15:18+00:00",
+        "costUsd": 0.1,
+        "costSource": "api",
+        "original": "recurso-kits.png",
+        "variants": [
+          {
+            "file": "/site/recurso-kits-400.avif",
+            "width": 400,
+            "height": 300,
+            "bytes": 9088
+          },
+          {
+            "file": "/site/recurso-kits-400.webp",
+            "width": 400,
+            "height": 300,
+            "bytes": 12278
+          },
+          {
+            "file": "/site/recurso-kits-640.avif",
+            "width": 640,
+            "height": 480,
+            "bytes": 20426
+          },
+          {
+            "file": "/site/recurso-kits-640.webp",
+            "width": 640,
+            "height": 480,
+            "bytes": 26316
+          },
+          {
+            "file": "/site/recurso-kits-960.avif",
+            "width": 960,
+            "height": 720,
+            "bytes": 39187
+          },
+          {
+            "file": "/site/recurso-kits-960.webp",
+            "width": 960,
+            "height": 720,
+            "bytes": 48886
+          }
+        ]
+      }
+    },
+    "videos": {}
+  },
+  "rejected": [
+    {
+      "slug": "recurso-kits",
+      "kind": "image",
+      "at": "2026-10-20T19:15:16+00:00",
+      "reason": "§11: faixa âmbar com braço em cruz (geometria quebrada); não se distinguem três modelos",
+      "model": "black-forest-labs/flux-3-image",
+      "costUsd": 0.1
+    },
+    {
+      "slug": "hero-loop",
+      "kind": "video",
+      "at": "2026-10-20T19:16:37+00:00",
+      "model": "google/veo-3.1-fast",
+      "costUsd": 0.8,
+      "reason": "§11: câmera se move (enquadramento muda nos quadros 64 e 128); emenda do loop 5,86 > 3",
+      "jobId": "gen-vid-1792523222-1WgwoCP51FwKwynjNDpo",
+      "seed": 651605726
+    }
+  ],
+  "runs": [
+    {
+      "id": "r1",
+      "startedAt": "2026-10-20T19:05:42+00:00",
+      "usageStart": 0.0,
+      "usageEnd": 0.0,
+      "limit": 100.0,
+      "limitRemainingStart": 100.0,
+      "limitRemainingEnd": 100.0,
+      "endedAt": "2026-10-20T19:06:20+00:00"
+    },
+    {
+      "id": "r2",
+      "startedAt": "2026-10-20T19:06:48+00:00",
+      "usageStart": 0.0,
+      "usageEnd": 0.1,
+      "limit": 100.0,
+      "limitRemainingStart": 100.0,
+      "limitRemainingEnd": 99.9,
+      "endedAt": "2026-10-20T19:06:49+00:00"
+    },
+    {
+      "id": "r3",
+      "startedAt": "2026-10-20T19:07:00+00:00",
+      "usageStart": 0.1,
+      "usageEnd": 0.1,
+      "limit": 100.0,
+      "limitRemainingStart": 99.9,
+      "limitRemainingEnd": 99.9,
+      "endedAt": "2026-10-20T19:10:18+00:00"
+    },
+    {
+      "id": "r4",
+      "startedAt": "2026-10-20T19:11:00+00:00",
+      "usageStart": 0.1,
+      "usageEnd": 0.9,
+      "limit": 100.0,
+      "limitRemainingStart": 99.9,
+      "limitRemainingEnd": 99.1,
+      "endedAt": "2026-10-20T19:11:00+00:00"
+    },
+    {
+      "id": "r5",
+      "startedAt": "2026-10-20T19:11:11+00:00",
+      "usageStart": 0.9,
+      "usageEnd": 0.9,
+      "limit": 100.0,
+      "limitRemainingStart": 99.1,
+      "limitRemainingEnd": 99.1,
+      "endedAt": "2026-10-20T19:11:49+00:00"
+    },
+    {
+      "id": "r6",
+      "startedAt": "2026-10-20T19:12:12+00:00",
+      "usageStart": 0.9,
+      "usageEnd": 1.0,
+      "limit": 100.0,
+      "limitRemainingStart": 99.1,
+      "limitRemainingEnd": 99.0,
+      "endedAt": "2026-10-20T19:12:12+00:00"
+    },
+    {
+      "id": "r7",
+      "startedAt": "2026-10-20T19:12:13+00:00",
+      "usageStart": 1.0,
+      "usageEnd": 1.0,
+      "limit": 100.0,
+      "limitRemainingStart": 99.0,
+      "limitRemainingEnd": 99.0,
+      "endedAt": "2026-10-20T19:12:13+00:00"
+    },
+    {
+      "id": "r8",
+      "startedAt": "2026-10-20T19:12:14+00:00",
+      "usageStart": 1.0,
+      "usageEnd": 1.0,
+      "limit": 100.0,
+      "limitRemainingStart": 99.0,
+      "limitRemainingEnd": 99.0,
+      "endedAt": "2026-10-20T19:12:14+00:00"
+    },
+    {
+      "id": "r9",
+      "startedAt": "2026-10-20T19:12:14+00:00",
+      "usageStart": 1.0,
+      "usageEnd": 1.0,
+      "limit": 100.0,
+      "limitRemainingStart": 99.0,
+      "limitRemainingEnd": 99.0,
+      "endedAt": "2026-10-20T19:12:56+00:00"
+    },
+    {
+      "id": "r10",
+      "startedAt": "2026-10-20T19:12:57+00:00",
+      "usageStart": 1.0,
+      "usageEnd": 1.1,
+      "limit": 100.0,
+      "limitRemainingStart": 99.0,
+      "limitRemainingEnd": 98.9,
+      "endedAt": "2026-10-20T19:14:03+00:00"
+    },
+    {
+      "id": "r11",
+      "startedAt": "2026-10-20T19:14:04+00:00",
+      "usageStart": 1.1,
+      "usageEnd": 1.1,
+      "limit": 100.0,
+      "limitRemainingStart": 98.9,
+      "limitRemainingEnd": 98.9,
+      "endedAt": "2026-10-20T19:14:44+00:00"
+    },
+    {
+      "id": "r12",
+      "startedAt": "2026-10-20T19:15:16+00:00",
+      "usageStart": 1.2,
+      "usageEnd": 1.3,
+      "limit": 100.0,
+      "limitRemainingStart": 98.8,
+      "limitRemainingEnd": 98.7,
+      "endedAt": "2026-10-20T19:15:17+00:00"
+    },
+    {
+      "id": "r13",
+      "startedAt": "2026-10-20T19:15:17+00:00",
+      "usageStart": 1.3,
+      "usageEnd": 1.3,
+      "limit": 100.0,
+      "limitRemainingStart": 98.7,
+      "limitRemainingEnd": 98.7,
+      "endedAt": "2026-10-20T19:16:06+00:00"
+    }
+  ]
+}
