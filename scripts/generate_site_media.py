@@ -13,7 +13,7 @@ Entradas:
 - Chave: lida SOMENTE do arquivo em OPENROUTER_KEY_FILE ou ~/.minuta/openrouter.key, fora do repositório, e validada
   antes do uso (uma linha, prefixo sk-or-, até 1 KB). Nunca vai para argumentos, logs, manifest ou mensagens de erro.
 
-Rede: só https://openrouter.ai (allowlist fixa, também nos redirects, que nunca levam o Authorization). Respostas JSON
+Rede: só https://openrouter.ai (allowlist fixa) e nenhum redirect é seguido. Respostas JSON
 exigem Content-Type application/json e têm teto de tamanho; o vídeo é baixado em streaming para um .part e só é movido
 depois de conferidos Content-Type (video/mp4), tamanho e assinatura do arquivo. Uma execução por vez (trava em
 scripts/.site_media.lock); uma chamada que caiu sem resultado conhecido não é paga de novo sem --retry-unknown.
@@ -92,7 +92,7 @@ VIDEO_MODELS = {
 }
 VIDEO_SKU = "duration_seconds_without_audio"  # 1080p sem áudio (720p e 4K têm SKUs próprios)
 
-# Únicos hosts aceitos, inclusive em redirect: a doc e as respostas (polling_url, unsigned_urls) só apontam para cá.
+# Únicos hosts aceitos: a doc e as respostas (polling_url, unsigned_urls) só apontam para cá. Redirect nunca é seguido.
 ALLOWED_HOSTS = frozenset({"openrouter.ai"})
 KEY_RE = re.compile(r"^sk-or-[A-Za-z0-9_-]{20,200}$")
 MAX_KEY_FILE_BYTES = 1024
@@ -104,6 +104,11 @@ HTTP_TIMEOUT_S = 300
 POLL_INTERVAL_S = 20
 POLL_TIMEOUT_S = 20 * 60
 MAX_IMAGE_BYTES = 40 * 1024 * 1024
+MAX_IMAGE_SIDE = 4096  # 2K fica bem abaixo; acima disso a resposta é recusada
+# Vídeo 1080p de até 8 s: limites conferidos no original antes do ffmpeg e de novo na saída, antes de publicar.
+VIDEO_CODECS = {"h264", "hevc", "vp9", "av1"}
+MAX_VIDEO_LONG_SIDE, MAX_VIDEO_SHORT_SIDE, MAX_VIDEO_FPS = 1920, 1080, 60
+FFMPEG_TIMEOUT_S = 15 * 60
 MAX_VIDEO_BYTES = 300 * 1024 * 1024
 FRAME_MAX_WIDTH = 1920  # quadro enviado ao vídeo (data URL JPEG): mesmo tamanho da saída 1080p
 
@@ -178,16 +183,18 @@ def api_url(path_or_url: str) -> str:
     return url
 
 
-class _AllowlistRedirect(urllib.request.HTTPRedirectHandler):
-    # Só segue redirect para https em host da allowlist. O Authorization vai como cabeçalho "unredirected",
-    # que o urllib não copia para a requisição redirecionada.
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    # A API não usa redirect: qualquer 3xx é recusado, então nada é buscado fora do destino conferido por api_url.
+    # (O Authorization ainda vai como cabeçalho "unredirected", que o urllib nunca copia para outra requisição.)
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        if not allowed_url(urllib.parse.urljoin(req.full_url, newurl)):
-            raise ApiError(f"Redirect para fora da allowlist recusado (HTTP {code})", code)
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+        raise ApiError(f"Redirect recusado (HTTP {code})", code)
 
 
-_OPENER = urllib.request.build_opener(_AllowlistRedirect())
+def build_opener(*handlers: urllib.request.BaseHandler) -> urllib.request.OpenerDirector:
+    return urllib.request.build_opener(_NoRedirect(), *handlers)
+
+
+_OPENER = build_opener()
 
 
 def _request(
@@ -498,6 +505,21 @@ def image_body(item: dict, m: dict) -> dict:
     return body
 
 
+def check_image(raw: bytes) -> None:
+    """Falha fechado se a imagem não abrir, estiver truncada ou passar das dimensões esperadas para 2K."""
+    from PIL import Image
+
+    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_SIDE * MAX_IMAGE_SIDE  # bomba de descompressão vira erro
+    try:
+        with Image.open(io.BytesIO(raw)) as im:
+            width, height = im.size
+            im.verify()
+    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError, Image.DecompressionBombWarning):
+        raise ApiError("Imagem recebida inválida ou corrompida") from None
+    if not (0 < width <= MAX_IMAGE_SIDE and 0 < height <= MAX_IMAGE_SIDE):
+        raise ApiError(f"Imagem com dimensões fora do limite ({width}x{height})")
+
+
 def generate_image(key: str, item: dict, body: dict) -> tuple[Path, dict]:
     resp = call_api("POST", "images", key, body)
     data = resp.get("data") or []
@@ -514,6 +536,7 @@ def generate_image(key: str, item: dict, body: dict) -> tuple[Path, dict]:
     ext = sniff_image(raw)  # a assinatura do arquivo precisa bater com o tipo declarado
     if media_type is not None and IMAGE_TYPES[media_type] != ext:
         raise ApiError(f"Imagem declarada como {media_type}, mas o conteúdo é {ext}")
+    check_image(raw)
     ORIGINALS.mkdir(parents=True, exist_ok=True)
     dst = inside(ORIGINALS / f"{item['slug']}.{ext}", ORIGINALS)
     part = dst.with_name(dst.name + ".part")
@@ -625,9 +648,18 @@ def _tool(name: str) -> str:
 
 
 def _run(args: list[str]) -> str:
-    proc = subprocess.run(  # noqa: S603 - ffmpeg/ffprobe com argumentos montados aqui, sem shell
-        args, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False
-    )
+    try:
+        proc = subprocess.run(  # noqa: S603 - ffmpeg/ffprobe com argumentos montados aqui, sem shell
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=FFMPEG_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        raise SystemExit(f"{Path(args[0]).name} passou de {FFMPEG_TIMEOUT_S}s; nada foi publicado") from None
     if proc.returncode != 0:
         raise SystemExit(f"{Path(args[0]).name} falhou ({proc.returncode}): {proc.stderr.strip()[-400:]}")
     return proc.stdout
@@ -649,16 +681,55 @@ def probe(path: Path) -> dict:
             ]
         )
     )
-    video = next(s for s in out["streams"] if s["codec_type"] == "video")
-    return {
-        "width": int(video["width"]),
-        "height": int(video["height"]),
-        "codec": video["codec_name"],
-        "duration": float(out["format"]["duration"]),
-        "frames": int(video.get("nb_read_frames") or video.get("nb_frames") or 0),
-        "audio": any(s["codec_type"] == "audio" for s in out["streams"]),
-        "bytes": int(out["format"]["size"]),
-    }
+    video = next((s for s in out.get("streams", []) if s.get("codec_type") == "video"), None)
+    try:
+        return {
+            "width": int(video["width"]),
+            "height": int(video["height"]),
+            "codec": video["codec_name"],
+            "duration": float(out["format"]["duration"]),
+            "frames": int(video.get("nb_read_frames") or video.get("nb_frames") or 0),
+            "audio": any(s.get("codec_type") == "audio" for s in out["streams"]),
+            "bytes": int(out["format"]["size"]),
+        }
+    except (TypeError, KeyError, ValueError):
+        raise SystemExit(f"{path.name}: arquivo sem trilha de vídeo legível; nada foi publicado") from None
+
+
+def check_video(
+    info: dict,
+    label: str,
+    *,
+    max_seconds: float,
+    width: int | None = None,
+    max_frames: int | None = None,
+    max_bytes: int | None = None,
+    audio_ok: bool = False,
+) -> None:
+    """Falha fechado se o vídeo sair dos limites aprovados (codec, duração, dimensões, quadros, áudio, tamanho)."""
+    long_side, short_side = max(info["width"], info["height"]), min(info["width"], info["height"])
+    fps_cap = int((MAX_VIDEO_SECONDS + 0.5) * MAX_VIDEO_FPS)
+    problems = [
+        msg
+        for bad, msg in (
+            (info["codec"] not in VIDEO_CODECS, f"codec {info['codec']}"),
+            (not 0 < info["duration"] <= max_seconds, f"duração {info['duration']:.2f} s"),
+            (
+                not (0 < long_side <= MAX_VIDEO_LONG_SIDE and 0 < short_side <= MAX_VIDEO_SHORT_SIDE),
+                f"dimensões {info['width']}x{info['height']}",
+            ),
+            (width is not None and info["width"] != width, f"largura {info['width']} (esperada {width})"),
+            (not 0 < info["frames"] <= min(fps_cap, max_frames or fps_cap), f"{info['frames']} quadros"),
+            (info["audio"] and not audio_ok, "trilha de áudio"),
+            (
+                max_bytes is not None and info["bytes"] > max_bytes,
+                f"{info['bytes']} bytes (teto {max_bytes})",
+            ),
+        )
+        if bad
+    ]
+    if problems:
+        raise SystemExit(f"{label} fora dos limites: {', '.join(problems)}. Nada foi publicado.")
 
 
 def frame_png(src: Path, dst: Path, index: int) -> None:
@@ -699,6 +770,8 @@ def loop_seam(src: Path, frames: int) -> float:
 
 def encode_video(slug: str, src: Path, item: dict) -> dict:
     info = probe(src)
+    # O original vem de fora: confere antes de qualquer codificação (o áudio é removido abaixo, por isso é aceito).
+    check_video(info, f"{slug}: original", max_seconds=MAX_VIDEO_SECONDS + 0.5, audio_ok=True)
     width = min(int(item.get("output_width", 1920)), info["width"])
     target = int(item.get("target_bytes", 3_000_000))
     # Com first_frame = last_frame o último quadro repete o primeiro: corta-o para o loop não "engasgar".
@@ -771,8 +844,15 @@ def encode_video(slug: str, src: Path, item: dict) -> dict:
         poster_src = Path(tmp) / "poster.png"
         frame_png(src, poster_src, 0)
         out_mp4, out_webm = probe(tmp_mp4), probe(tmp_webm)
-        if out_mp4["audio"] or out_webm["audio"]:
-            raise SystemExit(f"{slug}: a codificação manteve uma trilha de áudio")
+        for out, label in ((out_mp4, "MP4"), (out_webm, "WebM")):
+            check_video(
+                out,
+                f"{slug}: {label} gerado",
+                max_seconds=MAX_VIDEO_SECONDS + 0.1,
+                width=width,
+                max_frames=frames,
+                max_bytes=int(target * 1.1),
+            )
         seam = loop_seam(tmp_mp4, out_mp4["frames"]) if item.get("loop") else None
         shutil.move(tmp_mp4, mp4)
         shutil.move(tmp_webm, webm)
@@ -792,8 +872,8 @@ def encode_video(slug: str, src: Path, item: dict) -> dict:
             "durationS": round(out_mp4["duration"], 2),
             "maxDurationS": MAX_VIDEO_SECONDS,
             "targetBytes": target,
-            "mp4WithinTarget": out_mp4["bytes"] <= target * 1.1,
-            "webmWithinTarget": out_webm["bytes"] <= target * 1.1,
+            "maxBytes": int(target * 1.1),
+            "frames": out_mp4["frames"],
             "loopSeamMeanDiff": seam,
         },
     }

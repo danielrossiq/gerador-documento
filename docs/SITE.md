@@ -30,8 +30,8 @@ python -m unittest discover -s scripts/tests           # testes do gerador (sem 
   Loop: a mesma imagem vai como `first_frame` e `last_frame`, e o último quadro (repetido) é cortado na codificação.
 - **Chave:** lida apenas do arquivo `~/.minuta/openrouter.key` (ou do caminho em `OPENROUTER_KEY_FILE`), fora do
   repositório, e validada antes do uso (uma linha, prefixo `sk-or-`, até 1 KB). Nunca vai para argumentos, logs,
-  manifest ou mensagens de erro; só é enviada a `https://openrouter.ai/api/v1/` e não acompanha redirects.
-- **Rede e arquivos:** só `https://openrouter.ai` (allowlist fixa, também nos redirects). JSON exige
+  manifest ou mensagens de erro; só é enviada a `https://openrouter.ai/api/v1/`.
+- **Rede e arquivos:** só `https://openrouter.ai` (allowlist fixa) e nenhum redirect é seguido. JSON exige
   `application/json` e tem teto de tamanho; o vídeo é baixado em streaming para um `.part` e só é movido depois de
   conferidos Content-Type `video/mp4`, tamanho e assinatura. As URLs assinadas (`urls`) não são usadas nem gravadas.
   Slugs `^[a-z0-9][a-z0-9-]{0,39}$`, e todo caminho gravado precisa ficar dentro de `frontend/public/site/` ou de
@@ -46,6 +46,10 @@ python -m unittest discover -s scripts/tests           # testes do gerador (sem 
   pelo id, sem pagar outro.
 - **Saídas:** imagens AVIF/WebP responsivas sem metadados; vídeo MP4 H.264 + WebM VP9 sem trilha de áudio e sem
   metadados (alvo ~3 MB no hero), com pôster AVIF/WebP do primeiro quadro.
+- **Falha fechada:** imagem que não abre, truncada ou acima de 4096 px é recusada. O vídeo original precisa
+  ter codec conhecido, até 8,5 s, até 1920×1080 e no máximo 60 quadros/s; a saída precisa ter até 8,1 s, a largura
+  pedida, nenhum áudio e até 110% do alvo de bytes. Fora disso, nada vai para `public/site/` (o original pago fica
+  guardado para `--optimize-only`). ffmpeg/ffprobe têm limite de 15 min.
 - **Registros:** `scripts/site_media.manifest.json` (prompt, modelo, parâmetros, ids, custo, data e checagens) fica fora
   de `public/`. A landing importa só `frontend/src/components/landing/site-media.json` (arquivos, dimensões e alt).
 - Originais em `scripts/.media-originals/` (ignorado pelo git). Requer Pillow com AVIF e ffmpeg/ffprobe no PATH

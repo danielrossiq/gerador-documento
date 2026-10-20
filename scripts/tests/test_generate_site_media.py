@@ -15,6 +15,7 @@ import tempfile
 import unittest
 import urllib.error
 import urllib.request
+import urllib.response
 from pathlib import Path
 from unittest import mock
 
@@ -67,6 +68,25 @@ class FakeResp:
 
     def __exit__(self, *exc):
         return False
+
+
+class FakeHTTPS(urllib.request.HTTPSHandler):
+    """Transporte falso dentro da pilha real do urllib (HTTPErrorProcessor e handler de redirect de verdade)."""
+
+    def __init__(self, responses: list[tuple[int, dict, bytes]]):
+        super().__init__()
+        self.responses, self.seen = list(responses), []
+
+    def https_open(self, req):
+        auth = req.get_header("Authorization") or req.unredirected_hdrs.get("Authorization")
+        self.seen.append((req.full_url, auth))
+        status, headers, body = self.responses.pop(0) if self.responses else (500, {}, b"")
+        msg = email.message.Message()
+        for k, v in headers.items():
+            msg[k] = v
+        resp = urllib.response.addinfourl(io.BytesIO(body), msg, req.full_url, status)
+        resp.msg = "fake"
+        return resp
 
 
 class FakeOpener:
@@ -127,26 +147,42 @@ class ScrubAndUrls(unittest.TestCase):
             with self.assertRaises(gsm.ApiError, msg=bad):
                 gsm.api_url(bad)
 
-    def test_authorization_is_not_forwarded_on_redirect(self):
+    def test_authorization_goes_only_in_unredirected_header(self):
         req, _ = gsm._request("GET", "videos/abc/content?index=0", FAKE_KEY, None)
-        self.assertNotIn("Authorization", req.headers)  # fica em unredirected_hdrs
+        self.assertNotIn("Authorization", req.headers)  # o urllib nunca copia unredirected_hdrs num redirect
         self.assertEqual(req.unredirected_hdrs["Authorization"], f"Bearer {FAKE_KEY}")
-        new = gsm._AllowlistRedirect().redirect_request(
-            req, None, 302, "Found", {}, "https://openrouter.ai/api/v1/videos/abc/content?index=0&r=1"
-        )
-        self.assertIsNone(new.get_header("Authorization"))
-        self.assertNotIn("Authorization", new.unredirected_hdrs)
 
-    def test_redirect_outside_allowlist_is_refused(self):
-        req, _ = gsm._request("GET", "videos/abc/content", FAKE_KEY, None)
-        for target in (
-            "http://openrouter.ai/api/v1/videos/abc/content",
-            "https://storage.example/v.mp4?sig=1",
-            "https://openrouter.ai.evil.example/v.mp4",
-            "https://openrouter.ai:8443/v.mp4",
-        ):
-            with self.assertRaises(gsm.ApiError, msg=target):
-                gsm._AllowlistRedirect().redirect_request(req, None, 302, "Found", {}, target)
+    def test_real_opener_refuses_every_redirect_and_fetches_nothing_else(self):
+        targets = (
+            "https://storage.example/v.mp4?sig=1",  # outro host
+            "https://openrouter.ai/api/v1/videos/abc/content?index=1",  # mesmo host também é recusado
+            "http://openrouter.ai/api/v1/key",
+        )
+        for code in (301, 302, 303, 307, 308):
+            for target in targets:
+                transport = FakeHTTPS([(code, {"Location": target}, b"")] * 2)
+                with mock.patch.object(gsm, "_OPENER", gsm.build_opener(transport)):
+                    with self.assertRaises(gsm.ApiError, msg=f"{code} {target}"):
+                        gsm.call_api("GET", "key", FAKE_KEY)
+                    with self.assertRaises(gsm.ApiError, msg=f"{code} {target}"):
+                        gsm.download(
+                            "videos/j/content",
+                            Path(tempfile.mkdtemp()) / "v.mp4",
+                            FAKE_KEY,
+                            10,
+                            {"video/mp4"},
+                            gsm.is_mp4,
+                        )
+                self.assertEqual(
+                    [u for u, _ in transport.seen],
+                    ["https://openrouter.ai/api/v1/key", "https://openrouter.ai/api/v1/videos/j/content"],
+                )
+
+    def test_real_opener_sends_key_only_to_the_api(self):
+        transport = FakeHTTPS([(200, {"Content-Type": "application/json"}, b'{"data": {"usage": 1.5}}')])
+        with mock.patch.object(gsm, "_OPENER", gsm.build_opener(transport)):
+            self.assertEqual(gsm.key_usage(FAKE_KEY), {"usageUsd": 1.5, "limitRemainingUsd": None})
+        self.assertEqual(transport.seen, [("https://openrouter.ai/api/v1/key", f"Bearer {FAKE_KEY}")])
 
     def test_http_error_message_never_contains_key(self):
         body = json.dumps({"error": {"message": f"Invalid key {FAKE_KEY}", "code": 401}}).encode()
@@ -551,7 +587,8 @@ class Outputs(TempPaths):
         self.assertEqual(
             gsm.probe(gsm.PUBLIC / "hero-loop.mp4")["frames"], 47
         )  # 48 quadros menos o repetido do loop
-        self.assertTrue(out["checks"]["mp4WithinTarget"] and out["checks"]["webmWithinTarget"])
+        self.assertTrue(all(s["bytes"] <= out["checks"]["maxBytes"] for s in out["sources"]))
+        self.assertEqual(out["checks"]["frames"], 47)
         self.assertEqual([s["type"] for s in out["sources"]], ["video/webm", "video/mp4"])
         self.assertEqual(len(out["poster"]), 4)
         tags = json.loads(
@@ -568,6 +605,112 @@ class Outputs(TempPaths):
             )
         )["format"].get("tags", {})
         self.assertNotIn("title", tags)
+
+    def test_video_limits_fail_closed(self):
+        ok = {
+            "codec": "h264",
+            "duration": 8.0,
+            "width": 1920,
+            "height": 1080,
+            "frames": 192,
+            "audio": False,
+            "bytes": 2_900_000,
+        }
+        gsm.check_video(ok, "ok", max_seconds=8.1, width=1920, max_frames=192, max_bytes=3_300_000)
+        gsm.check_video({**ok, "audio": True}, "original", max_seconds=8.5, audio_ok=True)
+        bad = [
+            ({"duration": 9.0}, {}),
+            ({"width": 2560, "height": 1440}, {}),
+            ({"width": 1080, "height": 1920}, {"width": 1920}),  # vertical: largura não confere
+            ({"frames": 600}, {}),
+            ({"frames": 0}, {}),
+            ({"audio": True}, {}),
+            ({"bytes": 4_000_000}, {"max_bytes": 3_300_000}),
+            ({"codec": "mjpeg"}, {}),
+            ({"frames": 193}, {"max_frames": 192}),
+        ]
+        for change, extra in bad:
+            with self.assertRaises(SystemExit, msg=str(change)):
+                gsm.check_video({**ok, **change}, "teste", max_seconds=8.1, **extra)
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg ausente")
+    def test_out_of_limit_source_is_rejected_before_encoding_and_nothing_is_published(self):
+        for name, lavfi in (
+            ("longo", "testsrc2=size=320x180:rate=5:duration=10"),
+            ("grande", "testsrc2=size=2048x256:rate=5:duration=1"),
+        ):
+            src = self.tmp / f"{name}.mp4"
+            gsm._run(
+                [
+                    shutil.which("ffmpeg"),
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    lavfi,
+                    "-c:v",
+                    "libx264",
+                    str(src),
+                ]
+            )
+            with (
+                mock.patch.object(gsm, "_run", wraps=gsm._run) as run,
+                self.assertRaises(SystemExit, msg=name),
+            ):
+                gsm.encode_video(
+                    "hero-loop", src, {"loop": True, "target_bytes": 150_000, "output_width": 320}
+                )
+            self.assertTrue(all("ffprobe" in Path(c.args[0][0]).name for c in run.call_args_list), name)
+            self.assertFalse(gsm.PUBLIC.exists() and any(gsm.PUBLIC.iterdir()), name)
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg ausente")
+    def test_encoded_video_over_size_ceiling_is_not_published(self):
+        src = self.tmp / "src.mp4"
+        gsm._run(
+            [
+                shutil.which("ffmpeg"),
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=640x360:rate=24:duration=2",
+                "-c:v",
+                "libx264",
+                str(src),
+            ]
+        )
+        with self.assertRaises(SystemExit):  # 2 KB é impossível para 2 s de vídeo: a saída passa do teto
+            gsm.encode_video("hero-loop", src, {"loop": True, "target_bytes": 2_000, "output_width": 640})
+        self.assertFalse(gsm.PUBLIC.exists() and any(gsm.PUBLIC.iterdir()))
+
+    def test_image_payload_is_capped_before_decoding_and_checked_after(self):
+        huge = "A" * (gsm.MAX_IMAGE_BYTES * 4 // 3 + 8)
+        with (
+            mock.patch.object(gsm, "call_api", return_value={"data": [{"b64_json": huge}]}),
+            mock.patch.object(
+                gsm.base64, "b64decode", side_effect=AssertionError("decodificou antes do teto")
+            ),
+            self.assertRaises(gsm.ApiError),
+        ):
+            gsm.generate_image(FAKE_KEY, image_item(), {})
+        from PIL import Image
+
+        for size in ((5000, 10), (10, 5000)):
+            buf = io.BytesIO()
+            Image.new("RGB", size).save(buf, "PNG")
+            with self.assertRaises(gsm.ApiError, msg=str(size)):
+                gsm.check_image(buf.getvalue())
+        with self.assertRaises(gsm.ApiError):
+            gsm.check_image(b"\x89PNG\r\n\x1a\n" + b"\0" * 64)  # assinatura certa, conteúdo corrompido
+        buf = io.BytesIO()
+        Image.new("RGB", (2048, 1152)).save(buf, "PNG")
+        gsm.check_image(buf.getvalue())
 
     def test_ui_data_exposes_only_files_dimensions_and_alt(self):
         self.write_spec([image_item()], [])
