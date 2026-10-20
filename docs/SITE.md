@@ -1,6 +1,7 @@
 # Landing pública (`/`)
 
-Spec: `Shared/DanielRossi/docs/design/minuta-site/landing-spec.md` (Product Design Lead).
+Spec: `Shared/DanielRossi/docs/design/minuta-site/landing-spec.md` (v1) e `landing-spec-v2.md` (direção de arte e
+mídia; substitui a v1 nesses pontos), do Product Design Lead.
 
 - `/` mostra a landing para qualquer visitante (antes redirecionava para `/dashboard`). Não há guarda de sessão
   nessa rota, então não existe loop com a guarda do app: quem já está logado segue por **Entrar** ou acessa `/dashboard`.
@@ -24,10 +25,13 @@ python scripts/generate_site_media.py --optimize-only  # refaz variantes a parti
 python -m unittest discover -s scripts/tests           # testes do gerador (sem rede; o de vídeo exige ffmpeg)
 ```
 
-- **Modelos (allowlist no código):** imagens `black-forest-labs/flux-3-image` em 2K (US$ 0,10) e
-  `google/gemini-nano-banana-2.1` para edição/variação com referência (cobrado por token; estimado em US$ 0,10);
-  vídeo `google/veo-3.1-fast` 1080p sem áudio (US$ 0,10/s, 4/6/8 s), com fallback `google/veo-3.1-lite` (US$ 0,05/s).
-  Loop: a mesma imagem vai como `first_frame` e `last_frame`, e o último quadro (repetido) é cortado na codificação.
+- **Plano:** `scripts/site_media.json` é cópia de `minuta-site/site_media.v2.json` (landing-spec-v2): 7 imagens e 1
+  vídeo, todas decorativas (`alt=""`).
+- **Modelos e limites (allowlist no código, landing-spec-v2 §10):** `black-forest-labs/flux-3-image` 2K, até 9
+  chamadas (US$ 0,10 por imagem); `google/gemini-nano-banana-2.1` 1K para as edições com referência, até 3 chamadas;
+  `google/veo-3.1-fast` 1080p sem áudio, até 2 chamadas (US$ 0,10/s × 8 s), **sem fallback**. Loop: a mesma imagem vai
+  como `first_frame` e `last_frame`, e o último quadro (repetido) é cortado na codificação. O vídeo recebe `seed`
+  (registrado no manifest); as APIs de imagem desses modelos não aceitam seed.
 - **Chave:** lida apenas do arquivo `~/.minuta/openrouter.key` (ou do caminho em `OPENROUTER_KEY_FILE`), fora do
   repositório, e validada antes do uso (uma linha, prefixo `sk-or-`, até 1 KB). Nunca vai para argumentos, logs,
   manifest ou mensagens de erro; só é enviada a `https://openrouter.ai/api/v1/`.
@@ -39,13 +43,21 @@ python -m unittest discover -s scripts/tests           # testes do gerador (sem 
 - **Concorrência e idempotência:** uma execução por vez (`scripts/.site_media.lock`). Asset pronto não é gerado de
   novo; job de vídeo é retomado pelo id (inclusive se o download falhar); chamada que caiu sem resultado conhecido
   só é paga de novo com `--retry-unknown <slug>`.
-- **Orçamento:** US$ 3,00 no total (dos US$ 5 de saldo, US$ 2 ficam para a avaliação da IA); imagens até 12
-  chamadas e 8 finais; vídeo até 4 chamadas, 2 finais e 8 s.
-  Cada chamada é gravada antes de sair e falhas contam. Sem custo devolvido pela API, vale a estimativa. Antes de
-  gastar, os preços ao vivo são conferidos; acima do aprovado, nada é gerado. Job de vídeo interrompido é retomado
-  pelo id, sem pagar outro.
+- **Orçamento: teto de US$ 3,00** (dos US$ 5 de saldo, US$ 2 ficam para a avaliação da IA), contando falhas.
+  Antes de **cada** chamada paga:
+  1. o custo máximo dela é conferido ao vivo nos endpoints públicos (preço fixo por imagem na resolução pedida, mais
+     cobranças por imagem de referência; ou preço por segundo do SKU pedido × duração). Unidade de cobrança sem
+     máximo conhecido, item de cobrança desconhecido ou preço acima do aprovado: nada sai. Na imagem, o pedido vai
+     com `provider.only` (os provedores conferidos) e `allow_fallbacks: false`;
+  2. o uso real da chave é medido (`GET /key`). Para a execução: gasto da chave não explicado pelo manifest, limite
+     de crédito menor que o máximo da chamada ou falha dessa medida;
+  3. gasto registrado (ou medido na chave, o que for maior) + máximo da chamada não pode passar de US$ 3,00.
+  A chamada é gravada com a reserva antes de sair; custo informado pela API acima da reserva encerra a execução.
+- **Modelo cobrado por token (Nano Banana):** não tem custo máximo verificável antes do envio. Só roda se a chave
+  tiver **limite de crédito na OpenRouter** de no máximo o que resta do orçamento (ex.: chave só do site com limite
+  de US$ 3,00); sem isso, as edições I2/I4 são puladas e o resto segue.
 - **Saídas:** imagens AVIF/WebP responsivas sem metadados; vídeo MP4 H.264 + WebM VP9 sem trilha de áudio e sem
-  metadados (alvo ~3 MB no hero), com pôster AVIF/WebP do primeiro quadro.
+  metadados (alvo de 2,5 MB no hero), com pôster AVIF/WebP do primeiro quadro.
 - **Falha fechada:** imagem que não abre, truncada ou acima de 4096 px é recusada. O vídeo original precisa
   ter codec conhecido, até 8,5 s, até 1920×1080 e no máximo 60 quadros/s; a saída precisa ter até 8,1 s, a largura
   pedida, nenhum áudio e até 110% do alvo de bytes. Fora disso, nada vai para `public/site/` (o original pago fica

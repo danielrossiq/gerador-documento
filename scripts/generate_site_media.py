@@ -24,11 +24,16 @@ Saídas:
 - scripts/site_media.manifest.json: prompt, modelo, parâmetros, ids, custo, data e checagens (sem chave, headers nem URLs)
 - scripts/.media-originals/: originais baixados (ignorado pelo git)
 
-Orçamento: US$ 3,00 no total (saldo de US$ 5 na conta; US$ 2 ficam reservados à avaliação da IA, decisão do PO
-no plano ia-integrada-plano.md v0.3). Imagens: até 12 chamadas e 8 finais. Vídeo: até 4 chamadas,
-2 finais e 8 s cada. Cada chamada é gravada no manifest antes de sair, e falhas também contam. Antes de cada chamada,
-o gasto registrado (custo devolvido pela API ou, sem ele, a estimativa) mais a estimativa da próxima não pode passar
-do teto. Antes da primeira chamada paga, os preços ao vivo dos modelos são conferidos; acima do aprovado, o script para.
+Orçamento: teto de US$ 3,00 (saldo de US$ 5 na conta; US$ 2 ficam para a avaliação da IA), contando falhas.
+Limites da landing-spec-v2 §10: FLUX.3 9 chamadas, Nano Banana 3, Veo 3.1 Fast 2 (sem fallback); finais: 7 imagens e
+1 vídeo de até 8 s. Antes de CADA chamada paga:
+- o custo máximo dela é conferido ao vivo nos endpoints públicos de modelos (preço fixo por imagem ou por segundo;
+  imagem com provedor fixado) e reservado; o que a API cobrar acima da reserva encerra a execução;
+- o uso real da chave (GET /key) é medido: gasto não explicado pelo manifest, limite de crédito insuficiente ou
+  falta dessa medida encerram a execução;
+- gasto registrado (ou medido, o que for maior) + máximo da chamada não pode passar do teto.
+Modelo cobrado por token (Nano Banana) não tem máximo verificável antes do envio: só roda se a chave tiver limite de
+crédito na OpenRouter de no máximo o que resta do orçamento, e é esse limite que garante o teto.
 
 Referências oficiais: https://openrouter.ai/docs/guides/overview/multimodal/image-generation,
 https://openrouter.ai/docs/guides/overview/multimodal/video-generation e
@@ -44,6 +49,7 @@ import io
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -52,6 +58,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -66,31 +73,42 @@ API = "https://openrouter.ai/api/v1"
 API_HOST = "openrouter.ai"
 
 BUDGET_USD = 3.00  # teto do site; os outros US$ 2 do saldo ficam para a avaliação da IA
-LIMITS = {"image": {"calls": 12, "finals": 8}, "video": {"calls": 4, "finals": 2}}
 MAX_VIDEO_SECONDS = 8
+FINALS = {"image": 7, "video": 1}  # landing-spec-v2 §10
+TOLERANCE_USD = 0.01  # arredondamento entre o custo informado por chamada e o uso medido na chave
 
-# Allowlist aprovada pelo PRODUCT OWNER. A spec escolhe entre estes modelos, mas não sobe preço nem limite.
-IMAGE_MODELS = {
-    # Preço por imagem na variante 2k do endpoint (pricing[].variant).
+# Allowlist, limite de chamadas e regra de preço de cada modelo (landing-spec-v2 §10). A spec escolhe entre estes
+# modelos, mas não sobe preço, resolução nem limite. Toda chamada precisa de um custo máximo conhecido ANTES de sair:
+# - unit "image": preço fixo por imagem (pricing[] do endpoint) -> máximo conferido ao vivo, provedor fixado;
+# - unit "second": preço fixo por segundo de vídeo (pricing_skus) x duração pedida -> máximo conferido ao vivo;
+# - unit "token": sem máximo verificável antes do envio. Só roda se a chave tiver limite de crédito na OpenRouter que
+#   caiba no que resta do orçamento: aí quem garante o teto é o limite da chave (e o script confere antes).
+MODELS = {
     "black-forest-labs/flux-3-image": {
+        "kind": "image",
+        "calls": 9,
         "resolutions": {"2K"},
-        "estimate_usd": 0.10,
-        "max_price": 0.10,
+        "unit": "image",
         "variant": "2k",
+        "max_call_usd": 0.10,
     },
-    # Edição/variação com referência. Cobrado por token de saída (US$ 0,00003; ~1.700 tokens em 2K): estimativa folgada.
     "google/gemini-nano-banana-2.1": {
-        "resolutions": {"1K", "2K"},
-        "estimate_usd": 0.10,
-        "max_price": 0.00003,
-        "variant": None,
+        "kind": "image",
+        "calls": 3,
+        "resolutions": {"1K"},
+        "unit": "token",
+        "max_unit_usd": 0.00003,
+        "reserve_usd": 0.10,  # reserva local; o teto real vem do limite de crédito da chave
+    },
+    "google/veo-3.1-fast": {
+        "kind": "video",
+        "calls": 2,
+        "resolutions": {"1080p"},
+        "unit": "second",
+        "sku": "duration_seconds_without_audio",  # 1080p sem áudio (720p e 4K têm SKUs próprios)
+        "max_unit_usd": 0.10,
     },
 }
-VIDEO_MODELS = {
-    "google/veo-3.1-fast": {"resolutions": {"1080p"}, "usd_per_s": 0.10},
-    "google/veo-3.1-lite": {"resolutions": {"1080p"}, "usd_per_s": 0.05},
-}
-VIDEO_SKU = "duration_seconds_without_audio"  # 1080p sem áudio (720p e 4K têm SKUs próprios)
 
 # Únicos hosts aceitos: a doc e as respostas (polling_url, unsigned_urls) só apontam para cá. Redirect nunca é seguido.
 ALLOWED_HOSTS = frozenset({"openrouter.ai"})
@@ -296,24 +314,25 @@ def load_spec() -> dict:
     for a in images + videos:
         if not SLUG_RE.match(a["slug"]):
             raise SystemExit(f"Slug inválido: {a['slug']!r}")
-    if len(images) > LIMITS["image"]["finals"] or len(videos) > LIMITS["video"]["finals"]:
-        raise SystemExit("A spec pede mais assets finais que o autorizado (8 imagens e 2 vídeos)")
+    if len(images) > FINALS["image"] or len(videos) > FINALS["video"]:
+        raise SystemExit(
+            f"A spec pede mais assets finais que o autorizado ({FINALS['image']} imagens e {FINALS['video']} vídeo)"
+        )
     by_slug = {a["slug"]: a for a in images}
+    for kind, items in (("image", images), ("video", videos)):
+        for a in items:
+            rule = MODELS.get(a["model"])
+            if rule is None or rule["kind"] != kind:
+                raise SystemExit(f"{a['slug']}: modelo fora da allowlist: {a['model']}")
+            if a["resolution"] not in rule["resolutions"]:
+                raise SystemExit(f"{a['slug']}: resolução {a['resolution']} não aprovada para {a['model']}")
     for a in images:
-        model = IMAGE_MODELS.get(a["model"])
-        if model is None:
-            raise SystemExit(f"{a['slug']}: modelo fora da allowlist: {a['model']}")
-        if a["resolution"] not in model["resolutions"]:
-            raise SystemExit(f"{a['slug']}: resolução {a['resolution']} não aprovada para {a['model']}")
         for ref in a.get("references", []):
             if ref not in by_slug or ref == a["slug"]:
                 raise SystemExit(f"{a['slug']}: referência desconhecida {ref!r}")
     for v in videos:
-        for model_id in [v["model"], *([v["fallback"]] if v.get("fallback") else [])]:
-            if model_id not in VIDEO_MODELS:
-                raise SystemExit(f"{v['slug']}: modelo de vídeo fora da allowlist: {model_id}")
-            if v["resolution"] not in VIDEO_MODELS[model_id]["resolutions"]:
-                raise SystemExit(f"{v['slug']}: resolução {v['resolution']} não aprovada para {model_id}")
+        if v.get("fallback"):
+            raise SystemExit(f"{v['slug']}: vídeo sem fallback automático (landing-spec-v2 §7)")
         if not 1 <= int(v["duration"]) <= MAX_VIDEO_SECONDS:
             raise SystemExit(f"{v['slug']}: duração acima de {MAX_VIDEO_SECONDS} s")
         if v.get("frame") and v["frame"] not in by_slug:
@@ -332,13 +351,14 @@ def empty_manifest() -> dict:
         "provider": "openrouter",
         "budget": {
             "usd": BUDGET_USD,
-            **{f"{k}{n.title()}": v for k, lim in LIMITS.items() for n, v in lim.items()},
+            "calls": {model: rule["calls"] for model, rule in MODELS.items()},
+            "finals": FINALS,
             "videoMaxSeconds": MAX_VIDEO_SECONDS,
         },
         "calls": [],
         "assets": {"images": {}, "videos": {}},
         "rejected": [],
-        "keyUsage": [],
+        "runs": [],
     }
 
 
@@ -354,88 +374,276 @@ def save_manifest(m: dict) -> None:
     tmp.replace(MANIFEST)
 
 
-def recorded_usd(m: dict) -> float:
-    """Gasto conservador: custo informado pela API quando existe; senão a estimativa (falhas e pendências incluídas)."""
+def recorded_usd(m: dict, run_id: str | None = None) -> float:
+    """Gasto registrado: custo informado pela API quando existe; senão a reserva (falhas e pendências incluídas)."""
+    calls = [c for c in m["calls"] if run_id is None or c.get("run") == run_id]
+    return round(sum(c["costUsd"] if c.get("costUsd") is not None else c["reservedUsd"] for c in calls), 4)
+
+
+def measured_usd(m: dict) -> float:
+    """Uso real da chave nas execuções encerradas (GET /key no início e no fim de cada uma)."""
     return round(
-        sum(c["costUsd"] if c.get("costUsd") is not None else c["estimateUsd"] for c in m["calls"]), 4
+        sum(
+            r["usageEnd"] - r["usageStart"]
+            for r in m["runs"]
+            if isinstance(r.get("usageStart"), (int, float)) and isinstance(r.get("usageEnd"), (int, float))
+        ),
+        4,
     )
 
 
-def calls_of(m: dict, kind: str) -> int:
-    return sum(1 for c in m["calls"] if c["kind"] == kind)
+def calls_of(m: dict, model: str) -> int:
+    return sum(1 for c in m["calls"] if c["model"] == model)
 
 
-def image_estimate(item: dict) -> float:
-    return IMAGE_MODELS[item["model"]]["estimate_usd"]
+# --------------------------------------------------------------------------- preço máximo por chamada (ao vivo)
 
 
-def video_estimate(model_id: str, item: dict) -> float:
-    return round(VIDEO_MODELS[model_id]["usd_per_s"] * int(item["duration"]), 4)
+@dataclass(frozen=True)
+class Quote:
+    """Custo máximo de UMA chamada, conferido nos endpoints públicos de modelos logo antes do envio."""
+
+    model: str
+    worst_usd: (
+        float  # reserva no orçamento; para unit "token" é só a reserva local (o teto vem do limite da chave)
+    )
+    bounded: bool  # False quando o máximo não é verificável antes do envio (cobrança por token)
+    pin: tuple[str, ...] = ()  # provedores conferidos, enviados em provider.only
+    seed: bool = False  # o modelo aceita seed
+    problems: tuple[str, ...] = ()
 
 
-def can_spend(m: dict, kind: str, estimate: float) -> str | None:
-    """Motivo para não fazer a próxima chamada, ou None se ela cabe nos limites."""
-    if calls_of(m, kind) >= LIMITS[kind]["calls"]:
-        return f"limite de {LIMITS[kind]['calls']} chamadas de {kind} atingido"
-    if recorded_usd(m) + estimate > BUDGET_USD + 1e-9:
-        return f"orçamento: US$ {recorded_usd(m):.2f} registrados + US$ {estimate:.2f} passariam de US$ {BUDGET_USD:.2f}"
-    return None
+def _accepts(params: dict, name: str, value) -> bool:
+    d = params.get(name) or {}
+    if d.get("type") == "enum":
+        return value in d.get("values", [])
+    if d.get("type") == "range":
+        return d.get("min", value) <= value <= d.get("max", value)
+    return d.get("type") == "boolean"
 
 
-# --------------------------------------------------------------------------- preços ao vivo (endpoints públicos)
+def fetch_image_endpoints(model_id: str) -> list[dict]:
+    return call_api("GET", f"images/models/{model_id}/endpoints").get("endpoints") or []
 
 
-def check_live_prices(spec: dict) -> list[str]:
-    """Confere preços e parâmetros nos endpoints públicos de modelos. Devolve a lista de problemas (vazia = ok)."""
-    problems: list[str] = []
-    for model_id in sorted({a["model"] for a in spec.get("images", [])}):
-        rule = IMAGE_MODELS[model_id]
-        eps = call_api("GET", f"images/models/{model_id}/endpoints").get("endpoints", [])
-        prices = [
-            p["cost_usd"]
-            for e in eps
-            for p in e.get("pricing", [])
-            if p.get("billable") == "output_image"
-            and (rule["variant"] is None or p.get("variant") == rule["variant"])
-        ]
-        if not prices:
-            problems.append(f"{model_id}: preço da variante {rule['variant'] or 'padrão'} não encontrado")
-        elif max(prices) > rule["max_price"] + 1e-12:
-            problems.append(f"{model_id}: preço ao vivo {max(prices)} acima do aprovado {rule['max_price']}")
-    video_ids = {mid for v in spec.get("videos", []) for mid in [v["model"], v.get("fallback")] if mid}
-    if video_ids:
-        live = {m["id"]: m for m in call_api("GET", "videos/models").get("data", [])}
-        for v in spec.get("videos", []):
-            for model_id in [v["model"], *([v["fallback"]] if v.get("fallback") else [])]:
-                info = live.get(model_id)
-                if info is None:
-                    problems.append(f"{model_id}: modelo não listado em /videos/models")
-                    continue
-                price = float(info.get("pricing_skus", {}).get(VIDEO_SKU, "inf"))
-                if price > VIDEO_MODELS[model_id]["usd_per_s"] + 1e-9:
+def fetch_video_models() -> dict[str, dict]:
+    return {m["id"]: m for m in call_api("GET", "videos/models").get("data", []) if isinstance(m, dict)}
+
+
+def quote_image(item: dict, endpoints: list[dict]) -> Quote:
+    """Maior custo possível entre os endpoints do modelo: saída da resolução pedida mais cobranças por imagem de
+    referência. Unidade de cobrança sem máximo conhecido (token, megapixel) ou item desconhecido -> problema."""
+    model_id, rule = item["model"], MODELS[item["model"]]
+    refs = len(item.get("references", []))
+    problems: list[str] = [] if endpoints else [f"{model_id}: nenhum endpoint listado"]
+    worst, pins, seed = 0.0, [], bool(endpoints)
+    for e in endpoints:
+        where = f"{model_id} ({e.get('provider_slug') or '?'})"
+        params = e.get("supported_parameters") or {}
+        for name, value in (
+            ("resolution", item["resolution"]),
+            ("aspect_ratio", item["aspect_ratio"]),
+            ("n", 1),
+        ):
+            if not _accepts(params, name, value):
+                problems.append(f"{where}: {name}={value} não suportado")
+        if refs and not _accepts(params, "input_references", refs):
+            problems.append(f"{where}: {refs} imagem(ns) de referência não suportada(s)")
+        cost, priced = 0.0, False
+        for p in e.get("pricing") or []:
+            billable, unit, variant = p.get("billable"), p.get("unit"), p.get("variant")
+            if rule["unit"] == "image" and variant not in (None, rule["variant"]):
+                continue  # preço de outra resolução
+            if billable == "output_image":
+                priced = True
+                if unit != rule["unit"]:
+                    problems.append(f"{where}: saída cobrada por {unit}, esperado {rule['unit']}")
+                elif unit == "image":
+                    cost += float(p["cost_usd"])
+                elif float(p["cost_usd"]) > rule["max_unit_usd"] + 1e-12:
                     problems.append(
-                        f"{model_id}: {VIDEO_SKU} = {price} acima de {VIDEO_MODELS[model_id]['usd_per_s']}/s"
+                        f"{where}: US$ {p['cost_usd']}/token acima do aprovado {rule['max_unit_usd']}"
                     )
-                if int(v["duration"]) not in info.get("supported_durations", []):
-                    problems.append(f"{model_id}: duração {v['duration']} s não suportada")
-                if v["resolution"] not in info.get("supported_resolutions", []):
-                    problems.append(f"{model_id}: resolução {v['resolution']} não suportada")
-                if v["aspect_ratio"] not in info.get("supported_aspect_ratios", []):
-                    problems.append(f"{model_id}: proporção {v['aspect_ratio']} não suportada")
-                needed = (
-                    {"first_frame", "last_frame"}
-                    if v.get("loop")
-                    else ({"first_frame"} if v.get("frame") else set())
+            elif billable in ("input_image", "input_reference"):
+                if not refs:
+                    continue
+                if unit == "image":
+                    cost += float(p["cost_usd"]) * refs
+                elif rule["unit"] == "image":
+                    problems.append(f"{where}: {billable} cobrado por {unit}: custo máximo não verificável")
+            else:
+                problems.append(f"{where}: item de cobrança desconhecido {billable!r}")
+        if not priced:
+            problems.append(
+                f"{where}: preço de saída {rule.get('variant') or ''} não encontrado".replace("  ", " ")
+            )
+        worst = max(worst, cost)
+        pins.append(e.get("provider_tag"))
+        seed = seed and _accepts(params, "seed", True)
+    if rule["unit"] == "image":
+        if worst > rule["max_call_usd"] + 1e-9:
+            problems.append(
+                f"{model_id}: até US$ {worst:.4f} por chamada, acima do aprovado {rule['max_call_usd']}"
+            )
+        reserve, bounded = round(worst, 4), True
+    else:
+        reserve, bounded = rule["reserve_usd"], False
+    pin = tuple(t for t in pins if t) if pins and all(pins) else ()
+    return Quote(model_id, reserve, bounded, pin, seed, tuple(problems))
+
+
+def quote_video(item: dict, live: dict[str, dict]) -> Quote:
+    """Preço por segundo do SKU pedido (1080p, sem áudio) x duração: é o máximo da chamada."""
+    model_id, rule = item["model"], MODELS[item["model"]]
+    info = live.get(model_id)
+    if info is None:
+        return Quote(model_id, 0.0, True, problems=(f"{model_id}: modelo não listado em /videos/models",))
+    problems: list[str] = []
+    try:
+        price = float(info.get("pricing_skus", {})[rule["sku"]])
+    except (KeyError, TypeError, ValueError):
+        price = None
+        problems.append(f"{model_id}: preço {rule['sku']} não encontrado")
+    if price is not None and price > rule["max_unit_usd"] + 1e-9:
+        problems.append(f"{model_id}: {rule['sku']} = {price} acima de {rule['max_unit_usd']}/s")
+    if int(item["duration"]) not in info.get("supported_durations", []):
+        problems.append(f"{model_id}: duração {item['duration']} s não suportada")
+    if item["resolution"] not in info.get("supported_resolutions", []):
+        problems.append(f"{model_id}: resolução {item['resolution']} não suportada")
+    if item["aspect_ratio"] not in info.get("supported_aspect_ratios", []):
+        problems.append(f"{model_id}: proporção {item['aspect_ratio']} não suportada")
+    needed = (
+        {"first_frame", "last_frame"}
+        if item.get("loop")
+        else ({"first_frame"} if item.get("frame") else set())
+    )
+    if not needed <= set(info.get("supported_frame_images") or []):
+        problems.append(f"{model_id}: não aceita {sorted(needed)}")
+    if item.get("negative_prompt") and "negativePrompt" not in (
+        info.get("allowed_passthrough_parameters") or []
+    ):
+        problems.append(f"{model_id}: negativePrompt não é aceito")
+    worst = round((price or 0.0) * int(item["duration"]), 4)
+    return Quote(model_id, worst, True, (), bool(info.get("seed")), tuple(problems))
+
+
+def quote_all(images: list[dict], videos: list[dict]) -> dict[str, Quote]:
+    """Cotações de todos os assets pendentes (endpoints públicos, sem chave)."""
+    quotes: dict[str, Quote] = {}
+    endpoints: dict[str, list[dict]] = {}
+    for it in images:
+        if it["model"] not in endpoints:
+            endpoints[it["model"]] = fetch_image_endpoints(it["model"])
+        quotes[it["slug"]] = quote_image(it, endpoints[it["model"]])
+    if videos:
+        live = fetch_video_models()
+        for v in videos:
+            quotes[v["slug"]] = quote_video(v, live)
+    return quotes
+
+
+def key_state(key: str) -> dict:
+    """GET /key: só números (uso e limite em US$). O campo label (chave mascarada) é descartado."""
+    d = call_api("GET", "key", key).get("data") or {}
+
+    def num(name: str) -> float | None:
+        value = d.get(name)
+        return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+    return {"usage": num("usage"), "limit": num("limit"), "limit_remaining": num("limit_remaining")}
+
+
+class Run:
+    """Uma execução paga. Mede o uso real da chave no início e confere tudo de novo antes de cada chamada."""
+
+    def __init__(self, key: str, m: dict, retry: set[str] | frozenset[str] = frozenset()):
+        self.key, self.m, self.retry = key, m, set(retry)
+        state = key_state(key)  # ApiError aqui: nada é gerado
+        if state["usage"] is None:
+            raise ApiError("GET /key não informou o uso da chave: sem essa medida nada é enviado")
+        self.record = {
+            "id": f"r{len(m['runs']) + 1}",
+            "startedAt": now(),
+            "usageStart": state["usage"],
+            "usageEnd": None,
+            "limit": state["limit"],
+            "limitRemainingStart": state["limit_remaining"],
+        }
+        m["runs"].append(self.record)
+        save_manifest(m)
+
+    @property
+    def id(self) -> str:
+        return self.record["id"]
+
+    def gate(self, quote: Quote) -> tuple[str, str] | None:
+        """Motivo para NÃO fazer a chamada: ("skip", ...) pula só este asset; ("stop", ...) encerra a execução."""
+        limit = MODELS[quote.model]["calls"]
+        if calls_of(self.m, quote.model) >= limit:
+            return "skip", f"limite de {limit} chamadas de {quote.model} atingido"
+        try:
+            state = key_state(self.key)
+        except ApiError as e:
+            return (
+                "stop",
+                f"uso da chave indisponível ({scrub(str(e), self.key)}); sem essa conferência nada sai",
+            )
+        if state["usage"] is None:
+            return "stop", "GET /key não informou o uso da chave; sem essa conferência nada sai"
+        run_delta = round(state["usage"] - self.record["usageStart"], 4)
+        run_recorded = recorded_usd(self.m, self.id)
+        if run_delta > run_recorded + TOLERANCE_USD:
+            return "stop", (
+                f"a chave gastou US$ {run_delta:.4f} nesta execução, mais que os US$ {run_recorded:.4f} registrados "
+                "(outro uso da mesma chave ou cobrança acima da informada)"
+            )
+        spent = max(recorded_usd(self.m), round(measured_usd(self.m) + run_delta, 4))
+        if spent + quote.worst_usd > BUDGET_USD + 1e-9:
+            return "stop", (
+                f"orçamento: US$ {spent:.2f} gastos + até US$ {quote.worst_usd:.2f} desta chamada passariam de "
+                f"US$ {BUDGET_USD:.2f}"
+            )
+        remaining = state["limit_remaining"]
+        if remaining is not None and remaining < quote.worst_usd:
+            return (
+                "stop",
+                f"limite da chave: restam US$ {remaining:.2f}, a chamada pode custar US$ {quote.worst_usd:.2f}",
+            )
+        if not quote.bounded and (remaining is None or remaining > BUDGET_USD - spent + 1e-9):
+            return "skip", (
+                f"{quote.model} é cobrado por token, sem custo máximo conhecido antes do envio. Só roda com limite de "
+                f"crédito na chave da OpenRouter de no máximo US$ {BUDGET_USD - spent:.2f} (o que resta do orçamento); "
+                + (
+                    "a chave não tem limite."
+                    if remaining is None
+                    else f"o limite restante é US$ {remaining:.2f}."
                 )
-                if not needed <= set(info.get("supported_frame_images") or []):
-                    problems.append(f"{model_id}: não aceita {sorted(needed)}")
-    return problems
+            )
+        return None
 
+    def settle(self, call: dict, usage: dict | None) -> bool:
+        """Registra o custo informado pela API. False: cobrou mais que a reserva, e a execução para."""
+        cost = (usage or {}).get("cost")
+        cost = float(cost) if isinstance(cost, (int, float)) and not isinstance(cost, bool) else None
+        call.update(costUsd=cost, costSource="api" if cost is not None else "reserve")
+        over = cost is not None and cost > call["reservedUsd"] + 1e-6
+        if over:
+            call["overrun"] = True
+            print(
+                f"PARADO: {call['slug']} custou US$ {cost:.4f}, acima da reserva de US$ {call['reservedUsd']:.4f}. "
+                "Confira o uso na OpenRouter antes de continuar."
+            )
+        save_manifest(self.m)
+        return not over
 
-def key_usage(key: str) -> dict:
-    """Uso acumulado da chave (GET /key). Guarda só números: o campo label (chave mascarada) é descartado."""
-    d = call_api("GET", "key", key).get("data", {})
-    return {"usageUsd": d.get("usage"), "limitRemainingUsd": d.get("limit_remaining")}
+    def close(self) -> None:
+        try:
+            state = key_state(self.key)
+            self.record.update(usageEnd=state["usage"], limitRemainingEnd=state["limit_remaining"])
+        except ApiError as e:
+            print(f"Aviso: uso final da chave indisponível ({scrub(str(e), self.key)})")
+        self.record["endedAt"] = now()
+        save_manifest(self.m)
 
 
 # --------------------------------------------------------------------------- geração
@@ -489,7 +697,7 @@ def original_of(m: dict, slug: str) -> Path:
     return original_path(rec["original"])
 
 
-def image_body(item: dict, m: dict) -> dict:
+def image_body(item: dict, m: dict, quote: Quote) -> dict:
     body = {
         "model": item["model"],
         "prompt": item["prompt"],
@@ -502,6 +710,8 @@ def image_body(item: dict, m: dict) -> dict:
         body["input_references"] = [
             {"type": "image_url", "image_url": {"url": data_url(original_of(m, r), 2048)}} for r in refs
         ]
+    if quote.pin:  # só os provedores cujo preço foi conferido, sem tentar outro se o primeiro falhar
+        body["provider"] = {"only": list(quote.pin), "allow_fallbacks": False}
     return body
 
 
@@ -545,15 +755,17 @@ def generate_image(key: str, item: dict, body: dict) -> tuple[Path, dict]:
     return dst, resp.get("usage") or {}
 
 
-def video_body(item: dict, model_id: str, m: dict) -> dict:
+def video_body(item: dict, m: dict, seed: int | None) -> dict:
     body = {
-        "model": model_id,
+        "model": item["model"],
         "prompt": item["prompt"],
         "duration": int(item["duration"]),
         "resolution": item["resolution"],
         "aspect_ratio": item["aspect_ratio"],
         "generate_audio": False,
     }
+    if seed is not None:
+        body["seed"] = seed
     if item.get("frame"):
         url = data_url(original_of(m, item["frame"]))
         frames = ["first_frame", "last_frame"] if item.get("loop") else ["first_frame"]
@@ -911,40 +1123,39 @@ def write_ui_data(m: dict, spec: dict) -> None:
 # --------------------------------------------------------------------------- execução
 
 
-def print_plan(spec: dict, m: dict, pending_images: list[dict], pending_videos: list[dict]) -> None:
+def print_plan(m: dict, pending: list[dict], quotes: dict[str, Quote]) -> None:
+    usage = ", ".join(f"{model} {calls_of(m, model)}/{rule['calls']}" for model, rule in MODELS.items())
     print(
-        f"Gasto registrado: US$ {recorded_usd(m):.2f} de US$ {BUDGET_USD:.2f}; "
-        f"imagens {calls_of(m, 'image')}/{LIMITS['image']['calls']} chamadas e {len(m['assets']['images'])}/"
-        f"{LIMITS['image']['finals']} finais; vídeo {calls_of(m, 'video')}/{LIMITS['video']['calls']} chamadas e "
-        f"{len(m['assets']['videos'])}/{LIMITS['video']['finals']} finais"
+        f"Gasto registrado: US$ {recorded_usd(m):.2f} (medido na chave: US$ {measured_usd(m):.2f}) de "
+        f"US$ {BUDGET_USD:.2f}. Chamadas: {usage}. Finais: {len(m['assets']['images'])}/{FINALS['image']} imagens, "
+        f"{len(m['assets']['videos'])}/{FINALS['video']} vídeo"
     )
     total = 0.0
-    for it in pending_images:
-        est = image_estimate(it)
-        total += est
-        refs = f", refs {it['references']}" if it.get("references") else ""
-        print(
-            f"  imagem {it['slug']}: {it['model']} {it['resolution']} {it['aspect_ratio']}{refs} ~US$ {est:.2f}"
+    for a in pending:
+        q = quotes.get(a["slug"])
+        refs = f", refs {a['references']}" if a.get("references") else ""
+        extra = (
+            f"{a['duration']} s, quadro {a.get('frame') or '-'}{' em loop' if a.get('loop') else ''}"
+            if "duration" in a
+            else f"{a['aspect_ratio']}{refs}"
         )
-    for v in pending_videos:
-        est = video_estimate(v["model"], v)
-        total += est
-        fb = (
-            f" (fallback {v['fallback']} ~US$ {video_estimate(v['fallback'], v):.2f})"
-            if v.get("fallback")
-            else ""
-        )
-        print(
-            f"  vídeo {v['slug']}: {v['model']} {v['resolution']} {v['aspect_ratio']} {v['duration']} s, "
-            f"quadro {v.get('frame') or '-'}{' em loop' if v.get('loop') else ''} ~US$ {est:.2f}{fb}"
-        )
-    worst_images = LIMITS["image"]["calls"] * max([r["estimate_usd"] for r in IMAGE_MODELS.values()])
-    worst_videos = (
-        LIMITS["video"]["calls"] * max(r["usd_per_s"] for r in VIDEO_MODELS.values()) * MAX_VIDEO_SECONDS
+        if q is None:
+            cost = "sem cotação"
+        elif q.bounded:
+            cost = f"até US$ {q.worst_usd:.2f}"
+            total += q.worst_usd
+        else:
+            cost = f"por token, reserva US$ {q.worst_usd:.2f}; exige limite de crédito na chave"
+            total += q.worst_usd
+        print(f"  {a['slug']}: {a['model']} {a['resolution']} {extra} — {cost}")
+    worst = sum(
+        max(0, rule["calls"] - calls_of(m, model))
+        * max((q.worst_usd for q in quotes.values() if q.model == model), default=0)
+        for model, rule in MODELS.items()
     )
     print(
-        f"Estimativa desta rodada: US$ {total:.2f}. Pior caso com todos os limites usados: US$ "
-        f"{worst_images + worst_videos:.2f} (teto rígido US$ {BUDGET_USD:.2f})."
+        f"Máximo desta rodada: US$ {total:.2f}. Com todos os limites de chamadas usados: US$ {recorded_usd(m) + worst:.2f}; "
+        f"o script para antes de passar de US$ {BUDGET_USD:.2f}."
     )
 
 
@@ -952,11 +1163,6 @@ def _fail(call: dict, e: ApiError, key: str, m: dict) -> None:
     call.update(status="failed", error=scrub(str(e), key))
     save_manifest(m)
     print(f"ERRO {call['slug']} ({call['model']}): {call['error']}")
-
-
-def _cost(usage: dict | None) -> tuple[float | None, str]:
-    cost = (usage or {}).get("cost")
-    return (float(cost), "api") if cost is not None else (None, "estimate")
 
 
 @contextlib.contextmanager
@@ -985,7 +1191,7 @@ def unknown_outcome(m: dict, slug: str, retry: set[str]) -> bool:
         return False
     if slug in retry:
         for c in stuck:
-            c["status"] = "unknown"  # continua contando no orçamento pela estimativa
+            c["status"] = "unknown"  # continua contando no orçamento pela reserva
         save_manifest(m)
         return False
     print(
@@ -995,55 +1201,88 @@ def unknown_outcome(m: dict, slug: str, retry: set[str]) -> bool:
     return True
 
 
-def run_image(key: str, it: dict, m: dict, retry: set[str] = frozenset()) -> str:
-    """Gera uma imagem. Devolve "ok", "failed" (segue para o próximo asset) ou "stop" (limite, orçamento ou chave)."""
-    if unknown_outcome(m, it["slug"], retry):
-        return "failed"
-    estimate = image_estimate(it)
-    reason = can_spend(m, "image", estimate)
-    if reason:
-        print(f"PARADO antes de {it['slug']}: {reason}")
+def _cleared(run: Run, item: dict, quote: Quote) -> str | None:
+    """Confere cotação e portões antes de registrar a chamada. Devolve o resultado do asset se ela não puder sair."""
+    for p in quote.problems:
+        print(f"PREÇO/PARÂMETRO: {p}")
+    if quote.problems:
         return "stop"
-    body = image_body(it, m)  # monta antes de registrar: erro local não consome orçamento
+    blocked = run.gate(quote)
+    if blocked is None:
+        return None
+    action, reason = blocked
+    print(f"{'PARADO' if action == 'stop' else 'PULADO'} {item['slug']}: {reason}")
+    return "stop" if action == "stop" else "failed"
+
+
+def _new_call(run: Run, item: dict, kind: str, quote: Quote, **extra) -> dict:
     call = {
-        "kind": "image",
-        "slug": it["slug"],
-        "model": it["model"],
+        "kind": kind,
+        "slug": item["slug"],
+        "model": item["model"],
         "at": now(),
+        "run": run.id,
         "status": "pending",
-        "estimateUsd": estimate,
+        "reservedUsd": quote.worst_usd,
+        "bounded": quote.bounded,
         "costUsd": None,
+        **extra,
     }
-    m["calls"].append(call)
-    save_manifest(m)  # registrada antes de sair: se falhar ou cair, conta no orçamento
+    run.m["calls"].append(call)
+    save_manifest(run.m)  # registrada antes de sair: se falhar ou cair, conta no orçamento pela reserva
+    return call
+
+
+def run_image(run: Run, it: dict) -> str:
+    """Gera uma imagem. Devolve "ok", "failed" (segue para o próximo asset) ou "stop" (encerra a execução)."""
+    m, key = run.m, run.key
+    if unknown_outcome(m, it["slug"], run.retry):
+        return "failed"
+    try:
+        quote = quote_image(
+            it, fetch_image_endpoints(it["model"])
+        )  # preço conferido agora, logo antes do envio
+    except ApiError as e:
+        print(f"PARADO antes de {it['slug']}: preço ao vivo indisponível ({e})")
+        return "stop"
+    outcome = _cleared(run, it, quote)
+    if outcome:
+        return outcome
+    body = image_body(it, m, quote)  # monta antes de registrar: erro local não consome orçamento
+    call = _new_call(run, it, "image", quote, provider=list(quote.pin))
     try:
         src, usage = generate_image(key, it, body)
     except ApiError as e:
         _fail(call, e, key, m)
         return "stop" if e.fatal else "failed"
-    cost, source = _cost(usage)
-    call.update(status="ok", costUsd=cost, costSource=source)
+    call["status"] = "ok"
+    within = run.settle(call, usage)
     rec = m["assets"]["images"][it["slug"]] = {
         "prompt": it["prompt"],
         "model": it["model"],
         "resolution": it["resolution"],
         "aspectRatio": it["aspect_ratio"],
         "references": it.get("references", []),
+        "provider": list(quote.pin),
+        "seed": None,  # FLUX.3 e Nano Banana não aceitam seed na API de imagens
         "generatedAt": call["at"],
-        "costUsd": cost,
-        "costSource": source,
+        "costUsd": call["costUsd"],
+        "costSource": call["costSource"],
         "original": src.name,
         "variants": [],
     }
     save_manifest(m)  # o resultado pago fica registrado antes da otimização (se ela falhar: --optimize-only)
     rec["variants"] = optimize_image(it["slug"], src, it["widths"])
     save_manifest(m)
-    print(f"ok {it['slug']}: US$ {cost if cost is not None else '?'} ({source})")
-    return "ok"
+    print(
+        f"ok {it['slug']}: US$ {call['costUsd'] if call['costUsd'] is not None else '?'} ({call['costSource']})"
+    )
+    return "ok" if within else "stop"
 
 
-def _finish_video(key: str, v: dict, m: dict, call: dict, job: dict) -> str | None:
-    """Acompanha um job já enviado. Devolve "ok", "stop" (pausado ou chave) ou None (job falhou: tente o fallback)."""
+def _finish_video(run: Run, v: dict, call: dict, job: dict) -> str:
+    """Acompanha um job já enviado até baixar e codificar o vídeo. Não há fallback: falha é falha."""
+    m, key = run.m, run.key
     try:
         done = wait_video(key, job)
     except PollTimeout as e:
@@ -1051,42 +1290,45 @@ def _finish_video(key: str, v: dict, m: dict, call: dict, job: dict) -> str | No
         return "stop"
     except ApiError as e:
         _fail(call, e, key, m)
-        return "stop" if e.fatal else None
-    cost, source = _cost(done.get("usage"))
-    call.update(costUsd=cost, costSource=source, generationId=done.get("generation_id"))
+        return "stop" if e.fatal else "failed"
+    within = run.settle(call, done.get("usage"))
+    call["generationId"] = done.get("generation_id")
     save_manifest(m)
     try:
         src = fetch_video(key, done, v["slug"])
     except ApiError as e:
-        # O job terminou e foi cobrado: nada de fallback. O id continua no manifest e a próxima execução baixa de novo.
+        # O job terminou e foi cobrado: o id continua no manifest e a próxima execução baixa de novo, sem novo job.
         print(
             f"PAUSADO {v['slug']}: download falhou ({scrub(str(e), key)}); rode de novo para baixar sem novo job"
         )
         return "stop"
-    call.update(status="ok")
+    call["status"] = "ok"
     rec = m["assets"]["videos"][v["slug"]] = {
         "prompt": v["prompt"],
+        "negativePrompt": v.get("negative_prompt"),
         "model": call["model"],
         "resolution": v["resolution"],
         "aspectRatio": v["aspect_ratio"],
         "durationRequested": int(v["duration"]),
         "frame": v.get("frame"),
         "loop": bool(v.get("loop")),
+        "seed": call.get("seed"),
         "jobId": call["jobId"],
         "generatedAt": call["at"],
-        "costUsd": cost,
-        "costSource": source,
+        "costUsd": call["costUsd"],
+        "costSource": call["costSource"],
         "original": src.name,
     }
     save_manifest(m)  # o resultado pago fica registrado antes da codificação (se ela falhar: --optimize-only)
     rec.update(encode_video(v["slug"], src, v))
     save_manifest(m)
-    print(f"ok {v['slug']}: {call['model']}, US$ {cost if cost is not None else '?'} ({source})")
-    return "ok"
+    print(f"ok {v['slug']}: {call['model']}, US$ {call['costUsd'] if call['costUsd'] is not None else '?'}")
+    return "ok" if within else "stop"
 
 
-def run_video(key: str, v: dict, m: dict, retry: set[str] = frozenset()) -> str:
-    """Gera um vídeo (modelo principal e, se falhar, o fallback). Retoma job já enviado em vez de pagar outro."""
+def run_video(run: Run, v: dict) -> str:
+    """Gera o vídeo. Retoma um job já enviado (pelo id gravado) em vez de pagar outro."""
+    m, key = run.m, run.key
     submitted = next(
         (
             c
@@ -1096,50 +1338,40 @@ def run_video(key: str, v: dict, m: dict, retry: set[str] = frozenset()) -> str:
         None,
     )
     if submitted:
-        print(f"  {v['slug']}: retomando job {submitted['jobId']}")
-        result = _finish_video(key, v, m, submitted, {"id": submitted["jobId"], "status": "pending"})
-        if result is not None:
-            return result
-    if unknown_outcome(m, v["slug"], retry):
-        return "failed"
-    for model_id in [v["model"], *([v["fallback"]] if v.get("fallback") else [])]:
-        estimate = video_estimate(model_id, v)
-        reason = can_spend(m, "video", estimate)
-        if reason:
-            print(f"PARADO antes de {v['slug']} ({model_id}): {reason}")
-            return "stop"
-        body = video_body(v, model_id, m)
-        call = {
-            "kind": "video",
-            "slug": v["slug"],
-            "model": model_id,
-            "at": now(),
-            "status": "pending",
-            "estimateUsd": estimate,
-            "costUsd": None,
-        }
-        m["calls"].append(call)
+        submitted["run"] = run.id  # a cobrança, se ainda não entrou, aparece no uso da chave desta execução
         save_manifest(m)
-        try:
-            job = submit_video(key, body)
-        except ApiError as e:
-            _fail(call, e, key, m)
-            if e.fatal:
-                return "stop"
-            continue
-        call.update(status="submitted", jobId=job["id"])
-        save_manifest(m)  # com o id gravado, uma nova execução retoma o polling em vez de pagar outro job
-        print(f"  {v['slug']}: job {job['id']} enviado ({model_id}); acompanhando a cada {POLL_INTERVAL_S}s")
-        result = _finish_video(key, v, m, call, job)
-        if result is not None:
-            return result
-    return "failed"
+        print(f"  {v['slug']}: retomando job {submitted['jobId']}")
+        return _finish_video(run, v, submitted, {"id": submitted["jobId"], "status": "pending"})
+    if unknown_outcome(m, v["slug"], run.retry):
+        return "failed"
+    try:
+        quote = quote_video(v, fetch_video_models())  # preço conferido agora, logo antes do envio
+    except ApiError as e:
+        print(f"PARADO antes de {v['slug']}: preço ao vivo indisponível ({e})")
+        return "stop"
+    outcome = _cleared(run, v, quote)
+    if outcome:
+        return outcome
+    seed = (v["seed"] if v.get("seed") is not None else secrets.randbelow(2**31)) if quote.seed else None
+    body = video_body(v, m, seed)
+    call = _new_call(run, v, "video", quote, seed=seed)
+    try:
+        job = submit_video(key, body)
+    except ApiError as e:
+        _fail(call, e, key, m)
+        return "stop" if e.fatal else "failed"
+    call.update(status="submitted", jobId=job["id"])
+    save_manifest(m)  # com o id gravado, uma nova execução retoma o polling em vez de pagar outro job
+    print(f"  {v['slug']}: job {job['id']} enviado ({v['model']}); acompanhando a cada {POLL_INTERVAL_S}s")
+    return _finish_video(run, v, call, job)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument(
-        "--dry-run", action="store_true", help="mostra plano e custo; não lê a chave nem faz chamada paga"
+        "--dry-run",
+        action="store_true",
+        help="mostra plano e custo máximo; não lê a chave nem faz chamada paga",
     )
     ap.add_argument("--only", help="processa apenas este slug")
     ap.add_argument("--redo", help="descarta o asset aprovado anteriormente com este slug e gera de novo")
@@ -1160,7 +1392,7 @@ def main() -> int:
     m = load_manifest()
     images = {a["slug"]: a for a in spec.get("images", [])}
     videos = {v["slug"]: v for v in spec.get("videos", [])}
-    for slug in [args.redo, *args.retry_unknown]:
+    for slug in [args.only, args.redo, *args.retry_unknown]:
         if slug and slug not in images and slug not in videos:
             raise SystemExit(f"Slug desconhecido: {slug!r}")
 
@@ -1186,12 +1418,13 @@ def main() -> int:
     pending_videos = [v for s, v in videos.items() if (s not in done or s in redo) and wanted(s)]
     if args.dry_run and redo:
         print(f"(dry-run: --redo {args.redo} descartaria o asset atual e o geraria de novo)")
-    print_plan(spec, m, pending_images, pending_videos)
 
     try:
-        problems = check_live_prices(spec)
+        quotes = quote_all(pending_images, pending_videos)
+        problems = [p for q in quotes.values() for p in q.problems]
     except ApiError as e:
-        problems = [f"não foi possível conferir os preços ao vivo ({e})"]
+        quotes, problems = {}, [f"não foi possível conferir os preços ao vivo ({e})"]
+    print_plan(m, pending_images + pending_videos, quotes)
     for p in problems:
         print(f"PREÇO/PARÂMETRO: {p}")
     if args.dry_run:
@@ -1210,7 +1443,7 @@ def main() -> int:
             load_manifest()
         )  # relê sob a trava: outra execução pode ter terminado enquanto esta conferia preços
         try:
-            start = key_usage(key)  # também valida a chave antes de qualquer chamada paga
+            run = Run(key, m, set(args.retry_unknown))
         except ApiError as e:
             print(f"Nada foi gerado: {scrub(str(e), key)}")
             return 1
@@ -1228,39 +1461,30 @@ def main() -> int:
                             "costUsd": rec.get("costUsd"),
                         }
                     )
-        m["keyUsage"].append({"at": now(), "phase": "start", **start})
-        save_manifest(m)
+            save_manifest(m)
 
         done = {**m["assets"]["images"], **m["assets"]["videos"]}
-        retry = set(args.retry_unknown)
-        results = []
+        results: list[str] = []
         for it in pending_images:
-            if it["slug"] in done:
-                continue
-            results.append(run_image(key, it, m, retry))
-            if results[-1] == "stop":
-                break
-        if "stop" not in results:
-            for v in pending_videos:
-                if v["slug"] in done:
-                    continue
-                results.append(run_video(key, v, m, retry))
+            if it["slug"] not in done:
+                results.append(run_image(run, it))
                 if results[-1] == "stop":
                     break
-
-        try:
-            m["keyUsage"].append({"at": now(), "phase": "end", **key_usage(key)})
-        except ApiError as e:
-            print(f"Aviso: uso final da chave indisponível ({scrub(str(e), key)})")
-        save_manifest(m)
+        if "stop" not in results:
+            for v in pending_videos:
+                if v["slug"] not in done:
+                    results.append(run_video(run, v))
+                    if results[-1] == "stop":
+                        break
+        run.close()
         write_ui_data(m, spec)
-    first, last = m["keyUsage"][-2].get("usageUsd"), m["keyUsage"][-1].get("usageUsd")
-    delta = (
-        f"; uso da chave nesta rodada: US$ {last - first:.4f}"
-        if all(isinstance(x, (int, float)) for x in (first, last))
+    delta = run.record.get("usageEnd")
+    measured = (
+        f"; uso medido na chave nesta execução: US$ {delta - run.record['usageStart']:.4f}"
+        if delta is not None
         else ""
     )
-    print(f"Total registrado: US$ {recorded_usd(m):.2f} de US$ {BUDGET_USD:.2f}{delta}")
+    print(f"Total registrado: US$ {recorded_usd(m):.2f} de US$ {BUDGET_USD:.2f}{measured}")
     return 0 if all(r == "ok" for r in results) else 1
 
 

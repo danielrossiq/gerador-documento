@@ -1,58 +1,127 @@
 {
-  "source": "PROVISÓRIO: derivado de landing-spec.md (v1) até chegar Shared/DanielRossi/docs/design/minuta-site/landing-spec-v2.md",
+  "source": "Shared/DanielRossi/docs/design/minuta-site/landing-spec-v2.md (Product Design Lead, 20/10/2026)",
+  "budget_note": "Teto US$ 3,00. Chamadas: FLUX 9, Nano Banana 3, Veo Fast 2; finais: 7 imagens e 1 vídeo; sem fallback de vídeo. Nenhuma chamada paga antes do OK do Application Security Reviewer.",
   "images": [
     {
-      "slug": "hero-still",
+      "slug": "hero-modelo-vazado",
       "model": "black-forest-labs/flux-3-image",
       "resolution": "2K",
       "aspect_ratio": "16:9",
-      "widths": [640, 1024, 1600, 1920],
-      "prompt": "Editorial still life for a calm Brazilian small law office software landing page, an unbranded blank paper form beside a neat stack of blank document sheets and a closed dark navy folder, subtle translucent geometric blocks suggesting structured fields, warm natural side light, muted petroleum blue, warm off-white and restrained amber accents, tactile paper, refined contemporary art direction, generous negative space on the left, no people, no hands, no readable text, no letters, no numbers, no logo, no watermark, no legal cliches, landscape 16:9",
-      "alt": "Ilustração abstrata de folhas em branco organizadas ao lado de uma pasta azul-escura."
+      "widths": [
+        768,
+        1024,
+        1280,
+        1600,
+        1920
+      ],
+      "prompt": "A wide 16:9 editorial still-life photograph seen from a high three-quarter angle, about 60 degrees above the surface. On a pale warm stone surface, three thick sheets of matte warm off-white cotton paper in A4 proportion overlap in a loose, orderly cascade; the top sheet is rotated about 8 degrees. The top sheet is a document template: rows of very fine blind-debossed horizontal lines, evenly spaced and ending at slightly different lengths like the ragged right edge of typeset paragraphs, grouped into four short paragraph blocks. Seven precise die-cut rectangular windows of different widths sit inline within those rows, like the blanks of a form; through each window a sheet of warm amber paper shows from below. The sheet underneath is identical, but its windows reveal muted petroleum-blue paper instead, as if already filled in. Only the edge of the third sheet is visible. The arrangement sits within the central 60% of the frame, with even margins of calm stone surface on the left and right and open space above. Soft natural morning daylight rakes in from the upper left, leaving a gentle gradient of light across the stone and short crisp shadows inside every cut. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, muted petroleum blue (#344D68), warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/8, everything in sharp focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+      "alt": ""
     },
     {
-      "slug": "workflow-model-fields",
-      "model": "black-forest-labs/flux-3-image",
-      "resolution": "2K",
-      "aspect_ratio": "16:9",
-      "widths": [640, 1024, 1600],
-      "prompt": "Wide editorial still life showing three clear stages with objects only: a blank unbranded document sheet, several small blank amber tabs marking fields, then a clean finished blank page beside a simple review check shape, arranged left to right on a pale warm surface, petroleum blue folder accents, soft daylight, sophisticated restrained product illustration, no people, no readable text, no letters, no numbers, no logo, no watermark, no scales, no gavels, no courthouse columns, landscape 16:9",
-      "alt": "Três etapas abstratas: modelo em branco, marcadores de campos e página pronta para revisão."
-    },
-    {
-      "slug": "batch-spreadsheet",
-      "model": "black-forest-labs/flux-3-image",
-      "resolution": "2K",
-      "aspect_ratio": "1:1",
-      "widths": [400, 720],
-      "prompt": "Square close editorial still life of a blank abstract spreadsheet grid on paper, several aligned rows represented by simple empty rectangles and a small stack of blank output sheets, muted petroleum blue and off-white with tiny amber accents, natural soft light, polished tactile paper illustration, no interface text, no readable text, no letters, no numbers, no logo, no watermark, no people, no legal symbols",
-      "alt": "Grade abstrata sem dados ao lado de folhas geradas em conjunto."
-    },
-    {
-      "slug": "kits-history",
+      "slug": "passo-2-campos",
       "model": "black-forest-labs/flux-3-image",
       "resolution": "2K",
       "aspect_ratio": "4:3",
-      "widths": [480, 800, 1200],
-      "prompt": "Editorial still life of three unbranded blank document sheets gathered neatly in one petroleum-blue folder, with a small orderly archive tray in the background, warm off-white tabletop and restrained amber tab accents, soft daylight, minimal premium product art direction, no people, no readable text, no letters, no numbers, no logo, no watermark, no legal cliches, landscape 4:3",
-      "alt": "Modelos em branco reunidos em uma pasta diante de um arquivo organizado."
+      "widths": [
+        400,
+        640,
+        960
+      ],
+      "prompt": "A 4:3 top-down flat-lay photograph, camera perfectly overhead with an orthographic feel. One thick sheet of matte warm off-white cotton paper in A4 proportion lies perfectly straight and centered on a pale warm stone surface, filling about 75% of the frame height, with even margins of stone around it. Across the page, rows of very fine blind-debossed horizontal lines, evenly spaced and ending at slightly different lengths like the ragged right edge of typeset paragraphs, are grouped into four short paragraph blocks under one shorter, slightly heavier line at the top, like a title. Seven precise die-cut rectangular windows of different widths sit inline within the rows, like the blanks of a form; through each window warm amber paper shows from below, and each cut casts a thin crisp shadow onto the amber. Soft natural morning daylight from the upper left. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/8, everything in sharp focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+      "alt": ""
+    },
+    {
+      "slug": "passo-1-modelo",
+      "model": "google/gemini-nano-banana-2.1",
+      "resolution": "1K",
+      "aspect_ratio": "4:3",
+      "widths": [
+        400,
+        640,
+        960
+      ],
+      "references": [
+        "passo-2-campos"
+      ],
+      "prompt": "Edit the reference image. Keep exactly the same sheet, paper texture, stone surface, framing, camera position, lighting and shadows. Change only one thing: close every die-cut window, so the sheet has no openings at all and the fine debossed lines continue smoothly through the places where the windows were. No amber paper is visible anymore. Do not add, remove or move anything else. Absolutely no text, letters, numbers, symbols or logos.",
+      "alt": ""
+    },
+    {
+      "slug": "passo-3-gerado",
+      "model": "google/gemini-nano-banana-2.1",
+      "resolution": "1K",
+      "aspect_ratio": "4:3",
+      "widths": [
+        400,
+        640,
+        960
+      ],
+      "references": [
+        "passo-2-campos"
+      ],
+      "prompt": "Edit the reference image. Keep exactly the same sheet, paper texture, stone surface, framing, camera position and lighting. Change only two things: first, every die-cut window now reveals matte petroleum-blue paper (#344D68) instead of amber, as if each blank has been filled in; second, add one more identical finished sheet lying underneath, offset slightly toward the upper right, so two finished documents are stacked and the edges of the lower one are visible. Do not add, remove or move anything else. Absolutely no text, letters, numbers, symbols or logos.",
+      "alt": ""
+    },
+    {
+      "slug": "recurso-lote",
+      "model": "black-forest-labs/flux-3-image",
+      "resolution": "2K",
+      "aspect_ratio": "4:3",
+      "widths": [
+        400,
+        640,
+        960
+      ],
+      "prompt": "A 4:3 top-down flat-lay photograph, camera perfectly overhead. On a pale warm stone surface: on the left, one sheet of matte petroleum-blue paper with a precise blind-debossed grid of thin rows and columns, like an empty spreadsheet with nothing written in it; on the right, a neat, slightly fanned stack of six identical thick sheets of matte warm off-white cotton paper in A4 proportion, each with rows of very fine blind-debossed horizontal lines and the same arrangement of small die-cut rectangular windows, all revealing petroleum-blue paper from below. A clear, calm gap between the grid and the stack, and generous margins of stone. Soft natural morning daylight from the upper left, with short crisp shadows. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, muted petroleum blue (#344D68), warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/8, everything in sharp focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+      "alt": ""
+    },
+    {
+      "slug": "recurso-kits",
+      "model": "black-forest-labs/flux-3-image",
+      "resolution": "2K",
+      "aspect_ratio": "4:3",
+      "widths": [
+        400,
+        640,
+        960
+      ],
+      "prompt": "A 4:3 still-life photograph seen from above at a slight angle, about 75 degrees. On a pale warm stone surface lies an open folder of matte petroleum-blue card. On it, three different document templates made of thick matte warm off-white cotton paper in A4 proportion are slightly fanned; each has rows of very fine blind-debossed horizontal lines and its own arrangement of die-cut rectangular windows revealing warm amber paper from below. One wide band of plain amber paper wraps around the three sheets, holding them together as a set. Generous margins of stone around the folder. Soft natural morning daylight from the upper left, with short crisp shadows. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, muted petroleum blue (#344D68), warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/8, everything in sharp focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+      "alt": ""
+    },
+    {
+      "slug": "recurso-historico",
+      "model": "black-forest-labs/flux-3-image",
+      "resolution": "2K",
+      "aspect_ratio": "4:3",
+      "widths": [
+        400,
+        640,
+        960
+      ],
+      "prompt": "A 4:3 still-life photograph seen from a 45-degree angle. On a pale warm stone surface, a shallow, simple tray of pale stone holds a neat row of documents made of thick matte warm off-white cotton paper, standing upright and filed one behind another. Small blank tabs of plain amber paper protrude at staggered heights along their top edges. On the visible upper part of the front sheets: rows of very fine blind-debossed horizontal lines and small die-cut rectangular windows revealing petroleum-blue paper from below. Calm and orderly; the row of documents is centered, with generous margins. Soft natural morning daylight from the upper left, with short crisp shadows. Calm, precise, architectural mood. Restrained palette only: warm off-white paper, muted petroleum blue (#344D68), warm amber (#C89E68), deep ink grey (#20262B) shadows, pale warm stone (#E9E7E1). Medium-format camera, 80 mm lens, f/5.6, the farthest documents very slightly out of focus, true-to-life colour, subtle paper fibre texture, no vignette, no grain, no lens flare. Absolutely no writing anywhere: no text, no letters, no words, no numbers, no characters, no glyphs, no symbols, no signatures, no handwriting, no scribbles. No logos, no brand marks, no watermarks, no stamps, no seals, no labels, no icons, no user interface, no screens, no devices. No people, no hands, no faces, no body parts, no reflections. No gavel, no scales of justice, no columns, no courthouse, no books, no pens, no clutter.",
+      "alt": ""
     }
   ],
   "videos": [
     {
       "slug": "hero-loop",
       "model": "google/veo-3.1-fast",
-      "fallback": "google/veo-3.1-lite",
       "resolution": "1080p",
       "aspect_ratio": "16:9",
       "duration": 8,
-      "frame": "hero-still",
+      "frame": "hero-modelo-vazado",
       "loop": true,
-      "target_bytes": 3000000,
+      "target_bytes": 2500000,
       "output_width": 1920,
-      "poster_widths": [640, 1024, 1600, 1920],
-      "prompt": "Very slow, calm ambient motion on the same still life: soft daylight drifts gently across the paper, the translucent geometric blocks glide a few millimeters and settle back, subtle shadows breathe; locked-off camera, no cuts, no zoom, no people, no hands, no text appearing, seamless loop that returns exactly to the opening frame",
-      "negative_prompt": "text, letters, numbers, logo, watermark, people, hands, faces, camera shake, fast motion, cuts",
+      "poster_widths": [
+        768,
+        1024,
+        1280,
+        1600,
+        1920
+      ],
+      "prompt": "Static tripod shot: the camera is completely locked off, with no pan, tilt, zoom, dolly or parallax. The scene is exactly the provided still life of die-cut paper document templates on a pale stone surface. Over eight seconds, only the light changes, very slowly: the soft, blurred shadow of a sheer curtain moved by a light breeze drifts gently across the paper from the upper left and then recedes, while the daylight inside the amber windows warms slightly, one window after another from left to right, and settles back. The paper, the windows, the shadows of the cuts and every object stay perfectly still and unchanged; nothing appears, disappears or deforms. Calm, quiet and slow. The last frame matches the first frame exactly, so the clip loops seamlessly. No text, no people, no hands, no camera movement, no flicker, no sound.",
+      "negative_prompt": "camera movement, zoom, pan, handheld shake, morphing, warping, melting paper, new objects, people, hands, text, letters, numbers, logos, flicker, strobing, fast motion",
       "alt": ""
     }
   ]
