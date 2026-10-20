@@ -121,7 +121,7 @@ export default function Landing() {
               <p className="lp-lead">Você marca os campos no próprio documento e depois preenche tudo em um formulário.</p>
               <div className="lp-screens">
                 <figure className="lp-shot lp-shot-desktop">
-                  <Picture variants={editor.variants} alt={editor.alt} sizes="(min-width: 1200px) 730px, 66vw" />
+                  <Picture variants={editor.variants} alt={editor.alt} sizes="(min-width: 1200px) 780px, calc(100vw - 420px)" />
                   <figcaption>Campos marcados no próprio modelo.</figcaption>
                 </figure>
                 <figure className="lp-shot lp-shot-editor-mobile">
@@ -129,7 +129,7 @@ export default function Landing() {
                   <figcaption>Campos marcados no próprio modelo.</figcaption>
                 </figure>
                 <figure className="lp-shot lp-shot-form-mobile">
-                  <Picture variants={form.variants} alt={form.alt} sizes="(min-width: 1200px) 260px, (min-width: 600px) 320px, 300px" />
+                  <Picture variants={form.variants} alt={form.alt} sizes="(min-width: 600px) 320px, 300px" />
                   <figcaption>Formulário de preenchimento.</figcaption>
                 </figure>
               </div>

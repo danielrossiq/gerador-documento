@@ -852,28 +852,20 @@ html:has([data-sticky-actions]) {
 @media (min-width: 1024px) {
   .lp-screens {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    column-gap: 24px;
-    align-items: end;
-    padding-bottom: 48px;
+    /* lado a lado, sem sobreposição: sobre o editor, a captura do celular cobria o painel de campos e o
+       botão "Próximo" (revisão do Design). Editor ≈ 780 px em 1440; celular fixo em 300 px. */
+    grid-template-columns: minmax(0, 1fr) 300px;
+    column-gap: 40px;
+    align-items: start;
   }
   .lp-shot {
     max-width: none;
   }
   .lp-shot-desktop {
     display: block;
-    grid-column: 1 / span 8;
-    grid-row: 1;
   }
   .lp-shot-editor-mobile {
     display: none;
-  }
-  .lp-shot-form-mobile {
-    grid-column: 8 / span 3;
-    grid-row: 1;
-    position: relative;
-    z-index: 1;
-    transform: translateY(48px); /* 48 px abaixo do pé do editor, sobre a borda dele */
   }
 }
 
