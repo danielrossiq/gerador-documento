@@ -40,7 +40,7 @@ describe("site-media", () => {
   });
 
   it("pôster do hero: quadro 0 do vídeo, senão a imagem I1, senão só texto", () => {
-    expect(heroPoster({ "hero-modelo-vazado": img("i1") }, { "hero-loop": video })).toEqual({ poster: video.poster, video });
+    expect(heroPoster({ "hero-modelo-vazado": img("i1") }, { "hero-loop": video })).toEqual({ poster: video.poster, video, narrow: img("i1").variants });
     expect(heroPoster({ "hero-modelo-vazado": img("i1") }, {})?.poster[0].file).toBe("/site/i1-400.webp");
     expect(heroPoster({}, {})).toBeNull();
   });

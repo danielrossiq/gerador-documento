@@ -10,17 +10,26 @@ export function Picture({
   sizes,
   className,
   priority,
+  narrow,
 }: {
   variants: Variant[];
   alt: string;
   sizes: string;
   className?: string;
   priority?: boolean;
+  /** Variantes alternativas abaixo de 768 px (mesma proporção), ex.: imagem mais leve onde não há vídeo. */
+  narrow?: Variant[];
 }) {
   const fallback = largestWebp(variants);
   if (!fallback) return null;
   return (
     <picture>
+      {narrow?.length ? (
+        <>
+          <source media="(max-width: 767px)" type="image/avif" srcSet={srcSet(narrow, "avif")} sizes={sizes} />
+          <source media="(max-width: 767px)" type="image/webp" srcSet={srcSet(narrow, "webp")} sizes={sizes} />
+        </>
+      ) : null}
       <source type="image/avif" srcSet={srcSet(variants, "avif")} sizes={sizes} />
       <source type="image/webp" srcSet={srcSet(variants, "webp")} sizes={sizes} />
       <img

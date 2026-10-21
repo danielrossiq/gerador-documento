@@ -44,7 +44,7 @@ function useConnection(): string {
  * com a aba oculta. Botão visível de pausar/reproduzir (WCAG 2.2.2); se a pessoa pausar, não volta sozinho nesta
  * sessão. Com erro ou travado por mais de 5 s, o vídeo sai e fica o pôster.
  */
-export function HeroMedia({ poster, video }: { poster: Variant[]; video?: VideoEntry }) {
+export function HeroMedia({ poster, video, narrow }: { poster: Variant[]; video?: VideoEntry; narrow?: Variant[] }) {
   const stage = useRef<HTMLDivElement>(null);
   const el = useRef<HTMLVideoElement>(null);
   const wide = useMedia("(min-width: 768px)");
@@ -152,7 +152,7 @@ export function HeroMedia({ poster, video }: { poster: Variant[]; video?: VideoE
   const label = userPaused ? "Reproduzir animação" : "Pausar animação";
   return (
     <div ref={stage} className="lp-stage" data-ready={active && ready} data-video={active ? "on" : "off"}>
-      <Picture variants={poster} alt="" sizes={SIZES} priority />
+      <Picture variants={poster} narrow={narrow} alt="" sizes={SIZES} priority />
       {active && video && (
         <video
           ref={el}

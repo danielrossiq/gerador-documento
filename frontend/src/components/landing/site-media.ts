@@ -44,10 +44,11 @@ export function largestWebp(variants: Variant[]): Variant | undefined {
 export function heroPoster(
   images: Record<string, ImageEntry> = siteImages,
   videos: Record<string, VideoEntry> = siteVideos,
-): { poster: Variant[]; video?: VideoEntry } | null {
+): { poster: Variant[]; video?: VideoEntry; narrow?: Variant[] } | null {
   const video = videos[HERO_VIDEO];
-  if (video?.poster?.length && video.sources?.length) return { poster: video.poster, video };
   const image = images[HERO_IMAGE];
+  // Abaixo de 768 px não há vídeo (nem troca de cor): vale a I1, bem mais leve que o quadro extraído do vídeo.
+  if (video?.poster?.length && video.sources?.length) return { poster: video.poster, video, narrow: image?.variants };
   return image?.variants?.length ? { poster: image.variants } : null;
 }
 

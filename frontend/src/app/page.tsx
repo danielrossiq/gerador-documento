@@ -79,7 +79,7 @@ export default function Landing() {
             </div>
             {hero && (
               <div className="lp-hero-media">
-                <HeroMedia poster={hero.poster} video={hero.video} />
+                <HeroMedia poster={hero.poster} video={hero.video} narrow={hero.narrow} />
               </div>
             )}
           </div>

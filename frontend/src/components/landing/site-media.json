@@ -196,5 +196,74 @@
       ]
     }
   },
-  "videos": {}
+  "videos": {
+    "hero-loop": {
+      "alt": "",
+      "width": 1920,
+      "height": 1080,
+      "duration": 7.21,
+      "sources": [
+        {
+          "file": "/site/hero-loop.webm",
+          "type": "video/webm"
+        },
+        {
+          "file": "/site/hero-loop.mp4",
+          "type": "video/mp4"
+        }
+      ],
+      "poster": [
+        {
+          "file": "/site/hero-loop-poster-768.avif",
+          "width": 768,
+          "height": 432
+        },
+        {
+          "file": "/site/hero-loop-poster-768.webp",
+          "width": 768,
+          "height": 432
+        },
+        {
+          "file": "/site/hero-loop-poster-1024.avif",
+          "width": 1024,
+          "height": 576
+        },
+        {
+          "file": "/site/hero-loop-poster-1024.webp",
+          "width": 1024,
+          "height": 576
+        },
+        {
+          "file": "/site/hero-loop-poster-1280.avif",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "file": "/site/hero-loop-poster-1280.webp",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "file": "/site/hero-loop-poster-1600.avif",
+          "width": 1600,
+          "height": 900
+        },
+        {
+          "file": "/site/hero-loop-poster-1600.webp",
+          "width": 1600,
+          "height": 900
+        },
+        {
+          "file": "/site/hero-loop-poster-1920.avif",
+          "width": 1920,
+          "height": 1080
+        },
+        {
+          "file": "/site/hero-loop-poster-1920.webp",
+          "width": 1920,
+          "height": 1080
+        }
+      ]
+    }
+  }
 }

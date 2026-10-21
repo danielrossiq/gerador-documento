@@ -118,6 +118,21 @@
         "black-forest-labs"
       ],
       "costSource": "api"
+    },
+    {
+      "kind": "video",
+      "slug": "hero-loop",
+      "model": "google/veo-3.1-fast",
+      "at": "2026-10-21T00:08:17+00:00",
+      "run": "r14",
+      "status": "ok",
+      "reservedUsd": 0.8,
+      "bounded": true,
+      "costUsd": 0.8,
+      "seed": 2096971966,
+      "jobId": "gen-vid-1792541297-sbvKJjYHVKnJznOhgbHO",
+      "costSource": "api",
+      "generationId": "gen-vid-1792541297-sbvKJjYHVKnJznOhgbHO"
     }
   ],
   "assets": {
@@ -412,7 +427,112 @@
         ]
       }
     },
-    "videos": {}
+    "videos": {
+      "hero-loop": {
+        "prompt": "Static tripod shot: the camera is completely locked off, with no pan, tilt, zoom, dolly or parallax. The scene is exactly the provided still life of die-cut paper document templates on a pale stone surface. Over eight seconds, only the light changes, very slowly: the soft, blurred shadow of a sheer curtain moved by a light breeze drifts gently across the paper from the upper left and then recedes, while the daylight inside the amber windows warms slightly, one window after another from left to right, and settles back. The paper, the windows, the shadows of the cuts and every object stay perfectly still and unchanged; nothing appears, disappears or deforms. Calm, quiet and slow. The last frame matches the first frame exactly, so the clip loops seamlessly. No text, no people, no hands, no camera movement, no flicker, no sound. The camera is completely locked off: no pan, tilt, zoom, dolly or reframing at any moment.",
+        "negativePrompt": "camera movement, zoom, pan, handheld shake, morphing, warping, melting paper, new objects, people, hands, text, letters, numbers, logos, flicker, strobing, fast motion",
+        "model": "google/veo-3.1-fast",
+        "resolution": "1080p",
+        "aspectRatio": "16:9",
+        "durationRequested": 8,
+        "frame": "hero-modelo-vazado",
+        "loop": true,
+        "seed": 2096971966,
+        "jobId": "gen-vid-1792541297-sbvKJjYHVKnJznOhgbHO",
+        "generatedAt": "2026-10-21T00:08:17+00:00",
+        "costUsd": 0.8,
+        "costSource": "api",
+        "original": "hero-loop.mp4",
+        "width": 1920,
+        "height": 1080,
+        "duration": 7.21,
+        "sources": [
+          {
+            "file": "/site/hero-loop.webm",
+            "type": "video/webm",
+            "bytes": 2372821
+          },
+          {
+            "file": "/site/hero-loop.mp4",
+            "type": "video/mp4",
+            "bytes": 2241397
+          }
+        ],
+        "poster": [
+          {
+            "file": "/site/hero-loop-poster-768.avif",
+            "width": 768,
+            "height": 432,
+            "bytes": 27212
+          },
+          {
+            "file": "/site/hero-loop-poster-768.webp",
+            "width": 768,
+            "height": 432,
+            "bytes": 45240
+          },
+          {
+            "file": "/site/hero-loop-poster-1024.avif",
+            "width": 1024,
+            "height": 576,
+            "bytes": 56274
+          },
+          {
+            "file": "/site/hero-loop-poster-1024.webp",
+            "width": 1024,
+            "height": 576,
+            "bytes": 94076
+          },
+          {
+            "file": "/site/hero-loop-poster-1280.avif",
+            "width": 1280,
+            "height": 720,
+            "bytes": 93687
+          },
+          {
+            "file": "/site/hero-loop-poster-1280.webp",
+            "width": 1280,
+            "height": 720,
+            "bytes": 148940
+          },
+          {
+            "file": "/site/hero-loop-poster-1600.avif",
+            "width": 1600,
+            "height": 900,
+            "bytes": 144057
+          },
+          {
+            "file": "/site/hero-loop-poster-1600.webp",
+            "width": 1600,
+            "height": 900,
+            "bytes": 221940
+          },
+          {
+            "file": "/site/hero-loop-poster-1920.avif",
+            "width": 1920,
+            "height": 1080,
+            "bytes": 199857
+          },
+          {
+            "file": "/site/hero-loop-poster-1920.webp",
+            "width": 1920,
+            "height": 1080,
+            "bytes": 302326
+          }
+        ],
+        "checks": {
+          "sourceAudio": false,
+          "outputAudio": false,
+          "durationS": 7.21,
+          "maxDurationS": 8,
+          "targetBytes": 2500000,
+          "maxBytes": 2750000,
+          "frames": 173,
+          "loopSeamMeanDiff": 5.07
+        },
+        "postprocess": "§7: crossfade de 0,8 s do fim sobre o início (ffmpeg xfade, local, sem nova chamada); original pago guardado em .media-originals/hero-loop-veo.mp4"
+      }
+    }
   },
   "rejected": [
     {
@@ -564,6 +684,16 @@
       "limitRemainingStart": 98.7,
       "limitRemainingEnd": 98.7,
       "endedAt": "2026-10-20T19:16:06+00:00"
+    },
+    {
+      "id": "r14",
+      "startedAt": "2026-10-21T00:08:16+00:00",
+      "usageStart": 1.4,
+      "usageEnd": 2.2,
+      "limit": 100.0,
+      "limitRemainingStart": 98.6,
+      "limitRemainingEnd": 97.8,
+      "endedAt": "2026-10-21T00:22:50+00:00"
     }
   ]
 }
