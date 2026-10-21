@@ -223,3 +223,42 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
   - **Leitura**: só por CLI (`metrics-report`). Não há rota de API nem visão por workspace.
 - **Gate que continua aberto**: ligar no piloto exige base legal e aviso aos participantes documentados (D29/D30). Até lá, desligado.
 - Migration `0006`. Testes: `test_activation_metrics.py`.
+
+## D33 — IA via OpenRouter: um modelo por finalidade, teto de custo e "não inventa"
+- **Pedido (Daniel)**: implementar recursos de IA que tirem trabalho manual, usando a chave da OpenRouter, e escolher o modelo por custo × eficácia.
+- **Recursos escolhidos**, pela dor que resolvem:
+  1. **Achar campos** no documento enviado. Já existia com regras; a IA sobe o recall de 53% para 92%.
+  2. **Preencher com IA**: colar o e-mail, o WhatsApp ou a ficha do cliente e ver os campos preenchidos (modelo e kit).
+  3. **Revisar com IA**: antes de gerar, aponta datas impossíveis, gênero trocado, extenso diferente do número e nomes divergentes. Não altera nada.
+- **Modelos**, medidos com a chave real (detalhes em [IA.md](IA.md)):
+  - análise: **Claude Haiku 5.5** (`OPENROUTER_MODEL`). 91,9% de recall e 94,0% de precisão no conjunto ouro, US$ 0,0009/doc. É o mesmo acerto do Sonnet 5 por 1/14 do custo.
+  - preencher e revisar: **Gemini 2.5 Flash** (`OPENROUTER_ASSIST_MODEL`). 19/19 no preenchimento, 4/4 na revisão sem falso alarme, cerca de 2,7 s.
+- **Garantias**:
+  - o preenchimento só aceita valor com evidência no texto colado (`_grounded`);
+  - todo valor passa pela validação da geração;
+  - JSON estrito por schema;
+  - `provider.data_collection=deny`;
+  - nada de conteúdo na razão de custo.
+- **Custo**:
+  - reserva do pior caso antes da chamada, com `pg_advisory_xact_lock`;
+  - teto por chamada (`AI_MAX_CALL_USD`) e por mês (`AI_MONTHLY_BUDGET_USD`);
+  - cota por plano (`max_ai_actions_per_month`); falhas não contam.
+  - Ao esgotar, a análise volta às regras locais.
+- **Chave**: fica fora do repositório e do `.env`, e entra como secret do Docker (`docker-compose.ai.yml`, `OPENROUTER_KEY_FILE`). `EXTERNAL_AI_ENABLED` continua sendo a trava geral (D30).
+- **Lições**:
+  - Sem `temperature`: com `require_parameters`, modelos de raciocínio davam 404.
+  - Modelos que raciocinam gastam tokens antes do JSON. O teto de saída tem folga, e uma resposta cortada vira `AI_TRUNCATED`.
+- Migration `0007` (`ai_spend`). Testes: `test_assist_ai.py` (sem rede) e `e2e/assist-billing.spec.ts` (com a IA real, quando ligada). Avaliação reproduzível: `python -m app.cli ai-eval models`.
+
+## D34 — Cobrança pela Stripe: cartão recorrente e Pix por período
+- **Pedido (Daniel)**: usar o mesmo gateway do realoficial.com.br e deixar tudo pronto para assinar. O realoficial cobra cartão pela **Stripe** (o app deles mostra "Acessar Portal Stripe" e "Valor final na Stripe") e tem um Pix à parte, renovado à mão.
+- **Decisão**:
+  - **Cartão**: Checkout da Stripe em `mode=subscription` com 4 preços (Profissional e Escritório, mensal e anual). Trocar de plano, cancelar e atualizar o cartão ficam no **portal do cliente** da Stripe. O Minuta não vê nem guarda dados de cartão.
+  - **Pix**: a Stripe só oferece Pix de pagamento único para contas brasileiras (Pix Automático indisponível). Por isso o Pix é cobrado **por período** (`mode=payment`, valor de `plans.json`). Ao ser pago, a assinatura `method=pix` vale até o fim do período, e um novo Pix soma ao período atual. Sem renovação automática.
+  - **Webhook** `/api/v1/billing/webhook`: só confia no HMAC (`Stripe-Signature`, tolerância de 300 s, corpo até 1 MB). Cada evento é gravado em `billing_events` (id único), então reenvios não têm efeito. Eventos tratados: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` e `invoice.payment_failed`.
+  - **Plano efetivo**: assinatura ativa vale. `past_due` tem 7 dias de tolerância. Pix vencido volta ao Grátis. Cancelada vale até o fim do período.
+  - **Limites**: precedência limite manual do workspace > plano > padrão (`Ctx.limit`). Com `BILLING_ENABLED=false` (padrão), nada muda para quem já usa: valem os limites padrão.
+  - **Planos**: uma fonte por lado (`frontend/src/content/plans.json` para a landing e a tela; `backend/app/modules/billing/plans.json` para os limites). Um teste confere que os dois são iguais.
+- **Sem SDK da Stripe**: chamadas HTTP diretas (form-encoded) em `stripe_client.py`, com a verificação HMAC implementada e testada. É menos uma dependência.
+- **Tela**: `/assinatura` ("Plano e uso", no menu do usuário). Mostra o plano, os medidores do mês (documentos, modelos, usos de IA), a escolha mensal ou anual, cartão e Pix, e o portal. A landing manda `?plano=&ciclo=` para o cadastro, que segue para essa tela com o plano destacado.
+- **Pendente (Daniel)**: abrir a conta e configurar produtos, webhook e portal, seguindo o passo a passo em [PAGAMENTOS.md](PAGAMENTOS.md). Migration `0008`. Testes: `test_billing.py` e `e2e/assist-billing.spec.ts`.

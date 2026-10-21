@@ -1,4 +1,6 @@
 from app.db.base import Base
+from app.db.models.ai_spend import AISpend
+from app.db.models.billing import BillingEvent, Subscription
 from app.db.models.generation import (
     AuditEvent,
     BatchImport,
@@ -36,11 +38,13 @@ from app.db.models.templates import (
 
 __all__ = [
     "AIAnalysisRun",
+    "AISpend",
     "ActivationMetric",
     "AuditEvent",
     "AuthIdentity",
     "Base",
     "BatchImport",
+    "BillingEvent",
     "DocumentGenerator",
     "DocumentKit",
     "DocumentKitItem",
@@ -55,6 +59,7 @@ __all__ = [
     "KitFieldOption",
     "KitRun",
     "PasswordResetToken",
+    "Subscription",
     "TemplateBlock",
     "TemplateFile",
     "TemplateVersion",

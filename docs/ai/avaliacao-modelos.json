@@ -1,0 +1,2467 @@
+[
+  {
+    "model": "google/gemini-2.5-flash-lite",
+    "cost_usd": 0.0067927000000000005,
+    "failures": [],
+    "summary": {
+      "documents": 15,
+      "recall_occurrences_pct": 84.3,
+      "partial_occurrences_pct": 9.3,
+      "precision_pct": 90.1,
+      "recall_fields_pct": 85.6,
+      "type_accuracy_pct": 95.9,
+      "grouping_pct": 25.0,
+      "occurrences": 172,
+      "exact": 145,
+      "partial": 16,
+      "hits": 161,
+      "hits_exact": 145,
+      "fields": 167,
+      "fields_found": 143,
+      "type_ok": 139,
+      "groups": 4,
+      "groups_ok": 1
+    },
+    "recall_by_type_pct": {
+      "cep": 100.0,
+      "cnpj": 100.0,
+      "cpf": 100.0,
+      "currency": 46.2,
+      "date": 100.0,
+      "email": 100.0,
+      "number": 100.0,
+      "oab": 80.0,
+      "phone": 100.0,
+      "select": 71.4,
+      "text_long": 0.0,
+      "text_short": 83.3
+    },
+    "documents": [
+      {
+        "id": "servicos-ti",
+        "category": "serviços",
+        "occurrences": 15,
+        "exact": 14,
+        "partial": 0,
+        "hits": 14,
+        "hits_exact": 14,
+        "fields": 13,
+        "fields_found": 13,
+        "type_ok": 13,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "servicos-limpeza",
+        "category": "serviços",
+        "occurrences": 12,
+        "exact": 10,
+        "partial": 2,
+        "hits": 13,
+        "hits_exact": 10,
+        "fields": 12,
+        "fields_found": 10,
+        "type_ok": 9,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "dia_semana",
+          "valor"
+        ],
+        "extra": [
+          "às segunda-feiras (text_short)",
+          "180,00 (currency)",
+          "PIX (select)"
+        ]
+      },
+      {
+        "id": "locacao-residencial",
+        "category": "locação",
+        "occurrences": 17,
+        "exact": 14,
+        "partial": 0,
+        "hits": 14,
+        "hits_exact": 14,
+        "fields": 17,
+        "fields_found": 14,
+        "type_ok": 14,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "garantia",
+          "nacionalidade_locador",
+          "nacionalidade_locataria"
+        ],
+        "extra": []
+      },
+      {
+        "id": "locacao-comercial",
+        "category": "locação",
+        "occurrences": 13,
+        "exact": 11,
+        "partial": 2,
+        "hits": 13,
+        "hits_exact": 11,
+        "fields": 13,
+        "fields_found": 11,
+        "type_ok": 11,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "finalidade",
+          "valor_aluguel"
+        ],
+        "extra": [
+          "design gráfico (text_short)",
+          "4.900,00 (currency)"
+        ]
+      },
+      {
+        "id": "procuracao-ad-judicia",
+        "category": "procuração",
+        "occurrences": 13,
+        "exact": 8,
+        "partial": 1,
+        "hits": 9,
+        "hits_exact": 8,
+        "fields": 12,
+        "fields_found": 8,
+        "type_ok": 6,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "acao",
+          "nacionalidade",
+          "oab_advogada",
+          "profissao"
+        ],
+        "extra": [
+          "123.456 (text_short)"
+        ]
+      },
+      {
+        "id": "substabelecimento",
+        "category": "procuração",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-hipossuficiencia",
+        "category": "declaração",
+        "occurrences": 9,
+        "exact": 9,
+        "partial": 0,
+        "hits": 9,
+        "hits_exact": 9,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 9,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-residencia",
+        "category": "declaração",
+        "occurrences": 11,
+        "exact": 8,
+        "partial": 2,
+        "hits": 9,
+        "hits_exact": 8,
+        "fields": 10,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "bairro",
+          "endereco"
+        ],
+        "extra": [
+          "Rua Padre Valdevino, 1.410, Aldeota (text_long)"
+        ]
+      },
+      {
+        "id": "recibo-honorarios",
+        "category": "recibo",
+        "occurrences": 11,
+        "exact": 8,
+        "partial": 2,
+        "hits": 9,
+        "hits_exact": 8,
+        "fields": 11,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "referencia",
+          "valor",
+          "valor_extenso"
+        ],
+        "extra": [
+          "R$ 2.500,00 (dois mil e quinhentos reais) (currency)"
+        ]
+      },
+      {
+        "id": "recibo-aluguel",
+        "category": "recibo",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "termo-confidencialidade",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 10,
+        "partial": 0,
+        "hits": 10,
+        "hits_exact": 10,
+        "fields": 11,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "projeto"
+        ],
+        "extra": []
+      },
+      {
+        "id": "termo-acordo",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 9,
+        "partial": 2,
+        "hits": 11,
+        "hits_exact": 9,
+        "fields": 11,
+        "fields_found": 9,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "valor_divida",
+          "valor_parcela"
+        ],
+        "extra": [
+          "12.600,00 (currency)",
+          "2.100,00 (currency)"
+        ]
+      },
+      {
+        "id": "proposta-honorarios",
+        "category": "proposta",
+        "occurrences": 11,
+        "exact": 9,
+        "partial": 2,
+        "hits": 11,
+        "hits_exact": 9,
+        "fields": 11,
+        "fields_found": 9,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "contato_cliente",
+          "servico_juridico"
+        ],
+        "extra": [
+          "Elisa Moura (text_short)",
+          "defesa em reclamação trabalhista em primeira instância (text_long)"
+        ]
+      },
+      {
+        "id": "rh-contrato-trabalho",
+        "category": "RH",
+        "occurrences": 12,
+        "exact": 11,
+        "partial": 1,
+        "hits": 12,
+        "hits_exact": 11,
+        "fields": 12,
+        "fields_found": 11,
+        "type_ok": 11,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "salario"
+        ],
+        "extra": [
+          "2.840,00 (currency)"
+        ]
+      },
+      {
+        "id": "rh-aviso-ferias",
+        "category": "RH",
+        "occurrences": 10,
+        "exact": 8,
+        "partial": 2,
+        "hits": 11,
+        "hits_exact": 8,
+        "fields": 10,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "periodo_aquisitivo",
+          "valor_ferias"
+        ],
+        "extra": [
+          "2025 (number)",
+          "2026 (number)",
+          "4.210,67 (currency)"
+        ]
+      }
+    ]
+  },
+  {
+    "model": "openai/gpt-5.6-luna",
+    "cost_usd": 0.01686918,
+    "failures": [],
+    "summary": {
+      "documents": 15,
+      "recall_occurrences_pct": 91.3,
+      "partial_occurrences_pct": 5.8,
+      "precision_pct": 92.4,
+      "recall_fields_pct": 91.0,
+      "type_accuracy_pct": 95.5,
+      "grouping_pct": 100.0,
+      "occurrences": 172,
+      "exact": 157,
+      "partial": 10,
+      "hits": 170,
+      "hits_exact": 157,
+      "fields": 167,
+      "fields_found": 152,
+      "type_ok": 150,
+      "groups": 4,
+      "groups_ok": 4
+    },
+    "recall_by_type_pct": {
+      "cep": 100.0,
+      "cnpj": 100.0,
+      "cpf": 100.0,
+      "currency": 100.0,
+      "date": 100.0,
+      "email": 100.0,
+      "number": 100.0,
+      "oab": 60.0,
+      "phone": 100.0,
+      "select": 71.4,
+      "text_long": 0.0,
+      "text_short": 87.2
+    },
+    "documents": [
+      {
+        "id": "servicos-ti",
+        "category": "serviços",
+        "occurrences": 15,
+        "exact": 15,
+        "partial": 0,
+        "hits": 16,
+        "hits_exact": 15,
+        "fields": 13,
+        "fields_found": 13,
+        "type_ok": 14,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": [
+          "Lumen Sistemas Ltda. (text_short)"
+        ]
+      },
+      {
+        "id": "servicos-limpeza",
+        "category": "serviços",
+        "occurrences": 12,
+        "exact": 11,
+        "partial": 1,
+        "hits": 13,
+        "hits_exact": 11,
+        "fields": 12,
+        "fields_found": 11,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "dia_semana"
+        ],
+        "extra": [
+          "limpeza (text_short)",
+          "segunda-feiras (select)"
+        ]
+      },
+      {
+        "id": "locacao-residencial",
+        "category": "locação",
+        "occurrences": 17,
+        "exact": 16,
+        "partial": 1,
+        "hits": 17,
+        "hits_exact": 16,
+        "fields": 17,
+        "fields_found": 16,
+        "type_ok": 14,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "garantia"
+        ],
+        "extra": [
+          "três (number)"
+        ]
+      },
+      {
+        "id": "locacao-comercial",
+        "category": "locação",
+        "occurrences": 13,
+        "exact": 13,
+        "partial": 0,
+        "hits": 13,
+        "hits_exact": 13,
+        "fields": 13,
+        "fields_found": 13,
+        "type_ok": 13,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "procuracao-ad-judicia",
+        "category": "procuração",
+        "occurrences": 13,
+        "exact": 12,
+        "partial": 1,
+        "hits": 13,
+        "hits_exact": 12,
+        "fields": 12,
+        "fields_found": 11,
+        "type_ok": 12,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [
+          "oab_advogada"
+        ],
+        "extra": [
+          "SP 123.456 (oab)"
+        ]
+      },
+      {
+        "id": "substabelecimento",
+        "category": "procuração",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-hipossuficiencia",
+        "category": "declaração",
+        "occurrences": 9,
+        "exact": 9,
+        "partial": 0,
+        "hits": 9,
+        "hits_exact": 9,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 9,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-residencia",
+        "category": "declaração",
+        "occurrences": 11,
+        "exact": 9,
+        "partial": 2,
+        "hits": 11,
+        "hits_exact": 9,
+        "fields": 10,
+        "fields_found": 8,
+        "type_ok": 9,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [
+          "bairro",
+          "endereco"
+        ],
+        "extra": [
+          "Rua Padre Valdevino, 1.410, Aldeota (text_short)",
+          "mesmo endereço (text_short)"
+        ]
+      },
+      {
+        "id": "recibo-honorarios",
+        "category": "recibo",
+        "occurrences": 11,
+        "exact": 9,
+        "partial": 1,
+        "hits": 10,
+        "hits_exact": 9,
+        "fields": 11,
+        "fields_found": 9,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "oab_recebedor",
+          "valor_extenso"
+        ],
+        "extra": [
+          "87.210 (oab)"
+        ]
+      },
+      {
+        "id": "recibo-aluguel",
+        "category": "recibo",
+        "occurrences": 8,
+        "exact": 3,
+        "partial": 1,
+        "hits": 5,
+        "hits_exact": 3,
+        "fields": 8,
+        "fields_found": 3,
+        "type_ok": 3,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "endereco_imovel",
+          "mes_referencia",
+          "nome_locador",
+          "nome_locatario"
+        ],
+        "extra": [
+          "outubro (select)",
+          "2026 (number)"
+        ]
+      },
+      {
+        "id": "termo-confidencialidade",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 10,
+        "partial": 1,
+        "hits": 11,
+        "hits_exact": 10,
+        "fields": 11,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "projeto"
+        ],
+        "extra": [
+          "sistema de irrigação inteligente (text_long)"
+        ]
+      },
+      {
+        "id": "termo-acordo",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 11,
+        "partial": 0,
+        "hits": 11,
+        "hits_exact": 11,
+        "fields": 11,
+        "fields_found": 11,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "proposta-honorarios",
+        "category": "proposta",
+        "occurrences": 11,
+        "exact": 9,
+        "partial": 2,
+        "hits": 11,
+        "hits_exact": 9,
+        "fields": 11,
+        "fields_found": 9,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "contato_cliente",
+          "servico_juridico"
+        ],
+        "extra": [
+          "Elisa Moura (text_short)",
+          "defesa em reclamação trabalhista em primeira instância (text_long)"
+        ]
+      },
+      {
+        "id": "rh-contrato-trabalho",
+        "category": "RH",
+        "occurrences": 12,
+        "exact": 12,
+        "partial": 0,
+        "hits": 12,
+        "hits_exact": 12,
+        "fields": 12,
+        "fields_found": 12,
+        "type_ok": 12,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "rh-aviso-ferias",
+        "category": "RH",
+        "occurrences": 10,
+        "exact": 10,
+        "partial": 0,
+        "hits": 10,
+        "hits_exact": 10,
+        "fields": 10,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      }
+    ]
+  },
+  {
+    "model": "anthropic/claude-haiku-5.5",
+    "cost_usd": 0.013683700000000003,
+    "failures": [],
+    "summary": {
+      "documents": 15,
+      "recall_occurrences_pct": 91.9,
+      "partial_occurrences_pct": 6.4,
+      "precision_pct": 94.0,
+      "recall_fields_pct": 92.2,
+      "type_accuracy_pct": 96.8,
+      "grouping_pct": 75.0,
+      "occurrences": 172,
+      "exact": 158,
+      "partial": 11,
+      "hits": 168,
+      "hits_exact": 158,
+      "fields": 167,
+      "fields_found": 154,
+      "type_ok": 153,
+      "groups": 4,
+      "groups_ok": 3
+    },
+    "recall_by_type_pct": {
+      "cep": 100.0,
+      "cnpj": 100.0,
+      "cpf": 100.0,
+      "currency": 100.0,
+      "date": 100.0,
+      "email": 100.0,
+      "number": 100.0,
+      "oab": 100.0,
+      "phone": 100.0,
+      "select": 71.4,
+      "text_long": 0.0,
+      "text_short": 87.2
+    },
+    "documents": [
+      {
+        "id": "servicos-ti",
+        "category": "serviços",
+        "occurrences": 15,
+        "exact": 15,
+        "partial": 0,
+        "hits": 15,
+        "hits_exact": 15,
+        "fields": 13,
+        "fields_found": 13,
+        "type_ok": 14,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "servicos-limpeza",
+        "category": "serviços",
+        "occurrences": 12,
+        "exact": 11,
+        "partial": 1,
+        "hits": 13,
+        "hits_exact": 11,
+        "fields": 12,
+        "fields_found": 11,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "dia_semana"
+        ],
+        "extra": [
+          "segunda-feiras (select)",
+          "PIX (select)"
+        ]
+      },
+      {
+        "id": "locacao-residencial",
+        "category": "locação",
+        "occurrences": 17,
+        "exact": 16,
+        "partial": 1,
+        "hits": 17,
+        "hits_exact": 16,
+        "fields": 17,
+        "fields_found": 16,
+        "type_ok": 16,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "garantia"
+        ],
+        "extra": [
+          "três (number)"
+        ]
+      },
+      {
+        "id": "locacao-comercial",
+        "category": "locação",
+        "occurrences": 13,
+        "exact": 12,
+        "partial": 1,
+        "hits": 13,
+        "hits_exact": 12,
+        "fields": 13,
+        "fields_found": 12,
+        "type_ok": 12,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "finalidade"
+        ],
+        "extra": [
+          "design gráfico (text_short)"
+        ]
+      },
+      {
+        "id": "procuracao-ad-judicia",
+        "category": "procuração",
+        "occurrences": 13,
+        "exact": 11,
+        "partial": 1,
+        "hits": 12,
+        "hits_exact": 11,
+        "fields": 12,
+        "fields_found": 10,
+        "type_ok": 11,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [
+          "acao",
+          "parte_contraria"
+        ],
+        "extra": [
+          "Construtora Horizonte Ltda (text_short)"
+        ]
+      },
+      {
+        "id": "substabelecimento",
+        "category": "procuração",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-hipossuficiencia",
+        "category": "declaração",
+        "occurrences": 9,
+        "exact": 9,
+        "partial": 0,
+        "hits": 9,
+        "hits_exact": 9,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 9,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-residencia",
+        "category": "declaração",
+        "occurrences": 11,
+        "exact": 8,
+        "partial": 3,
+        "hits": 9,
+        "hits_exact": 8,
+        "fields": 10,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "bairro",
+          "endereco"
+        ],
+        "extra": [
+          "Rua Padre Valdevino, 1.410, Aldeota, Fortaleza (text_short)"
+        ]
+      },
+      {
+        "id": "recibo-honorarios",
+        "category": "recibo",
+        "occurrences": 11,
+        "exact": 9,
+        "partial": 1,
+        "hits": 10,
+        "hits_exact": 9,
+        "fields": 11,
+        "fields_found": 9,
+        "type_ok": 9,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "referencia",
+          "valor_extenso"
+        ],
+        "extra": [
+          "primeira fase do processo (text_short)"
+        ]
+      },
+      {
+        "id": "recibo-aluguel",
+        "category": "recibo",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 7,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "termo-confidencialidade",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 10,
+        "partial": 1,
+        "hits": 11,
+        "hits_exact": 10,
+        "fields": 11,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "projeto"
+        ],
+        "extra": [
+          "sistema de irrigação inteligente (text_short)"
+        ]
+      },
+      {
+        "id": "termo-acordo",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 11,
+        "partial": 0,
+        "hits": 11,
+        "hits_exact": 11,
+        "fields": 11,
+        "fields_found": 11,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "proposta-honorarios",
+        "category": "proposta",
+        "occurrences": 11,
+        "exact": 8,
+        "partial": 2,
+        "hits": 10,
+        "hits_exact": 8,
+        "fields": 11,
+        "fields_found": 8,
+        "type_ok": 7,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "contato_cliente",
+          "nome_escritorio",
+          "servico_juridico"
+        ],
+        "extra": [
+          "Elisa Moura (text_short)",
+          "reclamação trabalhista (text_short)"
+        ]
+      },
+      {
+        "id": "rh-contrato-trabalho",
+        "category": "RH",
+        "occurrences": 12,
+        "exact": 12,
+        "partial": 0,
+        "hits": 12,
+        "hits_exact": 12,
+        "fields": 12,
+        "fields_found": 12,
+        "type_ok": 12,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "rh-aviso-ferias",
+        "category": "RH",
+        "occurrences": 10,
+        "exact": 10,
+        "partial": 0,
+        "hits": 10,
+        "hits_exact": 10,
+        "fields": 10,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      }
+    ]
+  },
+  {
+    "model": "openai/gpt-5-nano",
+    "cost_usd": 0.02481326,
+    "failures": [
+      "servicos-ti: AI_TRUNCATED",
+      "servicos-limpeza: AI_TRUNCATED",
+      "locacao-residencial: AI_TRUNCATED",
+      "locacao-comercial: AI_TRUNCATED",
+      "procuracao-ad-judicia: AI_TRUNCATED",
+      "substabelecimento: AI_TRUNCATED",
+      "declaracao-hipossuficiencia: AI_TRUNCATED",
+      "declaracao-residencia: AI_TRUNCATED",
+      "recibo-honorarios: AI_TRUNCATED",
+      "recibo-aluguel: AI_TRUNCATED",
+      "termo-confidencialidade: AI_TRUNCATED",
+      "termo-acordo: AI_TRUNCATED",
+      "proposta-honorarios: AI_TRUNCATED",
+      "rh-contrato-trabalho: AI_TRUNCATED",
+      "rh-aviso-ferias: AI_TRUNCATED"
+    ],
+    "summary": {
+      "documents": 15,
+      "recall_occurrences_pct": 43.6,
+      "partial_occurrences_pct": 4.7,
+      "precision_pct": 89.3,
+      "recall_fields_pct": 44.9,
+      "type_accuracy_pct": 98.7,
+      "grouping_pct": 0.0,
+      "occurrences": 172,
+      "exact": 75,
+      "partial": 8,
+      "hits": 84,
+      "hits_exact": 75,
+      "fields": 167,
+      "fields_found": 75,
+      "type_ok": 74,
+      "groups": 4,
+      "groups_ok": 0
+    },
+    "recall_by_type_pct": {
+      "cep": 100.0,
+      "cnpj": 100.0,
+      "cpf": 100.0,
+      "currency": 92.3,
+      "date": 100.0,
+      "email": 100.0,
+      "number": 0.0,
+      "oab": 100.0,
+      "phone": 100.0,
+      "select": 42.9,
+      "text_long": 0.0,
+      "text_short": 1.3
+    },
+    "documents": [
+      {
+        "id": "servicos-ti",
+        "category": "serviços",
+        "occurrences": 15,
+        "exact": 6,
+        "partial": 0,
+        "hits": 6,
+        "hits_exact": 6,
+        "fields": 13,
+        "fields_found": 6,
+        "type_ok": 6,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "dia_pagamento",
+          "endereco_contratante",
+          "nome_contratada",
+          "nome_contratante",
+          "prazo_meses",
+          "servico"
+        ],
+        "extra": []
+      },
+      {
+        "id": "servicos-limpeza",
+        "category": "serviços",
+        "occurrences": 12,
+        "exact": 7,
+        "partial": 0,
+        "hits": 7,
+        "hits_exact": 7,
+        "fields": 12,
+        "fields_found": 7,
+        "type_ok": 6,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "dia_semana",
+          "endereco_imovel",
+          "nome_contratado",
+          "nome_contratante"
+        ],
+        "extra": []
+      },
+      {
+        "id": "locacao-residencial",
+        "category": "locação",
+        "occurrences": 17,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 17,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "endereco_imovel",
+          "garantia",
+          "indice_reajuste",
+          "nacionalidade_locador",
+          "nacionalidade_locataria",
+          "nome_locador",
+          "nome_locataria",
+          "prazo_meses"
+        ],
+        "extra": []
+      },
+      {
+        "id": "locacao-comercial",
+        "category": "locação",
+        "occurrences": 13,
+        "exact": 5,
+        "partial": 1,
+        "hits": 6,
+        "hits_exact": 5,
+        "fields": 13,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "dia_vencimento",
+          "endereco_imovel",
+          "finalidade",
+          "nome_locadora",
+          "nome_locataria",
+          "prazo_meses",
+          "representante"
+        ],
+        "extra": [
+          "Novembro (select)"
+        ]
+      },
+      {
+        "id": "procuracao-ad-judicia",
+        "category": "procuração",
+        "occurrences": 13,
+        "exact": 3,
+        "partial": 0,
+        "hits": 3,
+        "hits_exact": 3,
+        "fields": 12,
+        "fields_found": 3,
+        "type_ok": 3,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "acao",
+          "cidade",
+          "endereco_escritorio",
+          "endereco_outorgante",
+          "nacionalidade",
+          "nome_advogada",
+          "nome_outorgante",
+          "parte_contraria",
+          "profissao"
+        ],
+        "extra": []
+      },
+      {
+        "id": "substabelecimento",
+        "category": "procuração",
+        "occurrences": 8,
+        "exact": 3,
+        "partial": 1,
+        "hits": 4,
+        "hits_exact": 3,
+        "fields": 8,
+        "fields_found": 3,
+        "type_ok": 3,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "nome_cliente",
+          "nome_substabelecente",
+          "nome_substabelecido",
+          "numero_processo"
+        ],
+        "extra": [
+          "2026 (number)"
+        ]
+      },
+      {
+        "id": "declaracao-hipossuficiencia",
+        "category": "declaração",
+        "occurrences": 9,
+        "exact": 5,
+        "partial": 0,
+        "hits": 5,
+        "hits_exact": 5,
+        "fields": 8,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "endereco",
+          "nome_declarante"
+        ],
+        "extra": []
+      },
+      {
+        "id": "declaracao-residencia",
+        "category": "declaração",
+        "occurrences": 11,
+        "exact": 5,
+        "partial": 0,
+        "hits": 5,
+        "hits_exact": 5,
+        "fields": 10,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "bairro",
+          "cidade",
+          "endereco",
+          "nome_declarante",
+          "nome_morador"
+        ],
+        "extra": []
+      },
+      {
+        "id": "recibo-honorarios",
+        "category": "recibo",
+        "occurrences": 11,
+        "exact": 4,
+        "partial": 2,
+        "hits": 5,
+        "hits_exact": 4,
+        "fields": 11,
+        "fields_found": 4,
+        "type_ok": 4,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "forma_pagamento",
+          "nome_pagador",
+          "nome_recebedor",
+          "referencia",
+          "valor",
+          "valor_extenso"
+        ],
+        "extra": [
+          "R$ 2.500,00 (dois mil e quinhentos reais) (currency)"
+        ]
+      },
+      {
+        "id": "recibo-aluguel",
+        "category": "recibo",
+        "occurrences": 8,
+        "exact": 3,
+        "partial": 1,
+        "hits": 5,
+        "hits_exact": 3,
+        "fields": 8,
+        "fields_found": 3,
+        "type_ok": 3,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "endereco_imovel",
+          "mes_referencia",
+          "nome_locador",
+          "nome_locatario"
+        ],
+        "extra": [
+          "outubro (select)",
+          "2026 (number)"
+        ]
+      },
+      {
+        "id": "termo-confidencialidade",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 5,
+        "partial": 0,
+        "hits": 5,
+        "hits_exact": 5,
+        "fields": 11,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "foro",
+          "nome_empresa",
+          "nome_parceiro",
+          "prazo_anos",
+          "projeto"
+        ],
+        "extra": []
+      },
+      {
+        "id": "termo-acordo",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 6,
+        "partial": 1,
+        "hits": 7,
+        "hits_exact": 6,
+        "fields": 11,
+        "fields_found": 6,
+        "type_ok": 6,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "multa_percentual",
+          "nome_credor",
+          "nome_devedor",
+          "parcelas"
+        ],
+        "extra": [
+          "10 (number)"
+        ]
+      },
+      {
+        "id": "proposta-honorarios",
+        "category": "proposta",
+        "occurrences": 11,
+        "exact": 5,
+        "partial": 1,
+        "hits": 6,
+        "hits_exact": 5,
+        "fields": 11,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "contato_cliente",
+          "nome_advogado",
+          "nome_cliente",
+          "nome_escritorio",
+          "percentual_exito",
+          "servico_juridico"
+        ],
+        "extra": [
+          "15 (number)"
+        ]
+      },
+      {
+        "id": "rh-contrato-trabalho",
+        "category": "RH",
+        "occurrences": 12,
+        "exact": 5,
+        "partial": 0,
+        "hits": 5,
+        "hits_exact": 5,
+        "fields": 12,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cargo",
+          "cidade",
+          "endereco_empregada",
+          "experiencia_dias",
+          "jornada_horas",
+          "nome_empregada",
+          "nome_empregadora"
+        ],
+        "extra": []
+      },
+      {
+        "id": "rh-aviso-ferias",
+        "category": "RH",
+        "occurrences": 10,
+        "exact": 5,
+        "partial": 1,
+        "hits": 7,
+        "hits_exact": 5,
+        "fields": 10,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "matricula",
+          "nome_empregado",
+          "nome_empresa",
+          "periodo_aquisitivo"
+        ],
+        "extra": [
+          "2025 (number)",
+          "2026 (number)"
+        ]
+      }
+    ]
+  },
+  {
+    "model": "deepseek/deepseek-v4.1-flash",
+    "cost_usd": 0.022878067,
+    "failures": [
+      "locacao-residencial: AI_TRUNCATED",
+      "procuracao-ad-judicia: AI_TRUNCATED",
+      "proposta-honorarios: AI_TRUNCATED"
+    ],
+    "summary": {
+      "documents": 15,
+      "recall_occurrences_pct": 70.3,
+      "partial_occurrences_pct": 6.4,
+      "precision_pct": 91.7,
+      "recall_fields_pct": 70.7,
+      "type_accuracy_pct": 98.3,
+      "grouping_pct": 50.0,
+      "occurrences": 172,
+      "exact": 121,
+      "partial": 11,
+      "hits": 132,
+      "hits_exact": 121,
+      "fields": 167,
+      "fields_found": 118,
+      "type_ok": 119,
+      "groups": 4,
+      "groups_ok": 2
+    },
+    "recall_by_type_pct": {
+      "cep": 100.0,
+      "cnpj": 100.0,
+      "cpf": 100.0,
+      "currency": 92.3,
+      "date": 100.0,
+      "email": 100.0,
+      "number": 66.7,
+      "oab": 60.0,
+      "phone": 100.0,
+      "select": 57.1,
+      "text_long": 0.0,
+      "text_short": 50.0
+    },
+    "documents": [
+      {
+        "id": "servicos-ti",
+        "category": "serviços",
+        "occurrences": 15,
+        "exact": 15,
+        "partial": 0,
+        "hits": 16,
+        "hits_exact": 15,
+        "fields": 13,
+        "fields_found": 13,
+        "type_ok": 14,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": [
+          "Lumen Sistemas Ltda. (text_short)"
+        ]
+      },
+      {
+        "id": "servicos-limpeza",
+        "category": "serviços",
+        "occurrences": 12,
+        "exact": 7,
+        "partial": 0,
+        "hits": 7,
+        "hits_exact": 7,
+        "fields": 12,
+        "fields_found": 7,
+        "type_ok": 6,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "dia_semana",
+          "endereco_imovel",
+          "nome_contratado",
+          "nome_contratante"
+        ],
+        "extra": []
+      },
+      {
+        "id": "locacao-residencial",
+        "category": "locação",
+        "occurrences": 17,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 17,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "endereco_imovel",
+          "garantia",
+          "indice_reajuste",
+          "nacionalidade_locador",
+          "nacionalidade_locataria",
+          "nome_locador",
+          "nome_locataria",
+          "prazo_meses"
+        ],
+        "extra": []
+      },
+      {
+        "id": "locacao-comercial",
+        "category": "locação",
+        "occurrences": 13,
+        "exact": 12,
+        "partial": 1,
+        "hits": 13,
+        "hits_exact": 12,
+        "fields": 13,
+        "fields_found": 12,
+        "type_ok": 12,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "finalidade"
+        ],
+        "extra": [
+          "design gráfico (text_short)"
+        ]
+      },
+      {
+        "id": "procuracao-ad-judicia",
+        "category": "procuração",
+        "occurrences": 13,
+        "exact": 3,
+        "partial": 0,
+        "hits": 3,
+        "hits_exact": 3,
+        "fields": 12,
+        "fields_found": 3,
+        "type_ok": 3,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "acao",
+          "cidade",
+          "endereco_escritorio",
+          "endereco_outorgante",
+          "nacionalidade",
+          "nome_advogada",
+          "nome_outorgante",
+          "parte_contraria",
+          "profissao"
+        ],
+        "extra": []
+      },
+      {
+        "id": "substabelecimento",
+        "category": "procuração",
+        "occurrences": 8,
+        "exact": 6,
+        "partial": 2,
+        "hits": 8,
+        "hits_exact": 6,
+        "fields": 8,
+        "fields_found": 6,
+        "type_ok": 6,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "oab_substabelecente",
+          "oab_substabelecido"
+        ],
+        "extra": [
+          "98.765 (oab)",
+          "154.302 (oab)"
+        ]
+      },
+      {
+        "id": "declaracao-hipossuficiencia",
+        "category": "declaração",
+        "occurrences": 9,
+        "exact": 9,
+        "partial": 0,
+        "hits": 9,
+        "hits_exact": 9,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 9,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-residencia",
+        "category": "declaração",
+        "occurrences": 11,
+        "exact": 8,
+        "partial": 3,
+        "hits": 10,
+        "hits_exact": 8,
+        "fields": 10,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "bairro",
+          "endereco"
+        ],
+        "extra": [
+          "DECLARAÇÃO DE RESIDÊNCIA (text_short)",
+          "Rua Padre Valdevino, 1.410, Aldeota, Fortaleza (text_short)"
+        ]
+      },
+      {
+        "id": "recibo-honorarios",
+        "category": "recibo",
+        "occurrences": 11,
+        "exact": 8,
+        "partial": 2,
+        "hits": 9,
+        "hits_exact": 8,
+        "fields": 11,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "referencia",
+          "valor",
+          "valor_extenso"
+        ],
+        "extra": [
+          "R$ 2.500,00 (dois mil e quinhentos reais) (currency)"
+        ]
+      },
+      {
+        "id": "recibo-aluguel",
+        "category": "recibo",
+        "occurrences": 8,
+        "exact": 7,
+        "partial": 1,
+        "hits": 9,
+        "hits_exact": 7,
+        "fields": 8,
+        "fields_found": 7,
+        "type_ok": 7,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "mes_referencia"
+        ],
+        "extra": [
+          "outubro (select)",
+          "2026 (number)"
+        ]
+      },
+      {
+        "id": "termo-confidencialidade",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 5,
+        "partial": 0,
+        "hits": 5,
+        "hits_exact": 5,
+        "fields": 11,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "foro",
+          "nome_empresa",
+          "nome_parceiro",
+          "prazo_anos",
+          "projeto"
+        ],
+        "extra": []
+      },
+      {
+        "id": "termo-acordo",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 6,
+        "partial": 1,
+        "hits": 7,
+        "hits_exact": 6,
+        "fields": 11,
+        "fields_found": 6,
+        "type_ok": 6,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "multa_percentual",
+          "nome_credor",
+          "nome_devedor",
+          "parcelas"
+        ],
+        "extra": [
+          "10 (number)"
+        ]
+      },
+      {
+        "id": "proposta-honorarios",
+        "category": "proposta",
+        "occurrences": 11,
+        "exact": 5,
+        "partial": 1,
+        "hits": 6,
+        "hits_exact": 5,
+        "fields": 11,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "contato_cliente",
+          "nome_advogado",
+          "nome_cliente",
+          "nome_escritorio",
+          "percentual_exito",
+          "servico_juridico"
+        ],
+        "extra": [
+          "15 (number)"
+        ]
+      },
+      {
+        "id": "rh-contrato-trabalho",
+        "category": "RH",
+        "occurrences": 12,
+        "exact": 12,
+        "partial": 0,
+        "hits": 12,
+        "hits_exact": 12,
+        "fields": 12,
+        "fields_found": 12,
+        "type_ok": 12,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "rh-aviso-ferias",
+        "category": "RH",
+        "occurrences": 10,
+        "exact": 10,
+        "partial": 0,
+        "hits": 10,
+        "hits_exact": 10,
+        "fields": 10,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      }
+    ]
+  },
+  {
+    "model": "mistralai/mistral-small-2603",
+    "cost_usd": 0.01993488,
+    "failures": [
+      "locacao-comercial: AI_RATE_LIMITED",
+      "procuracao-ad-judicia: AI_RATE_LIMITED",
+      "declaracao-residencia: AI_RATE_LIMITED",
+      "recibo-honorarios: AI_RATE_LIMITED",
+      "termo-acordo: AI_RATE_LIMITED",
+      "proposta-honorarios: AI_RATE_LIMITED"
+    ],
+    "summary": {
+      "documents": 15,
+      "recall_occurrences_pct": 64.0,
+      "partial_occurrences_pct": 11.0,
+      "precision_pct": 89.4,
+      "recall_fields_pct": 64.1,
+      "type_accuracy_pct": 98.2,
+      "grouping_pct": 50.0,
+      "occurrences": 172,
+      "exact": 110,
+      "partial": 19,
+      "hits": 123,
+      "hits_exact": 110,
+      "fields": 167,
+      "fields_found": 107,
+      "type_ok": 108,
+      "groups": 4,
+      "groups_ok": 2
+    },
+    "recall_by_type_pct": {
+      "cep": 33.3,
+      "cnpj": 87.5,
+      "cpf": 92.9,
+      "currency": 84.6,
+      "date": 100.0,
+      "email": 100.0,
+      "number": 55.6,
+      "oab": 100.0,
+      "phone": 100.0,
+      "select": 14.3,
+      "text_long": 0.0,
+      "text_short": 44.9
+    },
+    "documents": [
+      {
+        "id": "servicos-ti",
+        "category": "serviços",
+        "occurrences": 15,
+        "exact": 12,
+        "partial": 2,
+        "hits": 14,
+        "hits_exact": 12,
+        "fields": 13,
+        "fields_found": 10,
+        "type_ok": 12,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [
+          "cep_contratante",
+          "endereco_contratante",
+          "servico"
+        ],
+        "extra": [
+          "Rua das Acácias, 120, apto 31, CEP 04512-030 (text_short)",
+          "Lumen Sistemas Ltda. (text_short)"
+        ]
+      },
+      {
+        "id": "servicos-limpeza",
+        "category": "serviços",
+        "occurrences": 12,
+        "exact": 11,
+        "partial": 0,
+        "hits": 11,
+        "hits_exact": 11,
+        "fields": 12,
+        "fields_found": 11,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "dia_semana"
+        ],
+        "extra": []
+      },
+      {
+        "id": "locacao-residencial",
+        "category": "locação",
+        "occurrences": 17,
+        "exact": 10,
+        "partial": 5,
+        "hits": 13,
+        "hits_exact": 10,
+        "fields": 17,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "estado_civil_locador",
+          "estado_civil_locataria",
+          "garantia",
+          "indice_reajuste",
+          "nacionalidade_locador",
+          "nacionalidade_locataria",
+          "valor_aluguel"
+        ],
+        "extra": [
+          "brasileiro, casado (text_short)",
+          "brasileira, solteira (text_short)",
+          "2.750,00 (currency)"
+        ]
+      },
+      {
+        "id": "locacao-comercial",
+        "category": "locação",
+        "occurrences": 13,
+        "exact": 5,
+        "partial": 1,
+        "hits": 6,
+        "hits_exact": 5,
+        "fields": 13,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "dia_vencimento",
+          "endereco_imovel",
+          "finalidade",
+          "nome_locadora",
+          "nome_locataria",
+          "prazo_meses",
+          "representante"
+        ],
+        "extra": [
+          "Novembro (select)"
+        ]
+      },
+      {
+        "id": "procuracao-ad-judicia",
+        "category": "procuração",
+        "occurrences": 13,
+        "exact": 3,
+        "partial": 0,
+        "hits": 3,
+        "hits_exact": 3,
+        "fields": 12,
+        "fields_found": 3,
+        "type_ok": 3,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "acao",
+          "cidade",
+          "endereco_escritorio",
+          "endereco_outorgante",
+          "nacionalidade",
+          "nome_advogada",
+          "nome_outorgante",
+          "parte_contraria",
+          "profissao"
+        ],
+        "extra": []
+      },
+      {
+        "id": "substabelecimento",
+        "category": "procuração",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-hipossuficiencia",
+        "category": "declaração",
+        "occurrences": 9,
+        "exact": 7,
+        "partial": 2,
+        "hits": 8,
+        "hits_exact": 7,
+        "fields": 8,
+        "fields_found": 6,
+        "type_ok": 7,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [
+          "cep",
+          "endereco"
+        ],
+        "extra": [
+          "Travessa do Sol, 7, CEP 60110-090 (text_short)"
+        ]
+      },
+      {
+        "id": "declaracao-residencia",
+        "category": "declaração",
+        "occurrences": 11,
+        "exact": 5,
+        "partial": 0,
+        "hits": 5,
+        "hits_exact": 5,
+        "fields": 10,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "bairro",
+          "cidade",
+          "endereco",
+          "nome_declarante",
+          "nome_morador"
+        ],
+        "extra": []
+      },
+      {
+        "id": "recibo-honorarios",
+        "category": "recibo",
+        "occurrences": 11,
+        "exact": 4,
+        "partial": 2,
+        "hits": 5,
+        "hits_exact": 4,
+        "fields": 11,
+        "fields_found": 4,
+        "type_ok": 4,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "forma_pagamento",
+          "nome_pagador",
+          "nome_recebedor",
+          "referencia",
+          "valor",
+          "valor_extenso"
+        ],
+        "extra": [
+          "R$ 2.500,00 (dois mil e quinhentos reais) (currency)"
+        ]
+      },
+      {
+        "id": "recibo-aluguel",
+        "category": "recibo",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 7,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "termo-confidencialidade",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 4,
+        "partial": 5,
+        "hits": 7,
+        "hits_exact": 4,
+        "fields": 11,
+        "fields_found": 4,
+        "type_ok": 4,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cnpj_empresa",
+          "cpf_parceiro",
+          "foro",
+          "nome_empresa",
+          "nome_parceiro",
+          "prazo_anos",
+          "projeto"
+        ],
+        "extra": [
+          "Nexo Agro Tecnologia Ltda., CNPJ 27.450.381/0001-67 (text_short)",
+          "Diego Amaral Prates, CPF 839.270.461-40 (text_short)",
+          "5 anos (number)"
+        ]
+      },
+      {
+        "id": "termo-acordo",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 6,
+        "partial": 1,
+        "hits": 7,
+        "hits_exact": 6,
+        "fields": 11,
+        "fields_found": 6,
+        "type_ok": 6,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "cidade",
+          "multa_percentual",
+          "nome_credor",
+          "nome_devedor",
+          "parcelas"
+        ],
+        "extra": [
+          "10 (number)"
+        ]
+      },
+      {
+        "id": "proposta-honorarios",
+        "category": "proposta",
+        "occurrences": 11,
+        "exact": 5,
+        "partial": 1,
+        "hits": 6,
+        "hits_exact": 5,
+        "fields": 11,
+        "fields_found": 5,
+        "type_ok": 5,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "contato_cliente",
+          "nome_advogado",
+          "nome_cliente",
+          "nome_escritorio",
+          "percentual_exito",
+          "servico_juridico"
+        ],
+        "extra": [
+          "15 (number)"
+        ]
+      },
+      {
+        "id": "rh-contrato-trabalho",
+        "category": "RH",
+        "occurrences": 12,
+        "exact": 12,
+        "partial": 0,
+        "hits": 12,
+        "hits_exact": 12,
+        "fields": 12,
+        "fields_found": 12,
+        "type_ok": 12,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "rh-aviso-ferias",
+        "category": "RH",
+        "occurrences": 10,
+        "exact": 10,
+        "partial": 0,
+        "hits": 10,
+        "hits_exact": 10,
+        "fields": 10,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      }
+    ]
+  },
+  {
+    "model": "anthropic/claude-sonnet-5",
+    "cost_usd": 0.19493399999999994,
+    "failures": [],
+    "summary": {
+      "documents": 15,
+      "recall_occurrences_pct": 91.9,
+      "partial_occurrences_pct": 7.6,
+      "precision_pct": 93.5,
+      "recall_fields_pct": 92.2,
+      "type_accuracy_pct": 95.6,
+      "grouping_pct": 75.0,
+      "occurrences": 172,
+      "exact": 158,
+      "partial": 13,
+      "hits": 169,
+      "hits_exact": 158,
+      "fields": 167,
+      "fields_found": 154,
+      "type_ok": 151,
+      "groups": 4,
+      "groups_ok": 3
+    },
+    "recall_by_type_pct": {
+      "cep": 100.0,
+      "cnpj": 100.0,
+      "cpf": 100.0,
+      "currency": 92.3,
+      "date": 100.0,
+      "email": 100.0,
+      "number": 88.9,
+      "oab": 100.0,
+      "phone": 100.0,
+      "select": 71.4,
+      "text_long": 0.0,
+      "text_short": 89.7
+    },
+    "documents": [
+      {
+        "id": "servicos-ti",
+        "category": "serviços",
+        "occurrences": 15,
+        "exact": 15,
+        "partial": 0,
+        "hits": 16,
+        "hits_exact": 15,
+        "fields": 13,
+        "fields_found": 13,
+        "type_ok": 14,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": [
+          "Lumen Sistemas Ltda. (text_short)"
+        ]
+      },
+      {
+        "id": "servicos-limpeza",
+        "category": "serviços",
+        "occurrences": 12,
+        "exact": 11,
+        "partial": 1,
+        "hits": 12,
+        "hits_exact": 11,
+        "fields": 12,
+        "fields_found": 11,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "dia_semana"
+        ],
+        "extra": [
+          "segunda-feiras (select)"
+        ]
+      },
+      {
+        "id": "locacao-residencial",
+        "category": "locação",
+        "occurrences": 17,
+        "exact": 16,
+        "partial": 1,
+        "hits": 17,
+        "hits_exact": 16,
+        "fields": 17,
+        "fields_found": 16,
+        "type_ok": 14,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "garantia"
+        ],
+        "extra": [
+          "três aluguéis (text_short)"
+        ]
+      },
+      {
+        "id": "locacao-comercial",
+        "category": "locação",
+        "occurrences": 13,
+        "exact": 12,
+        "partial": 1,
+        "hits": 13,
+        "hits_exact": 12,
+        "fields": 13,
+        "fields_found": 12,
+        "type_ok": 12,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "finalidade"
+        ],
+        "extra": [
+          "design gráfico (text_short)"
+        ]
+      },
+      {
+        "id": "procuracao-ad-judicia",
+        "category": "procuração",
+        "occurrences": 13,
+        "exact": 12,
+        "partial": 0,
+        "hits": 12,
+        "hits_exact": 12,
+        "fields": 12,
+        "fields_found": 11,
+        "type_ok": 12,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [
+          "nacionalidade"
+        ],
+        "extra": []
+      },
+      {
+        "id": "substabelecimento",
+        "category": "procuração",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-hipossuficiencia",
+        "category": "declaração",
+        "occurrences": 9,
+        "exact": 9,
+        "partial": 0,
+        "hits": 9,
+        "hits_exact": 9,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 9,
+        "groups": 1,
+        "groups_ok": 1,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "declaracao-residencia",
+        "category": "declaração",
+        "occurrences": 11,
+        "exact": 8,
+        "partial": 3,
+        "hits": 9,
+        "hits_exact": 8,
+        "fields": 10,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 1,
+        "groups_ok": 0,
+        "missed": [
+          "bairro",
+          "endereco"
+        ],
+        "extra": [
+          "Rua Padre Valdevino, 1.410, Aldeota, Fortaleza (text_short)"
+        ]
+      },
+      {
+        "id": "recibo-honorarios",
+        "category": "recibo",
+        "occurrences": 11,
+        "exact": 8,
+        "partial": 3,
+        "hits": 10,
+        "hits_exact": 8,
+        "fields": 11,
+        "fields_found": 8,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "referencia",
+          "valor",
+          "valor_extenso"
+        ],
+        "extra": [
+          "R$ 2.500,00 (dois mil e quinhentos reais) (currency)",
+          "primeira fase do processo (text_short)"
+        ]
+      },
+      {
+        "id": "recibo-aluguel",
+        "category": "recibo",
+        "occurrences": 8,
+        "exact": 8,
+        "partial": 0,
+        "hits": 8,
+        "hits_exact": 8,
+        "fields": 8,
+        "fields_found": 8,
+        "type_ok": 7,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "termo-confidencialidade",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 9,
+        "partial": 2,
+        "hits": 11,
+        "hits_exact": 9,
+        "fields": 11,
+        "fields_found": 9,
+        "type_ok": 9,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "prazo_anos",
+          "projeto"
+        ],
+        "extra": [
+          "sistema de irrigação inteligente (text_short)",
+          "5 anos (text_short)"
+        ]
+      },
+      {
+        "id": "termo-acordo",
+        "category": "termo",
+        "occurrences": 11,
+        "exact": 11,
+        "partial": 0,
+        "hits": 11,
+        "hits_exact": 11,
+        "fields": 11,
+        "fields_found": 11,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "proposta-honorarios",
+        "category": "proposta",
+        "occurrences": 11,
+        "exact": 9,
+        "partial": 2,
+        "hits": 11,
+        "hits_exact": 9,
+        "fields": 11,
+        "fields_found": 9,
+        "type_ok": 8,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [
+          "contato_cliente",
+          "servico_juridico"
+        ],
+        "extra": [
+          "Elisa Moura (text_short)",
+          "reclamação trabalhista (text_short)"
+        ]
+      },
+      {
+        "id": "rh-contrato-trabalho",
+        "category": "RH",
+        "occurrences": 12,
+        "exact": 12,
+        "partial": 0,
+        "hits": 12,
+        "hits_exact": 12,
+        "fields": 12,
+        "fields_found": 12,
+        "type_ok": 12,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      },
+      {
+        "id": "rh-aviso-ferias",
+        "category": "RH",
+        "occurrences": 10,
+        "exact": 10,
+        "partial": 0,
+        "hits": 10,
+        "hits_exact": 10,
+        "fields": 10,
+        "fields_found": 10,
+        "type_ok": 10,
+        "groups": 0,
+        "groups_ok": 0,
+        "missed": [],
+        "extra": []
+      }
+    ]
+  }
+]

@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+import { AiFill, AiReview } from "@/components/assist/ai-assist";
 import { DocPreview } from "@/components/form/doc-preview";
 import { FieldInput } from "@/components/form/field-input";
 import { GenerateModeTabs, GeneratorHeader, stepHrefs } from "@/components/generators/steps";
@@ -141,6 +142,11 @@ function UseForm({ data }: { data: FormPayload }) {
     toast.push({ tone: "info", title: n ? `${n} ${n === 1 ? "campo preenchido" : "campos preenchidos"} com exemplo` : "Nada a preencher", description: n ? "Troque pelos dados reais antes de gerar um documento de verdade." : "Todos os campos já têm valor." });
   }
 
+  function applyAi(found: Record<string, unknown>) {
+    for (const [name, v] of Object.entries(found)) form.setValue(name, v, { shouldDirty: true });
+    void form.trigger(Object.keys(found));
+  }
+
   async function generate(format: "docx" | "pdf") {
     const ok = await form.trigger();
     if (!ok) {
@@ -196,6 +202,11 @@ function UseForm({ data }: { data: FormPayload }) {
   }
 
   const focusField = (f: FieldOut) => document.querySelector<HTMLElement>(`[data-testid="field-${f.name}"], [data-testid="field-${f.name}-Sim"]`)?.focus();
+  const goToField = (name: string) => {
+    if (!desktop) setMobileTab("form");
+    const f = fields.find((x) => x.name === name);
+    if (f) setTimeout(() => focusField(f), 50);
+  };
 
   const formPanel = (
     <form onSubmit={(e) => e.preventDefault()} noValidate className="space-y-6" aria-label="Formulário do documento">
@@ -206,6 +217,7 @@ function UseForm({ data }: { data: FormPayload }) {
             <Wand2 className="h-4 w-4" aria-hidden /> Preencher com dados de exemplo
           </Button>
         </div>
+        <AiFill endpoint={`/generators/${id}/assist/fill`} fields={fields} onApply={applyAi} />
         {requiredFields.length > 0 && (
           <div className="space-y-1">
             <ProgressBar value={requiredDone / requiredFields.length} label="Campos obrigatórios preenchidos" tone={requiredDone === requiredFields.length ? "success" : "primary"} />
@@ -281,6 +293,7 @@ function UseForm({ data }: { data: FormPayload }) {
           <Button loading={busy === "pdf"} disabled={!!busy || !data.pdf_available} onClick={() => generate("pdf")} title={data.pdf_available ? undefined : "A conversão para PDF não está disponível neste servidor"} data-testid="generate-pdf">
             <FileText className="h-4 w-4" aria-hidden /> Gerar PDF
           </Button>
+          <AiReview generatorId={id} getValues={() => form.getValues()} onGoToField={goToField} disabled={!!busy} />
           <Button variant="ghost" onClick={() => setConfirmClear(true)} className="ml-auto text-muted">
             <RotateCcw className="h-4 w-4" aria-hidden /> Limpar
           </Button>

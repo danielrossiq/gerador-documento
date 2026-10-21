@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileStack, FileText, History, Home, Layers, LogOut, User } from "lucide-react";
+import { CreditCard, FileStack, FileText, History, Home, Layers, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -74,6 +74,7 @@ export function AppShell({ children, wide }: { children: ReactNode; wide?: boole
               }
               items={[
                 { label: `${me?.workspace.name ?? ""} (${me?.workspace.role === "owner" ? "proprietário" : "membro"})`, onSelect: () => {}, disabled: true },
+                { label: "Plano e uso", icon: <CreditCard className="h-4 w-4" aria-hidden />, onSelect: () => router.push("/assinatura") },
                 { separator: true },
                 { label: "Sair", icon: <LogOut className="h-4 w-4" aria-hidden />, onSelect: logout },
               ]}

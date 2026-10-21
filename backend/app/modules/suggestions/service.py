@@ -144,38 +144,31 @@ def analyze_version(db: Session, version: TemplateVersion, *, force: bool) -> AI
         rule_hits = detect_rules([(b.key, b.text) for b in blocks])
         hits: list[Hit] = list(rule_hits)
         if provider is not None:
-            try:
-                res = provider.suggest(
-                    AISuggestionRequest(
-                        [BlockText(b.key, b.text, describe_location(b.key)) for b in blocks],
-                        max_chars=settings.ai_max_chars,
-                    )
-                )
-                run.tokens_in, run.tokens_out = res.tokens_in, res.tokens_out
-                run.chars_sent, run.duration_ms = res.chars_sent, res.duration_ms
-                result["warnings"].extend(res.warnings)
+            request = AISuggestionRequest(
+                [BlockText(b.key, b.text, describe_location(b.key)) for b in blocks],
+                max_chars=settings.ai_max_chars,
+            )
+            def add(res, source: str) -> None:  # type: ignore[no-untyped-def]
                 for raw in res.suggestions:
                     blk = by_key.get(raw.block)
                     if blk is None:
                         continue
                     for m in re.finditer(re.escape(raw.text), blk.text):
                         hits.append(
-                            Hit(
-                                blk.key,
-                                m.start(),
-                                m.end(),
-                                raw.text,
-                                raw.name,
-                                raw.label,
-                                raw.type,
-                                raw.confidence,
-                                "ai" if provider.name != "local" else "local",
-                                raw.reason or "",
-                                None,
-                            )
+                            Hit(blk.key, m.start(), m.end(), raw.text, raw.name, raw.label, raw.type, raw.confidence, source, raw.reason or "", None)
                         )
+
+            try:
+                res, provider = _suggest_within_budget(db, provider, request, version.workspace_id, result["warnings"])
+                run.tokens_in, run.tokens_out = res.tokens_in, res.tokens_out
+                run.chars_sent, run.duration_ms = res.chars_sent, res.duration_ms
+                result["warnings"].extend(res.warnings)
+                add(res, "ai" if provider.name != "local" else "local")
             except AIUnavailable as exc:
+                from app.adapters.ai import LocalHeuristicProvider
+
                 run.error_code = exc.code
+                add(LocalHeuristicProvider().suggest(request), "local")
                 result["warnings"].append(
                     f"IA externa indisponível ({exc.code}). Usamos só as regras e heurísticas locais."
                 )
@@ -189,6 +182,44 @@ def analyze_version(db: Session, version: TemplateVersion, *, force: bool) -> AI
     version.analysis_status = "done"
     db.commit()
     return run
+
+
+def _suggest_within_budget(db: Session, provider, request: AISuggestionRequest, workspace_id, warnings: list[str]):  # type: ignore[no-untyped-def]
+    """Provedor pago (OpenRouter): reserva o custo máximo no teto e na cota do workspace antes de chamar e acerta
+    com o custo real depois. Sem orçamento/cota ou com a IA fora do ar, a análise segue com as heurísticas locais
+    (e um aviso), para a pessoa nunca ficar sem sugestão."""
+    from app.adapters.ai import LocalHeuristicProvider
+    from app.adapters.ai.openrouter import FIELDS_SYSTEM, build_blocks_prompt, max_output_tokens
+    from app.core.deps import workspace_limit
+    from app.db.models import Workspace
+    from app.modules import ai_budget
+    from app.modules.assist import ai as assist_ai
+
+    if provider.name != "openrouter":
+        return provider.suggest(request), provider
+    prompt, chars, _ = build_blocks_prompt(request)
+    ws = db.get(Workspace, workspace_id)
+    quota = workspace_limit(db, ws, "max_ai_actions_per_month") if ws else None
+    db.commit()  # a reserva usa transação própria (vale mesmo se a análise cair): libera a desta sessão antes
+    try:
+        spend_id = ai_budget.reserve(
+            provider.model,
+            "analysis",
+            assist_ai.worst_cost(provider.model, len(FIELDS_SYSTEM) + len(prompt), max_output_tokens(chars)),
+            workspace_id=workspace_id,
+            quota=quota,
+        )
+    except ai_budget.BudgetExceeded as exc:
+        warnings.append(f"{exc} Usamos as sugestões automáticas locais desta vez.")
+        local = LocalHeuristicProvider()
+        return local.suggest(request), local
+    try:
+        res = provider.suggest(request)
+    except AIUnavailable:
+        ai_budget.fail(spend_id)
+        raise
+    ai_budget.settle(spend_id, provider.last_cost_usd, res.tokens_in, res.tokens_out)
+    return res, provider
 
 
 def _number_duplicate_hits(hits: list[Hit]) -> list[Hit]:
@@ -298,6 +329,8 @@ def provider_label(provider: str, model: str | None) -> str:
         return "Sugestões locais (IA externa não configurada)"
     if provider == "anthropic":
         return f"IA externa · {model}" if model else "IA externa"
+    if provider == "openrouter":
+        return "Campos encontrados pela IA"
     return "Somente regras determinísticas"
 
 

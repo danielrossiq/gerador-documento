@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "plans": [
+    {
+      "id": "gratis",
+      "name": "Grátis",
+      "tagline": "Para conhecer sem compromisso",
+      "monthly": 0,
+      "annualMonthly": 0,
+      "highlight": false,
+      "limits": { "docs_per_month": 20, "models": 3, "batch_rows": 10, "ai_analyses_per_month": 5 },
+      "features": [
+        "20 documentos por mês",
+        "3 modelos",
+        "Word (.docx) ou PDF digitado como modelo",
+        "IA marca os campos em 5 documentos por mês",
+        "Lote de até 10 linhas"
+      ]
+    },
+    {
+      "id": "profissional",
+      "name": "Profissional",
+      "tagline": "Para quem gera documentos toda semana",
+      "monthly": 49.9,
+      "annualMonthly": 39.9,
+      "highlight": true,
+      "limits": { "docs_per_month": 300, "models": null, "batch_rows": 300, "ai_analyses_per_month": 100 },
+      "features": [
+        "300 documentos por mês",
+        "Modelos ilimitados",
+        "IA marca os campos, preenche a partir de texto colado e revisa antes de gerar",
+        "Lote por planilha de até 300 linhas",
+        "Kits: vários documentos com os mesmos dados",
+        "Valor e data por extenso, CPF, CNPJ e OAB validados"
+      ]
+    },
+    {
+      "id": "escritorio",
+      "name": "Escritório",
+      "tagline": "Para alto volume e rotinas do escritório",
+      "monthly": 99.9,
+      "annualMonthly": 79.9,
+      "highlight": false,
+      "limits": { "docs_per_month": 1500, "models": null, "batch_rows": 1000, "ai_analyses_per_month": 500 },
+      "features": [
+        "1.500 documentos por mês",
+        "Tudo do Profissional",
+        "Lote de até 1.000 linhas",
+        "IA em 500 documentos por mês",
+        "Suporte prioritário"
+      ]
+    }
+  ]
+}

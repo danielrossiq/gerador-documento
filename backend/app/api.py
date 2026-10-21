@@ -15,7 +15,9 @@ from app.core.deps import Ctx, get_ctx
 from app.core.errors import ValidationFailed
 from app.db.base import utcnow
 from app.db.models import BatchImport
+from app.modules.assist import service as assist_service
 from app.modules.auth.router import router as auth_router
+from app.modules.billing.router import router as billing_router
 from app.modules.fields import service as fields_service
 from app.modules.generation import filenames, identify, imports
 from app.modules.generation import service as gen_service
@@ -28,8 +30,42 @@ from app.modules.templates import service as templates_service
 
 api = APIRouter(prefix="/api/v1")
 api.include_router(auth_router)
+api.include_router(billing_router)
 
 IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", max_length=120)]
+
+
+# ------------------------------------------------------------------ IA para quem usa o modelo (D33)
+
+
+class AssistFillIn(BaseModel):
+    text: str = PField(min_length=1, max_length=20_000)
+
+
+class AssistReviewIn(BaseModel):
+    values: dict[str, Any] = PField(default_factory=dict)
+
+
+@api.get("/assist/status", tags=["assist"])
+def assist_status(ctx: Ctx = Depends(get_ctx)) -> dict[str, Any]:
+    return assist_service.status(ctx)
+
+
+@api.post("/generators/{generator_id}/assist/fill", tags=["assist"])
+def assist_fill(generator_id: uuid.UUID, body: AssistFillIn, ctx: Ctx = Depends(get_ctx)) -> dict[str, Any]:
+    """Texto colado (e-mail, WhatsApp, ficha) → valores para os campos do formulário, já validados."""
+    return assist_service.fill_generator(ctx, generator_id, body.text)
+
+
+@api.post("/kits/{kit_id}/assist/fill", tags=["assist"])
+def assist_fill_kit(kit_id: uuid.UUID, body: AssistFillIn, ctx: Ctx = Depends(get_ctx)) -> dict[str, Any]:
+    return assist_service.fill_kit(ctx, kit_id, body.text)
+
+
+@api.post("/generators/{generator_id}/assist/review", tags=["assist"])
+def assist_review(generator_id: uuid.UUID, body: AssistReviewIn, ctx: Ctx = Depends(get_ctx)) -> dict[str, Any]:
+    """Documento preenchido → apontamentos de incoerência (datas, nomes, concordância, valores)."""
+    return assist_service.review_generator(ctx, generator_id, body.values)
 
 
 # ------------------------------------------------------------------ dashboard e geradores

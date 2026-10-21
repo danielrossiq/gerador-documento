@@ -1,0 +1,20 @@
+# Liga a IA (OpenRouter) no stack. A chave entra como "secret" (arquivo montado em /run/secrets), nunca como
+# variável de ambiente nem no .env. Uso:
+#   OPENROUTER_KEY_PATH=~/.minuta/openrouter.key docker compose -f docker-compose.yml -f docker-compose.ai.yml up -d
+# Custos ficam sob AI_MAX_CALL_USD (por chamada) e AI_MONTHLY_BUDGET_USD (mês, somando todos os espaços).
+x-ai: &ai
+  EXTERNAL_AI_ENABLED: "true"
+  AI_PROVIDER: openrouter
+  OPENROUTER_KEY_FILE: /run/secrets/openrouter_key
+
+services:
+  api:
+    environment: *ai
+    secrets: [openrouter_key]
+  worker:
+    environment: *ai
+    secrets: [openrouter_key]
+
+secrets:
+  openrouter_key:
+    file: ${OPENROUTER_KEY_PATH:?defina OPENROUTER_KEY_PATH com o caminho do arquivo da chave da OpenRouter}

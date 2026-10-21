@@ -91,5 +91,24 @@ Agrupa geradores existentes (com `.docx` já enviado) atrás de um formulário s
 | GET | `/kit-runs` | lista (`kit_id`, paginação) |
 | GET | `/kit-runs/{id}` | status **derivado** dos jobs membros (`queued/processing/succeeded/partial/failed`), arquivos (ZIP consolidado + relatório CSV, construídos na primeira leitura após o fim) |
 
+## IA no preenchimento (D33)
+Só responde com `EXTERNAL_AI_ENABLED=true` e a chave da OpenRouter configurada. Se não, devolve 409 `AI_DISABLED`. Cada chamada conta 1 uso na cota mensal do plano. Erros possíveis (409): `AI_QUOTA_EXCEEDED`, `AI_BUDGET_EXHAUSTED`, `AI_CALL_TOO_EXPENSIVE` e `AI_*` de indisponibilidade.
+
+| Método | Rota | |
+|---|---|---|
+| GET | `/assist/status` | `{enabled, actions_used, actions_limit}`. A interface só mostra os botões de IA com `enabled: true` |
+| POST | `/generators/{id}/assist/fill` | `{text}` (até 8.000 caracteres usados) → `{values, invalid, evidence, missing, truncated}`. `values` traz só o que tem evidência no texto. `invalid` lista os valores que não passam na validação do tipo; eles vão mesmo assim, marcados |
+| POST | `/kits/{id}/assist/fill` | igual, com os campos em comum do kit |
+| POST | `/generators/{id}/assist/review` | `{values}` → `{issues: [{field, label, severity: alta\|media\|baixa, message}]}`, no máximo 8. Não altera nada |
+
+## Cobrança (D34)
+| Método | Rota | |
+|---|---|---|
+| GET | `/billing/plans` | **público**: planos (`plans.json`), moeda e `checkout: {card, pix}` disponíveis neste ambiente |
+| GET | `/billing` | plano efetivo, assinatura, uso do mês (`docs_this_month`, `ai_actions_this_month`, `models`) e limites |
+| POST | `/billing/checkout` | `{plan: profissional\|escritorio, cycle: mensal\|anual, method: card\|pix}` → `{url}` do Checkout da Stripe. Só o proprietário. `BILLING_NOT_CONFIGURED`, `BILLING_HAS_SUBSCRIPTION` |
+| POST | `/billing/portal` | → `{url}` do portal do cliente (assinatura no cartão) |
+| POST | `/billing/webhook` | só para a Stripe: sem sessão, valida `Stripe-Signature` (HMAC, 300 s) e é idempotente por `event.id` |
+
 ## Operação
 `GET /health` (liveness) · `GET /ready` (banco + conversor) · `GET /metrics` (Prometheus).

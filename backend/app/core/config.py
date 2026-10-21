@@ -17,6 +17,8 @@ DEFAULT_LIMITS: dict[str, int] = {
     "max_kits": 100,
     "max_generators_per_kit": 20,
     "max_kit_fields": 100,
+    # ações com IA externa por mês (marcar campos, preencher por texto, revisar). Com cobrança ligada vem do plano.
+    "max_ai_actions_per_month": 200,
 }
 
 
@@ -76,7 +78,20 @@ class Settings(BaseSettings):
     external_ai_enabled: bool = False
     # Métricas de ativação agregadas (D32): opt-in. Desligadas, nada é calculado nem gravado.
     activation_metrics_enabled: bool = False
-    ai_provider: Literal["auto", "local", "anthropic", "none"] = "auto"
+    ai_provider: Literal["auto", "local", "anthropic", "openrouter", "none"] = "auto"
+    # OpenRouter (D33): uma chave dá acesso a vários modelos; o modelo foi escolhido medindo no conjunto ouro
+    # (docs/ai/avaliacao-modelos.md). Chave pela variável OU por arquivo (segredo do Docker em /run/secrets).
+    openrouter_api_key: str | None = None
+    openrouter_key_file: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    # análise do documento enviado (roda no worker, uma vez por modelo): melhor recall/precisão por custo
+    openrouter_model: str = "anthropic/claude-haiku-5.5"
+    # "preencher com IA" e "revisar com IA": a pessoa espera na tela, então pesa a latência (≈2–3 s) além do acerto
+    openrouter_assist_model: str = "google/gemini-2.5-flash"
+    # Tetos de custo da IA externa (app.modules.ai_budget): por chamada e no mês, somando todos os workspaces.
+    # A cota por workspace vem do plano (max_ai_actions_per_month).
+    ai_max_call_usd: float = 0.05
+    ai_monthly_budget_usd: float = 20.0
     ai_api_key: str | None = None
     ai_base_url: str = "https://api.anthropic.com"
     ai_model: str = "claude-haiku-4-5-20251001"
@@ -90,6 +105,18 @@ class Settings(BaseSettings):
     typesafe_base_url: str = "https://api.typesafe.ai"
     typesafe_model: str = "jev-latest"
     typesafe_timeout_seconds: float = 12.0
+
+    # Cobrança (Stripe; docs/PAGAMENTOS.md). Desligada: valem os limites padrão (DEFAULT_LIMITS) e não há checkout.
+    # Ligada: cada workspace segue os limites do plano (Grátis sem assinatura).
+    billing_enabled: bool = False
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_price_profissional_mensal: str | None = None
+    stripe_price_profissional_anual: str | None = None
+    stripe_price_escritorio_mensal: str | None = None
+    stripe_price_escritorio_anual: str | None = None
+    # Pix na Stripe Brasil é liberado sob convite: ligue só depois de ver "Pix" ativo no painel da Stripe.
+    billing_pix_enabled: bool = False
 
     # Sessão / segurança
     cookie_secure: bool = False

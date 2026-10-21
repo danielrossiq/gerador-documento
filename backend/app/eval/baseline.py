@@ -44,14 +44,15 @@ class DocResult:
     extra: list[str] = field(default_factory=list)  # trechos sugeridos que não são campo anotado
 
 
-def suggest(doc: GoldDoc) -> list[Hit]:
+def suggest(doc: GoldDoc, provider=None) -> list[Hit]:  # type: ignore[no-untyped-def]
+    """Regras + provedor (local por padrão; um provedor de IA na avaliação de modelos), como na análise real."""
     from app.modules.suggestions.service import _number_duplicate_hits
 
     parsed = parse_docx(doc.docx())
     blocks = [(b.key, b.text) for b in parsed.blocks if b.kind == "paragraph" and b.text.strip()]
     by_key = dict(blocks)
     hits = list(detect_rules(blocks))
-    res = LocalHeuristicProvider().suggest(
+    res = (provider or LocalHeuristicProvider()).suggest(
         AISuggestionRequest([BlockText(k, t, describe_location(k)) for k, t in blocks])
     )
     for raw in res.suggestions:
@@ -68,7 +69,7 @@ def suggest(doc: GoldDoc) -> list[Hit]:
                     raw.label,
                     raw.type,
                     raw.confidence,
-                    "local",
+                    "local" if provider is None else "ai",
                     raw.reason or "",
                     None,
                 )
@@ -77,9 +78,9 @@ def suggest(doc: GoldDoc) -> list[Hit]:
     return _number_duplicate_hits(resolve_overlaps(hits))
 
 
-def evaluate(doc: GoldDoc) -> DocResult:
+def evaluate(doc: GoldDoc, provider=None) -> DocResult:  # type: ignore[no-untyped-def]
     rendered = dict(doc.render())
-    hits = suggest(doc)
+    hits = suggest(doc, provider)
     for h in hits:  # o parser e o render têm de concordar: as chaves e o texto são a base da comparação
         assert rendered.get(h.block_key, "")[h.start : h.end] == h.text, (doc.id, h.block_key)
     types = {f.name: f.type for f in doc.fields}
@@ -123,8 +124,7 @@ def _pct(a: int, b: int) -> float:
     return round(100 * a / b, 1) if b else 0.0
 
 
-def run() -> dict:
-    results = [evaluate(d) for d in GOLD]
+def summarize(results: list[DocResult]) -> dict:
     tot = {
         k: sum(getattr(r, k) for r in results)
         for k in (
@@ -161,6 +161,10 @@ def run() -> dict:
         "recall_by_type_pct": {t: _pct(a, b) for t, (a, b) in sorted(by_type.items())},
         "documents": [asdict(r) for r in results],
     }
+
+
+def run() -> dict:
+    return summarize([evaluate(d) for d in GOLD])
 
 
 def write_report(data: dict, out: Path) -> None:

@@ -3,13 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { Alert } from "@/components/ui/misc";
+import { PLANS } from "@/content/plans";
 import { api, errorMessage } from "@/lib/api";
 
 const schema = z
@@ -23,8 +24,12 @@ const schema = z
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "As senhas não conferem." });
 type Form = z.infer<typeof schema>;
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  // veio de um plano pago da página de preços: depois de criar a conta, segue para a assinatura com ele escolhido
+  const plan = PLANS.find((p) => p.id === params.get("plano") && p.monthly > 0);
+  const cycle = params.get("ciclo") === "mensal" ? "mensal" : "anual";
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<Form>({ resolver: zodResolver(schema) });
@@ -34,7 +39,7 @@ export default function RegisterPage() {
     try {
       await api.post("/auth/register", { name: v.name, email: v.email, password: v.password, workspace_name: v.workspace_name || null });
       qc.clear();
-      router.replace("/dashboard");
+      router.replace(plan ? `/assinatura?plano=${plan.id}&ciclo=${cycle}` : "/dashboard");
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -46,6 +51,11 @@ export default function RegisterPage() {
         <h1 className="text-xl font-semibold">Criar conta</h1>
         <p className="mt-1 text-sm text-muted">Você terá seu próprio espaço de trabalho, isolado dos demais.</p>
       </div>
+      {plan && (
+        <Alert tone="primary" title={`Plano ${plan.name} (${cycle})`}>
+          Crie a conta e em seguida escolha cartão ou Pix. Até lá, você já usa o plano Grátis.
+        </Alert>
+      )}
       {error && <Alert tone="danger">{error}</Alert>}
       <Field label="Nome" error={formState.errors.name?.message} required>
         {(a) => <Input autoComplete="name" autoFocus {...a} {...register("name")} />}
@@ -72,5 +82,13 @@ export default function RegisterPage() {
         </Link>
       </p>
     </form>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
   );
 }

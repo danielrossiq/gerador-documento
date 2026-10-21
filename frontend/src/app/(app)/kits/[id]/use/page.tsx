@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+import { AiFill } from "@/components/assist/ai-assist";
 import { FieldInput } from "@/components/form/field-input";
 import { KitRunResult } from "@/components/kits/kit-run-result";
 import { AppShell, PageHeader } from "@/components/layout/app-shell";
@@ -73,6 +74,12 @@ function KitUseForm({ data }: { data: KitFormPayload }) {
   const form = useForm<Record<string, unknown>>({ resolver: zodResolver(schema), defaultValues: defaults, mode: "onBlur" });
   const errors = form.formState.errors;
   const errorCount = Object.keys(errors).length;
+  const sharedFields = useMemo(() => data.fields.map(toFieldOut), [data.fields]);
+
+  function applyAi(found: Record<string, unknown>) {
+    for (const [name, v] of Object.entries(found)) form.setValue(name, v, { shouldDirty: true });
+    void form.trigger(Object.keys(found));
+  }
 
   async function generate() {
     const ok = await form.trigger();
@@ -125,6 +132,7 @@ function KitUseForm({ data }: { data: KitFormPayload }) {
       </div>
       <Card className="mx-auto max-w-2xl p-5">
         <form onSubmit={(e) => e.preventDefault()} noValidate className="space-y-6" aria-label="Formulário do kit">
+          {sharedFields.length > 0 && <AiFill endpoint={`/kits/${kitId}/assist/fill`} fields={sharedFields} onApply={applyAi} />}
           {errorCount > 0 && (
             <Alert tone="danger" title={`${errorCount} ${errorCount === 1 ? "campo precisa" : "campos precisam"} de atenção`}>
               Veja as mensagens ao lado de cada campo.

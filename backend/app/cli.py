@@ -126,13 +126,22 @@ def cmd_purge(args: argparse.Namespace) -> int:
 
 
 def cmd_ai_eval(args: argparse.Namespace) -> int:
-    """Baseline das regras e heurísticas locais no conjunto ouro (app/eval). Não usa rede nem IA externa."""
+    """Conjunto ouro (app/eval): `baseline` = regras e heurísticas locais, sem rede; `models` = modelos da OpenRouter
+    lado a lado (usa a chave e gasta, com teto em --budget)."""
     from app.eval import baseline
     from app.eval.gold import validate
 
     if problems := validate():
         print("conjunto ouro inconsistente:", *problems, sep="\n  ")
         return 1
+    if args.mode == "models":
+        from app.eval import ai_models
+
+        models = [m.strip() for m in (args.models or "").split(",") if m.strip()]
+        if not models:
+            print("informe --models modelo1,modelo2")
+            return 1
+        return ai_models.main(models, args.budget, args.md, args.json)
     return baseline.main(args.json, args.md)
 
 
@@ -156,7 +165,9 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--yes", action="store_true")
     d.set_defaults(fn=cmd_purge)
     a = sub.add_parser("ai-eval", help="avaliação da IA integrada no conjunto ouro fictício (sem rede)")
-    a.add_argument("mode", choices=["baseline"])
+    a.add_argument("mode", choices=["baseline", "models"])
+    a.add_argument("--models", help="modelos da OpenRouter separados por vírgula (modo models; usa a chave e gasta)")
+    a.add_argument("--budget", type=float, default=1.5, help="teto de gasto da avaliação em US$ (modo models)")
     a.add_argument("--json", type=Path, help="grava o resultado completo em JSON")
     a.add_argument("--md", type=Path, help="grava o relatório em Markdown")
     a.set_defaults(fn=cmd_ai_eval)

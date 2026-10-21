@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
@@ -35,6 +35,7 @@ class Ctx:
     session: UserSession
     ip: str | None
     request_id: str | None
+    _plan_limits: dict[str, int] | None = field(default=None, repr=False)  # cache por requisição
 
     @property
     def workspace_id(self) -> uuid.UUID:
@@ -45,9 +46,29 @@ class Ctx:
         return self.role == "owner"
 
     def limit(self, name: str) -> int:
-        override: dict[str, Any] = self.workspace.limits or {}
-        base = {**DEFAULT_LIMITS, **get_settings().default_limits}
-        return int(override.get(name, base.get(name, 0)))
+        """Override do workspace > limites do plano (só com cobrança ligada) > padrão do ambiente."""
+        if self._plan_limits is None:
+            from app.modules.billing.service import workspace_plan_limits
+
+            self._plan_limits = workspace_plan_limits(self.db, self.workspace.id) or {}
+        return _resolve_limit(self.workspace, self._plan_limits, name)
+
+
+def _resolve_limit(workspace: Workspace, plan_limits: dict[str, int], name: str) -> int:
+    override: dict[str, Any] = workspace.limits or {}
+    if name in override:
+        return int(override[name])
+    if name in plan_limits:
+        return int(plan_limits[name])
+    base = {**DEFAULT_LIMITS, **get_settings().default_limits}
+    return int(base.get(name, 0))
+
+
+def workspace_limit(db: Session, workspace: Workspace, name: str) -> int:
+    """O mesmo que Ctx.limit, fora de uma requisição (ex.: análise no worker)."""
+    from app.modules.billing.service import workspace_plan_limits
+
+    return _resolve_limit(workspace, workspace_plan_limits(db, workspace.id) or {}, name)
 
 
 def client_ip(request: Request) -> str | None:
