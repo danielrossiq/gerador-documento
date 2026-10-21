@@ -1,0 +1,49 @@
+{
+  "images": {
+    "seg-advocacia": {
+      "base": "/site/seg-advocacia",
+      "widths": [
+        640,
+        1024,
+        1600
+      ],
+      "width": 1600,
+      "height": 1060,
+      "alt": "Advogada no escritório usando o Minuta no notebook: o contrato aberto com nome, CPF e valores marcados como campos."
+    },
+    "seg-contabilidade": {
+      "base": "/site/seg-contabilidade",
+      "widths": [
+        640,
+        1024,
+        1600
+      ],
+      "width": 1600,
+      "height": 1060,
+      "alt": "Contador no computador com a tela de lote do Minuta: uma planilha com uma linha por cliente, pronta para gerar os documentos."
+    },
+    "seg-imobiliaria": {
+      "base": "/site/seg-imobiliaria",
+      "widths": [
+        640,
+        1024,
+        1600
+      ],
+      "width": 1600,
+      "height": 1060,
+      "alt": "Corretora mostrando no tablet o formulário do Minuta ao lado da prévia do recibo de aluguel preenchido."
+    },
+    "seg-rh": {
+      "base": "/site/seg-rh",
+      "widths": [
+        640,
+        1024,
+        1600
+      ],
+      "width": 1600,
+      "height": 1060,
+      "alt": "Analista de RH no notebook usando um kit do Minuta: vários documentos do colaborador preenchidos de uma vez."
+    }
+  },
+  "video": null
+}

@@ -29,3 +29,7 @@ scripts/.site_media.lock
 scripts/site_media.manifest.json.tmp
 frontend/public/site/*.part
 *.key
+
+# Gerados pelo `next dev` (instruções para agentes de IA); não fazem parte do projeto
+frontend/AGENTS.md
+frontend/CLAUDE.md

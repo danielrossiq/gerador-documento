@@ -1,0 +1,95 @@
+{
+  "budget_usd": 3.0,
+  "spent_usd": 0.5,
+  "calls": [
+    {
+      "slug": "seg-advocacia",
+      "attempt": 1,
+      "model": "black-forest-labs/flux-3-image",
+      "cost_usd": 0.1,
+      "seconds": 35.4,
+      "size": [
+        2512,
+        1664
+      ]
+    },
+    {
+      "slug": "seg-contabilidade",
+      "attempt": 1,
+      "model": "black-forest-labs/flux-3-image",
+      "cost_usd": 0.1,
+      "seconds": 38.3,
+      "size": [
+        2512,
+        1664
+      ]
+    },
+    {
+      "slug": "seg-imobiliaria",
+      "attempt": 1,
+      "model": "black-forest-labs/flux-3-image",
+      "cost_usd": 0.1,
+      "note": "descartada pela trava antiga antes de salvar"
+    },
+    {
+      "slug": "seg-imobiliaria",
+      "attempt": 2,
+      "model": "black-forest-labs/flux-3-image",
+      "cost_usd": 0.1,
+      "seconds": 31.9,
+      "size": [
+        2512,
+        1664
+      ]
+    },
+    {
+      "slug": "seg-rh",
+      "attempt": 1,
+      "model": "black-forest-labs/flux-3-image",
+      "cost_usd": 0.1,
+      "seconds": 45.1,
+      "size": [
+        2512,
+        1664
+      ]
+    }
+  ],
+  "scenes": {
+    "seg-advocacia": {
+      "file": "seg-advocacia-1.png",
+      "prompt": "Photorealistic editorial photograph, natural daylight, shallow depth of field, 35mm lens, realistic skin, warm and modern Brazilian workplace, clean composition. Absolutely no text, no letters, no logos, no watermarks. Over-the-shoulder view from behind a Brazilian female lawyer in her thirties, wearing a blazer, sitting at a wooden desk in a bright modern law office with law books on shelves, working on an open laptop. The device screen faces the camera and is fully visible and unobstructed; the entire screen area shows a flat, uniform, pure magenta color (#FF00FF), edge to edge, with no reflections, icons or content on it.",
+      "aspect_ratio": "3:2",
+      "size": [
+        2512,
+        1664
+      ]
+    },
+    "seg-contabilidade": {
+      "file": "seg-contabilidade-1.png",
+      "prompt": "Photorealistic editorial photograph, natural daylight, shallow depth of field, 35mm lens, realistic skin, warm and modern Brazilian workplace, clean composition. Absolutely no text, no letters, no logos, no watermarks. Over-the-shoulder view from behind a Brazilian male accountant in his forties at a tidy desk with a single large desktop monitor, a calculator and neat paper folders, modern accounting office with plants. The device screen faces the camera and is fully visible and unobstructed; the entire screen area shows a flat, uniform, pure magenta color (#FF00FF), edge to edge, with no reflections, icons or content on it.",
+      "aspect_ratio": "3:2",
+      "size": [
+        2512,
+        1664
+      ]
+    },
+    "seg-imobiliaria": {
+      "file": "seg-imobiliaria-2.png",
+      "prompt": "Photorealistic editorial photograph, natural daylight, shallow depth of field, 35mm lens, realistic skin, warm and modern Brazilian workplace, clean composition. Absolutely no text, no letters, no logos, no watermarks. A friendly Brazilian real estate agent woman in a bright furnished apartment living room, holding a tablet in landscape orientation turned towards the camera so its screen is clearly visible, keys on the coffee table. The device screen faces the camera and is fully visible and unobstructed; the entire screen area shows a flat, uniform, pure magenta color (#FF00FF), edge to edge, with no reflections, icons or content on it.",
+      "aspect_ratio": "3:2",
+      "size": [
+        2512,
+        1664
+      ]
+    },
+    "seg-rh": {
+      "file": "seg-rh-1.png",
+      "prompt": "Photorealistic editorial photograph, natural daylight, shallow depth of field, 35mm lens, realistic skin, warm and modern Brazilian workplace, clean composition. Absolutely no text, no letters, no logos, no watermarks. Over-the-shoulder view from behind a Brazilian HR analyst (young man with glasses) at a desk in an open-plan office with colleagues blurred in the background, working on an open laptop. The device screen faces the camera and is fully visible and unobstructed; the entire screen area shows a flat, uniform, pure magenta color (#FF00FF), edge to edge, with no reflections, icons or content on it.",
+      "aspect_ratio": "3:2",
+      "size": [
+        2512,
+        1664
+      ]
+    }
+  }
+}
