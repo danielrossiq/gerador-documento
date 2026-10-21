@@ -125,6 +125,17 @@ def cmd_purge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ai_eval(args: argparse.Namespace) -> int:
+    """Baseline das regras e heurísticas locais no conjunto ouro (app/eval). Não usa rede nem IA externa."""
+    from app.eval import baseline
+    from app.eval.gold import validate
+
+    if problems := validate():
+        print("conjunto ouro inconsistente:", *problems, sep="\n  ")
+        return 1
+    return baseline.main(args.json, args.md)
+
+
 def main(argv: list[str] | None = None) -> int:
     s = get_settings()
     configure_logging(s.log_level, s.log_json)
@@ -144,6 +155,11 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("workspace_id")
     d.add_argument("--yes", action="store_true")
     d.set_defaults(fn=cmd_purge)
+    a = sub.add_parser("ai-eval", help="avaliação da IA integrada no conjunto ouro fictício (sem rede)")
+    a.add_argument("mode", choices=["baseline"])
+    a.add_argument("--json", type=Path, help="grava o resultado completo em JSON")
+    a.add_argument("--md", type=Path, help="grava o relatório em Markdown")
+    a.set_defaults(fn=cmd_ai_eval)
     args = p.parse_args(argv)
     return int(args.fn(args))
 

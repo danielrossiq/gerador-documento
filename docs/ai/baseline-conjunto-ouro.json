@@ -1,0 +1,410 @@
+{
+  "summary": {
+    "documents": 15,
+    "recall_occurrences_pct": 53.5,
+    "partial_occurrences_pct": 12.8,
+    "precision_pct": 78.6,
+    "recall_fields_pct": 52.7,
+    "type_accuracy_pct": 98.9,
+    "grouping_pct": 75.0,
+    "occurrences": 172,
+    "exact": 92,
+    "partial": 22,
+    "hits": 117,
+    "hits_exact": 92,
+    "fields": 167,
+    "fields_found": 88,
+    "type_ok": 91,
+    "groups": 4,
+    "groups_ok": 3
+  },
+  "recall_by_type_pct": {
+    "cep": 100.0,
+    "cnpj": 100.0,
+    "cpf": 100.0,
+    "currency": 92.3,
+    "date": 100.0,
+    "email": 100.0,
+    "number": 0.0,
+    "oab": 100.0,
+    "phone": 100.0,
+    "select": 42.9,
+    "text_long": 0.0,
+    "text_short": 17.9
+  },
+  "documents": [
+    {
+      "id": "servicos-ti",
+      "category": "serviços",
+      "occurrences": 15,
+      "exact": 10,
+      "partial": 1,
+      "hits": 12,
+      "hits_exact": 10,
+      "fields": 13,
+      "fields_found": 8,
+      "type_ok": 10,
+      "groups": 1,
+      "groups_ok": 1,
+      "missed": [
+        "cidade",
+        "dia_pagamento",
+        "endereco_contratante",
+        "prazo_meses",
+        "servico"
+      ],
+      "extra": [
+        "Rua das Acácias, 120 (text_short)",
+        "Lumen Sistemas Ltda. (text_short)"
+      ]
+    },
+    {
+      "id": "servicos-limpeza",
+      "category": "serviços",
+      "occurrences": 12,
+      "exact": 7,
+      "partial": 2,
+      "hits": 10,
+      "hits_exact": 7,
+      "fields": 12,
+      "fields_found": 7,
+      "type_ok": 6,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "dia_semana",
+        "endereco_imovel",
+        "nome_contratado",
+        "nome_contratante"
+      ],
+      "extra": [
+        "LIMPEZA (select)",
+        "Clínica Bem Estar Ltda (text_short)",
+        "Avenida Brasil, 2 (text_short)"
+      ]
+    },
+    {
+      "id": "locacao-residencial",
+      "category": "locação",
+      "occurrences": 17,
+      "exact": 10,
+      "partial": 1,
+      "hits": 11,
+      "hits_exact": 10,
+      "fields": 17,
+      "fields_found": 10,
+      "type_ok": 10,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "endereco_imovel",
+        "garantia",
+        "indice_reajuste",
+        "nacionalidade_locador",
+        "nacionalidade_locataria",
+        "prazo_meses"
+      ],
+      "extra": [
+        "Rua Monte Alegre, 88 (text_short)"
+      ]
+    },
+    {
+      "id": "locacao-comercial",
+      "category": "locação",
+      "occurrences": 13,
+      "exact": 7,
+      "partial": 1,
+      "hits": 8,
+      "hits_exact": 7,
+      "fields": 13,
+      "fields_found": 7,
+      "type_ok": 7,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "dia_vencimento",
+        "endereco_imovel",
+        "finalidade",
+        "prazo_meses",
+        "representante"
+      ],
+      "extra": [
+        "Rua XV de Novembro, 300 (text_short)"
+      ]
+    },
+    {
+      "id": "procuracao-ad-judicia",
+      "category": "procuração",
+      "occurrences": 13,
+      "exact": 7,
+      "partial": 2,
+      "hits": 9,
+      "hits_exact": 7,
+      "fields": 12,
+      "fields_found": 6,
+      "type_ok": 7,
+      "groups": 1,
+      "groups_ok": 1,
+      "missed": [
+        "acao",
+        "cidade",
+        "endereco_escritorio",
+        "nacionalidade",
+        "parte_contraria",
+        "profissao"
+      ],
+      "extra": [
+        "Avenida Paulista, 1 (text_short)",
+        "Construtora Horizonte Ltda (text_short)"
+      ]
+    },
+    {
+      "id": "substabelecimento",
+      "category": "procuração",
+      "occurrences": 8,
+      "exact": 3,
+      "partial": 1,
+      "hits": 4,
+      "hits_exact": 3,
+      "fields": 8,
+      "fields_found": 3,
+      "type_ok": 3,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "nome_cliente",
+        "nome_substabelecente",
+        "nome_substabelecido",
+        "numero_processo"
+      ],
+      "extra": [
+        "2026 (number)"
+      ]
+    },
+    {
+      "id": "declaracao-hipossuficiencia",
+      "category": "declaração",
+      "occurrences": 9,
+      "exact": 8,
+      "partial": 0,
+      "hits": 8,
+      "hits_exact": 8,
+      "fields": 8,
+      "fields_found": 7,
+      "type_ok": 8,
+      "groups": 1,
+      "groups_ok": 1,
+      "missed": [
+        "cidade"
+      ],
+      "extra": []
+    },
+    {
+      "id": "declaracao-residencia",
+      "category": "declaração",
+      "occurrences": 11,
+      "exact": 5,
+      "partial": 1,
+      "hits": 6,
+      "hits_exact": 5,
+      "fields": 10,
+      "fields_found": 5,
+      "type_ok": 5,
+      "groups": 1,
+      "groups_ok": 0,
+      "missed": [
+        "bairro",
+        "cidade",
+        "endereco",
+        "nome_declarante",
+        "nome_morador"
+      ],
+      "extra": [
+        "Rua Padre Valdevino, 1 (text_short)"
+      ]
+    },
+    {
+      "id": "recibo-honorarios",
+      "category": "recibo",
+      "occurrences": 11,
+      "exact": 4,
+      "partial": 2,
+      "hits": 5,
+      "hits_exact": 4,
+      "fields": 11,
+      "fields_found": 4,
+      "type_ok": 4,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "forma_pagamento",
+        "nome_pagador",
+        "nome_recebedor",
+        "referencia",
+        "valor",
+        "valor_extenso"
+      ],
+      "extra": [
+        "R$ 2.500,00 (dois mil e quinhentos reais) (currency)"
+      ]
+    },
+    {
+      "id": "recibo-aluguel",
+      "category": "recibo",
+      "occurrences": 8,
+      "exact": 3,
+      "partial": 2,
+      "hits": 6,
+      "hits_exact": 3,
+      "fields": 8,
+      "fields_found": 3,
+      "type_ok": 3,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "endereco_imovel",
+        "mes_referencia",
+        "nome_locador",
+        "nome_locatario"
+      ],
+      "extra": [
+        "outubro (select)",
+        "2026 (number)",
+        "Rua Dom Pedro II, 512 (text_short)"
+      ]
+    },
+    {
+      "id": "termo-confidencialidade",
+      "category": "termo",
+      "occurrences": 11,
+      "exact": 5,
+      "partial": 1,
+      "hits": 6,
+      "hits_exact": 5,
+      "fields": 11,
+      "fields_found": 5,
+      "type_ok": 5,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "foro",
+        "nome_empresa",
+        "nome_parceiro",
+        "prazo_anos",
+        "projeto"
+      ],
+      "extra": [
+        "Nexo Agro Tecnologia Ltda (text_short)"
+      ]
+    },
+    {
+      "id": "termo-acordo",
+      "category": "termo",
+      "occurrences": 11,
+      "exact": 6,
+      "partial": 2,
+      "hits": 8,
+      "hits_exact": 6,
+      "fields": 11,
+      "fields_found": 6,
+      "type_ok": 6,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "multa_percentual",
+        "nome_credor",
+        "nome_devedor",
+        "parcelas"
+      ],
+      "extra": [
+        "Distribuidora Vale Verde Ltda (text_short)",
+        "10 (number)"
+      ]
+    },
+    {
+      "id": "proposta-honorarios",
+      "category": "proposta",
+      "occurrences": 11,
+      "exact": 5,
+      "partial": 2,
+      "hits": 7,
+      "hits_exact": 5,
+      "fields": 11,
+      "fields_found": 5,
+      "type_ok": 5,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "contato_cliente",
+        "nome_advogado",
+        "nome_cliente",
+        "nome_escritorio",
+        "percentual_exito",
+        "servico_juridico"
+      ],
+      "extra": [
+        "À Padaria Trigo Dourado Ltda (text_short)",
+        "15 (number)"
+      ]
+    },
+    {
+      "id": "rh-contrato-trabalho",
+      "category": "RH",
+      "occurrences": 12,
+      "exact": 7,
+      "partial": 2,
+      "hits": 9,
+      "hits_exact": 7,
+      "fields": 12,
+      "fields_found": 7,
+      "type_ok": 7,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "endereco_empregada",
+        "experiencia_dias",
+        "jornada_horas",
+        "nome_empregadora"
+      ],
+      "extra": [
+        "Oficina Criativa Comunicação Ltda (text_short)",
+        "Rua Bela Cintra, 980 (text_short)"
+      ]
+    },
+    {
+      "id": "rh-aviso-ferias",
+      "category": "RH",
+      "occurrences": 10,
+      "exact": 5,
+      "partial": 2,
+      "hits": 8,
+      "hits_exact": 5,
+      "fields": 10,
+      "fields_found": 5,
+      "type_ok": 5,
+      "groups": 0,
+      "groups_ok": 0,
+      "missed": [
+        "cidade",
+        "matricula",
+        "nome_empregado",
+        "nome_empresa",
+        "periodo_aquisitivo"
+      ],
+      "extra": [
+        "2025 (number)",
+        "2026 (number)",
+        "Transportes Rio Claro Ltda (text_short)"
+      ]
+    }
+  ]
+}
