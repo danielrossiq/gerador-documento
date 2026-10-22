@@ -292,11 +292,11 @@ function UseForm({ data }: { data: FormPayload }) {
             <FileText className="h-4 w-4" aria-hidden /> Gerar <span className="hidden sm:inline">documento</span> Word
           </Button>
           <Button loading={busy === "pdf"} disabled={!!busy || !data.pdf_available} onClick={() => generate("pdf")} title={data.pdf_available ? undefined : "A conversão para PDF não está disponível neste servidor"} data-testid="generate-pdf">
-            <FileText className="h-4 w-4" aria-hidden /> Gerar PDF
+            <FileText className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Gerar</span> PDF
           </Button>
           <AiReview generatorId={id} getValues={() => form.getValues()} onGoToField={goToField} disabled={!!busy} />
-          <Button variant="ghost" onClick={() => setConfirmClear(true)} className="ml-auto text-muted">
-            <RotateCcw className="h-4 w-4" aria-hidden /> Limpar
+          <Button variant="ghost" onClick={() => setConfirmClear(true)} className="ml-auto text-muted" title="Limpar o formulário">
+            <RotateCcw className="h-4 w-4" aria-hidden /> <span className="sr-only sm:not-sr-only">Limpar</span>
           </Button>
         </div>
         <p className="text-xs text-muted" aria-live="polite" data-testid="draft-state">
