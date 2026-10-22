@@ -108,7 +108,7 @@ def me(ctx: Ctx = Depends(get_ctx)) -> dict[str, Any]:
         k: ctx.limit(k) for k in ("max_generators", "max_batch_rows", "max_upload_mb", "max_docs_per_month")
     }
     s = get_settings()
-    data["features"] = {"pdf_import": s.pdf_import_enabled, "external_ai": s.external_ai_enabled}
+    data["features"] = {"pdf_import": s.pdf_import_mode != "off", "external_ai": s.external_ai_enabled}
     return data
 
 

@@ -22,7 +22,14 @@
 - Nome interno aleatório; o nome enviado pelo usuário nunca vira caminho. O original é imutável.
 - Planilhas de importação: mesma proteção de ZIP; leitura `read_only`/`data_only`; CSV de saída protegido contra injeção de fórmula.
 - LibreOffice roda com perfil temporário limpo, timeout e sem rede.
-- **PDF como modelo: desligado por padrão** (`PDF_IMPORT_ENABLED=false`). A conversão roda num processo filho com tempo limitado, mas os limites de memória/CPU só valem no Linux e o processo **não** fica isolado de rede nem do sistema de arquivos. Só ligar depois de um isolamento real (contêiner/sandbox dedicado, sem rede). Desligado, o servidor recusa PDF com `PDF_IMPORT_DISABLED` e a interface só oferece Word.
+- **PDF como modelo: conversão isolada** (D35). O leitor de PDF é a parte do sistema mais exposta a arquivo malicioso. Por isso ele roda no serviço próprio `pdfconv`, e não na API. O contêiner tem:
+  - nenhuma variável ou segredo da aplicação (banco, storage, chaves);
+  - só a rede interna `pdfnet` (`internal: true`): sem saída para a internet, sem resolver postgres/redis/minio e sem porta no host;
+  - sistema de arquivos somente leitura, com `/tmp` de 64 MB em memória;
+  - usuário sem privilégios (uid 10001), `cap_drop: ALL` e `no-new-privileges`;
+  - limites de 1 GB de RAM, 1 CPU e 64 processos.
+
+  Dentro dele, cada PDF ainda roda num processo filho descartável, com tempo e espaço de endereçamento limitados, e no máximo 4 conversões por vez. A API envia só os bytes. O `.docx` devolvido é tratado como não confiável e passa pela mesma validação de qualquer `.docx` enviado (`validate_docx`). Em produção, sem `PDF_CONVERTER_URL`, o PDF é recusado (`PDF_IMPORT_DISABLED`), mesmo com `PDF_IMPORT_ENABLED=true`. A verificação do isolamento, feita de dentro do contêiner, está registrada em D35.
 
 ## Dados pessoais e logs
 - **Nunca** registramos conteúdo de documentos, CPF, CNPJ, valores ou e-mails em log: o filtro de log mascara esses padrões como rede de segurança, e o código não os passa aos logs.

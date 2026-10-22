@@ -37,7 +37,7 @@ from app.docx_engine.editor_doc import BlockIn, DocStructureError, PartLike, blo
 from app.docx_engine.inline import inline_text, normalize_nodes
 from app.docx_engine.nodes import RangeError, replace_range_with_field
 from app.docx_engine.parse import parse_docx
-from app.docx_engine.pdf_import import PdfConversion, convert_pdf, looks_like_pdf
+from app.docx_engine.pdf_import import PdfConversion, convert_pdf, convert_pdf_remote, looks_like_pdf
 from app.docx_engine.safety import DocxRejected, validate_docx
 from app.modules.audit import service as audit
 from app.modules.fields import service as fields_service
@@ -63,14 +63,21 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
     is_pdf = (filename or "").lower().endswith(".pdf") or looks_like_pdf(data)
     conversion: PdfConversion | None = None
     try:
-        if is_pdf and not get_settings().pdf_import_enabled:
+        settings = get_settings()
+        if is_pdf and settings.pdf_import_mode == "off":
             raise DocxRejected(
                 "PDF_IMPORT_DISABLED",
                 "O envio de PDF está desativado por enquanto. Envie o documento em Word (.docx).",
             )
         if is_pdf:
-            conversion = convert_pdf(data, max_bytes=max_bytes)
+            if settings.pdf_import_mode == "service":
+                conversion = convert_pdf_remote(data, url=settings.pdf_converter_url or "", max_bytes=max_bytes)
+            else:
+                conversion = convert_pdf(data, max_bytes=max_bytes)
             data = conversion.docx
+            # o .docx convertido vem de um leitor de PDF exposto a arquivo de fora: passa pelas mesmas checagens de
+            # qualquer .docx enviado (imagens podem deixá-lo maior que o PDF; daí a folga no tamanho)
+            validate_docx(data, filename="convertido.docx", max_bytes=max(4 * max_bytes, 64 * 1024 * 1024))
         else:
             validate_docx(data, filename=filename or "", max_bytes=max_bytes)
     except DocxRejected as exc:

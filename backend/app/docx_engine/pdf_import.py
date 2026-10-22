@@ -21,17 +21,21 @@ sem LibreOffice no container da API):
   * cabeçalho e rodapé = linhas que se repetem no alto/pé das páginas; o número da página vira o campo PAGE;
   * página que termina cedo → quebra de página antes do conteúdo seguinte (ex.: página de assinaturas).
 
-PDF é um formato complexo e o arquivo vem de fora: a conversão roda num processo filho com tempo e
-memória limitados (`convert_pdf`), nunca no processo da API.
+PDF é um formato complexo e o arquivo vem de fora. Em produção a conversão roda no serviço isolado `pdfconv`
+(contêiner sem rede de saída e sem segredos, D35; ver app/pdfconv/server.py), que a API chama por
+`convert_pdf_remote`. Lá, e no modo local de desenvolvimento, cada PDF ainda passa por um processo filho com tempo e
+memória limitados (`convert_pdf`), nunca pelo processo que atende as requisições.
 """
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import io
 import itertools
 import math
 import multiprocessing
+import os
 import re
 import sys
 import threading
@@ -46,7 +50,8 @@ log = get_logger(__name__)
 
 PDF_MAX_PAGES = 40
 PDF_TIMEOUT_S = 60
-PDF_MEMORY_BYTES = 2 * 1024 * 1024 * 1024
+# espaço de endereçamento do processo filho (RLIMIT_AS, só Linux); o contêiner pdfconv ainda tem limite de RAM próprio
+PDF_MEMORY_BYTES = int(os.environ.get("PDFCONV_MEMORY_MB", "2048")) * 1024 * 1024
 
 MIN_VISIBLE_CHARS = 20  # abaixo disso a página não tem "texto digitado" de verdade
 SCAN_COVERAGE = 0.3  # fração da página coberta por imagem que, sem texto visível, indica digitalização
@@ -85,6 +90,61 @@ def convert_pdf(
     if not isolated:
         return pdf_to_docx(data, max_pages=max_pages)
     return _run_isolated(data, max_pages)
+
+
+def convert_pdf_remote(
+    data: bytes, *, url: str, max_bytes: int, max_pages: int = PDF_MAX_PAGES, client: Any = None
+) -> PdfConversion:
+    """Converte no serviço isolado (D35). A resposta também é tratada como não confiável: quem chama valida o .docx
+    devolvido como qualquer .docx enviado (`validate_docx`)."""
+    import httpx
+
+    if not data:
+        raise DocxRejected("EMPTY_FILE", "O arquivo está vazio.")
+    if len(data) > max_bytes:
+        raise DocxRejected("FILE_TOO_LARGE", f"O arquivo excede o limite de {max_bytes // (1024 * 1024)} MB.")
+    if not looks_like_pdf(data):
+        raise DocxRejected("NOT_A_PDF", "O arquivo não é um PDF válido.")
+    unavailable = DocxRejected(
+        "PDF_CONVERTER_UNAVAILABLE",
+        "A conversão de PDF está indisponível agora. Tente de novo em instantes ou envie o documento em Word (.docx).",
+    )
+    http = client or httpx.Client(timeout=PDF_TIMEOUT_S + 15)
+    try:
+        resp = http.post(
+            f"{url.rstrip('/')}/convert",
+            content=data,
+            headers={"Content-Type": "application/pdf", "X-Max-Pages": str(max_pages)},
+        )
+    except httpx.HTTPError as exc:
+        log.error("pdfconv_indisponivel", extra={"error_type": type(exc).__name__})
+        raise unavailable from exc
+    finally:
+        if client is None:
+            http.close()
+    try:
+        body = resp.json()
+    except ValueError:
+        body = {}
+    if resp.status_code == 200 and isinstance(body.get("docx"), str):
+        try:
+            docx = base64.b64decode(body["docx"], validate=True)
+        except ValueError as exc:
+            raise DocxRejected(
+                "PDF_CONVERSION_FAILED",
+                "Não foi possível converter este PDF. Envie o documento em Word (.docx).",
+            ) from exc
+        stats = {k: int(v) for k, v in (body.get("stats") or {}).items() if isinstance(v, int)}
+        warnings = [str(w)[:300] for w in (body.get("warnings") or [])][:20]
+        return PdfConversion(docx=docx, stats=stats, warnings=warnings)
+    if resp.status_code in (413, 422) and isinstance(body.get("code"), str):
+        raise DocxRejected(body["code"][:64], str(body.get("message") or "")[:500])
+    if resp.status_code == 503:
+        raise unavailable
+    log.error("pdfconv_falhou", extra={"status": resp.status_code})
+    raise DocxRejected(
+        "PDF_CONVERSION_FAILED", "Não foi possível converter este PDF. Envie o documento em Word (.docx)."
+    )
 
 
 def looks_like_pdf(data: bytes) -> bool:

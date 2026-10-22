@@ -67,10 +67,11 @@ class Settings(BaseSettings):
     soffice_path: str = "soffice"
     pdf_timeout_seconds: int = 120
     pdf_chunk_size: int = 20
-    # Importar PDF digitado como modelo (docx_engine.pdf_import). Desligado por padrão: o processo filho só tem
-    # limites de memória/CPU no Linux e não roda isolado de rede/sistema de arquivos — ligar só depois de um
-    # isolamento real (sandbox/contêiner dedicado). Ver docs/SECURITY_AND_LGPD.md.
+    # Importar PDF digitado como modelo (docx_engine.pdf_import). Desligado por padrão no código. Em produção só vale
+    # com o conversor isolado (serviço `pdfconv`, D35: contêiner sem rede de saída e sem segredos) em
+    # PDF_CONVERTER_URL; sem ele o PDF continua recusado. Fora de produção, sem URL, converte num processo filho local.
     pdf_import_enabled: bool = False
+    pdf_converter_url: str | None = None
 
     # IA
     # Trava geral de serviços externos de IA (Anthropic e TypeSafe/Jev). Desligada por padrão (piloto): mesmo com
@@ -145,6 +146,15 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def pdf_import_mode(self) -> Literal["service", "process", "off"]:
+        """service = conversor isolado (D35); process = processo filho local (só fora de produção); off = recusa."""
+        if not self.pdf_import_enabled:
+            return "off"
+        if self.pdf_converter_url:
+            return "service"
+        return "off" if self.is_production else "process"
 
     def validate_for_production(self) -> None:
         if not self.is_production:

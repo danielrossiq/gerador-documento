@@ -25,8 +25,11 @@ x-app-env: &app-env
   TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
   TYPESAFE_MODEL: ${TYPESAFE_MODEL:-jev-latest}
   PDF_CONVERTER: libreoffice
-  # travas do piloto (padrão desligado): importar PDF como modelo e qualquer IA externa (Anthropic, TypeSafe)
-  PDF_IMPORT_ENABLED: ${PDF_IMPORT_ENABLED:-false}
+  # PDF como modelo: ligado no stack porque a conversão roda no serviço isolado `pdfconv` (D35). Sem ele
+  # (PDF_CONVERTER_URL vazio) e com APP_ENV=production, o PDF volta a ser recusado.
+  PDF_IMPORT_ENABLED: ${PDF_IMPORT_ENABLED:-true}
+  PDF_CONVERTER_URL: http://pdfconv:8090
+  # trava do piloto (padrão desligado): qualquer IA externa (OpenRouter, Anthropic, TypeSafe)
   EXTERNAL_AI_ENABLED: ${EXTERNAL_AI_ENABLED:-false}
   ACTIVATION_METRICS_ENABLED: ${ACTIVATION_METRICS_ENABLED:-false}   # agregados de ativação (D32), opt-in
   # IA via OpenRouter (D33): só sai algo com EXTERNAL_AI_ENABLED=true E a chave presente (ver docker-compose.ai.yml)
@@ -98,8 +101,32 @@ services:
     restart: unless-stopped
     environment: *app-env
     ports: ["${API_PORT:-8100}:8000"]
+    networks: [default, pdfnet]
     depends_on:
       migrate: { condition: service_completed_successfully }
+      pdfconv: { condition: service_healthy }
+
+  # Conversor de PDF isolado (D35). Lê arquivo de fora com um leitor complexo (PDFium/pdfminer), então:
+  # sem variáveis/segredos da aplicação, só na rede interna `pdfnet` (sem saída para a internet, sem porta no
+  # host: só a API o alcança), sistema de arquivos somente leitura, usuário sem privilégios, sem capabilities e
+  # com limites de memória/CPU/processos. Cada PDF ainda roda num processo filho com tempo e memória limitados.
+  pdfconv:
+    build: { context: ./backend, target: pdfconv }
+    restart: unless-stopped
+    environment:
+      PDFCONV_MAX_MB: "16"
+      PDFCONV_MAX_PAGES: "40"
+      PDFCONV_MAX_INFLIGHT: "4"
+      PDFCONV_MEMORY_MB: "1536"
+      LOG_JSON: "true"
+    networks: [pdfnet]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 1g
+    cpus: 1.0
 
   worker:
     build: { context: ./backend, target: worker }
@@ -120,6 +147,10 @@ services:
       HOSTNAME: 0.0.0.0
     depends_on:
       api: { condition: service_healthy }
+
+networks:
+  pdfnet:
+    internal: true   # sem rota para fora: o conversor não alcança a internet nem o banco/storage
 
 volumes:
   pgdata:

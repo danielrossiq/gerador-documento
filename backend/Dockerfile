@@ -28,6 +28,15 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-
 FROM base AS tools
 CMD ["python", "-m", "app.cli", "--help"]
 
+# Conversor de PDF isolado (D35): mesmo código, mas sobe só o servidor de conversão. O isolamento (rede interna
+# sem saída, sem segredos, somente leitura, sem capabilities, limites) está no docker-compose.yml.
+FROM base AS pdfconv
+ENV PDFCONV_PORT=8090
+EXPOSE 8090
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=2).status==200 else 1)"
+CMD ["python", "-m", "app.pdfconv.server"]
+
 # Worker: mesmo código + LibreOffice headless (somente Writer) e fontes métricas compatíveis com o Office.
 FROM base AS worker
 USER root

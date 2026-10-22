@@ -72,7 +72,7 @@ Testes: `tests/test_privacy_cli.py`. Também verificado em PostgreSQL na stack `
 - confirmar os prazos com revisão profissional;
 - ligar o cleanup agendado com alerta;
 - definir a retenção do coletor de logs e dos backups;
-- manter `PDF_IMPORT_ENABLED=false` e `EXTERNAL_AI_ENABLED=false` (D30).
+- manter `EXTERNAL_AI_ENABLED=false` (D30) até haver base legal e aviso para a IA externa (D33); PDF só com o conversor isolado `pdfconv` (D35).
 
 ## 5. Evidência de retenção (testes automatizados)
 

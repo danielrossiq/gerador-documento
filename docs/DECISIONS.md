@@ -198,7 +198,7 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
 - **Registro detalhado**: [ESTRATEGIA_COMERCIAL.md](ESTRATEGIA_COMERCIAL.md).
 
 ## D30 — Travas do piloto pós-revisão de segurança (PDF, IA externa, eliminação, retenção)
-- **PDF como modelo desligado** (`PDF_IMPORT_ENABLED=false` por padrão no código e no compose). Motivo: a conversão (pdfplumber/pypdfium2) roda em processo filho, mas sem isolamento real de rede ou sistema de arquivos, e os limites de recurso só valem no Linux. Religar exige um sandbox dedicado. Recusa: `PDF_IMPORT_DISABLED`; a interface lê `features.pdf_import` em `/auth/me` e só oferece Word.
+- **PDF como modelo desligado** (`PDF_IMPORT_ENABLED=false` por padrão no código e no compose). Motivo: a conversão (pdfplumber/pypdfium2) roda em processo filho, mas sem isolamento real de rede ou sistema de arquivos, e os limites de recurso só valem no Linux. Religar exige um sandbox dedicado (feito em D35). Recusa: `PDF_IMPORT_DISABLED`; a interface lê `features.pdf_import` em `/auth/me` e só oferece Word.
 - **IA externa desligada** (`EXTERNAL_AI_ENABLED=false`): `get_ai_provider` devolve só o provedor local e `get_role_classifier` devolve `None`, mesmo com chaves configuradas. `AI_PROVIDER=none` continua significando "só regras".
 - **`purge-workspace` em duas fases** (`app/modules/privacy.py`): primeiro marca `deleted_at` (acesso bloqueado), depois apaga o storage, e só sem falhas apaga o banco, com DELETE direto e cascata das FKs. O código anterior apagava os registros mesmo quando o storage falhava (arquivos órfãos sem chave para achá-los) e, pelo ORM, nem conseguia apagar um workspace com membros (tentava anular `workspace_members.workspace_id`).
 - **Cleanup monitorado**: saída ≠ 0 em falha e evento `cleanup_concluido` com contadores.
@@ -262,3 +262,28 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
 - **Sem SDK da Stripe**: chamadas HTTP diretas (form-encoded) em `stripe_client.py`, com a verificação HMAC implementada e testada. É menos uma dependência.
 - **Tela**: `/assinatura` ("Plano e uso", no menu do usuário). Mostra o plano, os medidores do mês (documentos, modelos, usos de IA), a escolha mensal ou anual, cartão e Pix, e o portal. A landing manda `?plano=&ciclo=` para o cadastro, que segue para essa tela com o plano destacado.
 - **Pendente (Daniel)**: abrir a conta e configurar produtos, webhook e portal, seguindo o passo a passo em [PAGAMENTOS.md](PAGAMENTOS.md). Migration `0008`. Testes: `test_billing.py` e `e2e/assist-billing.spec.ts`.
+
+## D35 — Conversão de PDF isolada em contêiner próprio (religa o PDF como modelo)
+- **Pedido (Daniel)**: "isole a conversão de PDF". A landing promete Word ou PDF, e o PDF estava desligado desde D30 por falta de isolamento real.
+- **Decisão**: o leitor de PDF (PDFium/pdfminer, a parte mais exposta a arquivo malicioso) sai da API e vai para o serviço `pdfconv` (`app/pdfconv/server.py`, alvo `pdfconv` do Dockerfile). É um servidor HTTP mínimo da biblioteca padrão: `GET /health` e `POST /convert`, com o PDF no corpo e o `.docx` em base64 na resposta. Isolamento no `docker-compose.yml`:
+  - **sem segredos**: o serviço não recebe `x-app-env` (nada de banco, storage, Redis, chaves);
+  - **rede**: só `pdfnet` (`internal: true`), sem saída para a internet e sem porta no host. Só a API (`networks: [default, pdfnet]`) o alcança;
+  - **contêiner**: `read_only` + `/tmp` tmpfs de 64 MB, uid 10001, `cap_drop: ALL`, `no-new-privileges`, `mem_limit: 1g`, `cpus: 1`, `pids_limit: 64`;
+  - **por arquivo**: processo filho descartável com timeout e `RLIMIT_AS`/`RLIMIT_CPU` (`PDFCONV_MEMORY_MB`), no máximo 4 conversões simultâneas (503 acima disso), limite próprio de tamanho (16 MB) e de páginas (40);
+  - **saída não confiável**: a API valida o `.docx` convertido com `validate_docx`, como qualquer upload. Antes, o `.docx` convertido entrava sem essa checagem.
+- **Modo** (`Settings.pdf_import_mode`):
+  - `service` com `PDF_CONVERTER_URL`;
+  - `process` (processo filho local) só fora de produção;
+  - `off` em produção sem conversor isolado, mesmo com `PDF_IMPORT_ENABLED=true`.
+  - O compose liga o PDF (`PDF_IMPORT_ENABLED=true`, `PDF_CONVERTER_URL=http://pdfconv:8090`); o padrão do código continua `false`.
+- **Verificado de dentro do contêiner** (stack `minuta-fase0`, 22/10/2026):
+  - uid 10001, `CapEff=0`, `NoNewPrivs=1`;
+  - gravar em `/app` e `/home` falha; só `/tmp` aceita escrita;
+  - nenhuma variável sensível e sem `/run/secrets`;
+  - `postgres`, `redis`, `minio`, `openrouter.ai` e `google.com` não resolvem; TCP para 1.1.1.1:443 e 8.8.8.8:53 falha;
+  - cgroup com `memory.max=1 GiB`, `pids.max=64` e 1 CPU;
+  - nenhuma porta publicada.
+  - Ponta a ponta pela API: PDF digitado aceito (2,2 s), digitalizado recusado com `PDF_SCANNED`.
+  - O conversor ainda resolve a própria API na rede interna. É o mesmo acesso público que ela já tem: sem sessão, nada é liberado.
+- **Limites conhecidos**: sem gVisor/seccomp customizado (fica o perfil padrão do Docker). Para um host multi-inquilino, considerar `runtime: runsc`.
+- Testes: `test_pdfconv.py` (serviço e cliente por HTTP real, recusas com código, limite de tamanho, 503, serviço fora do ar, modo em produção, upload pelo serviço e validação da saída). Seguem valendo `test_pdf_import.py` e `test_pilot_safety.py`.

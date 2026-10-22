@@ -11,7 +11,7 @@ Stack Docker separada da stack `minuta` original. Volumes próprios; a stack `mi
 | Console do MinIO | http://localhost:9111 (usuário e senha: `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` do `.env`) |
 | Login de demonstração | `demo@minuta.app` / `demo12345` (dados fictícios, criados pelo seed) |
 
-Travas do piloto ativas: `PDF_IMPORT_ENABLED=false` (só Word) e `EXTERNAL_AI_ENABLED=false` (nenhuma IA externa).
+Trava do piloto ativa: `EXTERNAL_AI_ENABLED=false` (nenhuma IA externa; ligue com `docker-compose.ai.yml`, D33). PDF digitado é aceito: a conversão roda no serviço isolado `pdfconv` (D35).
 
 ## Serviços pagos e substitutos locais (sem custo, sem chamada real)
 

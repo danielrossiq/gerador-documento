@@ -66,6 +66,8 @@ SAFE_EXTRA_KEYS = frozenset(
         "workspace_id", "generator_id", "version_id", "job_id", "kit_id", "kit_run_id", "file_id",
         "row", "attempt", "n", "n_valid", "n_dropped", "n_candidates", "n_answered", "chars", "bytes",
         "removidos", "falhas", "pendentes",
+        # conversor de PDF isolado (D35): só números
+        "pages", "bytes_in", "bytes_out", "max_mb", "max_pages", "port",
         # erros: só tipo/código, nunca mensagem
         "error_type", "error", "code", "task", "template", "provider",
     }
