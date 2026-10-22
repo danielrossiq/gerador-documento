@@ -249,6 +249,21 @@ def resolve_overlaps(hits: list[Hit]) -> list[Hit]:
     return sorted(chosen, key=lambda x: (x.block_key, x.start))
 
 
+def adopt_semantic_names(chosen: list[Hit], all_hits: list[Hit]) -> list[Hit]:
+    """A regra ganha a sobreposição (tipo e formato validados), mas às vezes só sabe o nome genérico ("data",
+    "valor"). Se a IA marcou exatamente o mesmo trecho com o mesmo tipo e um nome com papel ("data_inicio",
+    "valor_mensal"), fica o nome/rótulo da IA — evita "Data 1"/"Data 2" quando a IA já disse qual é qual."""
+    ai = {(h.block_key, h.start, h.end, h.type): h for h in all_hits if h.source == "ai" and "_" in h.name}
+    for h in chosen:
+        if h.source != "rule" or "_" in h.name:
+            continue
+        twin = ai.get((h.block_key, h.start, h.end, h.type))
+        if twin:
+            h.name, h.label = twin.name, twin.label
+            h.reason = f"{h.reason} · nome sugerido pela IA" if h.reason else "nome sugerido pela IA"
+    return chosen
+
+
 def describe_location(key: str) -> str:
     """Localização legível a partir da chave do bloco."""
     parts = key.split("/")

@@ -45,5 +45,11 @@
       "alt": "Analista de RH no notebook usando um kit do Minuta: vários documentos do colaborador preenchidos de uma vez."
     }
   },
-  "video": null
+  "video": {
+    "mp4": "/site/demo.mp4",
+    "poster": "/site/demo-poster.jpg",
+    "width": 1440,
+    "height": 900,
+    "title": "Demonstração do Minuta: do contrato enviado ao PDF pronto, com a IA achando os campos, preenchendo e revisando"
+  }
 }

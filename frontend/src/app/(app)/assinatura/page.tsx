@@ -34,8 +34,8 @@ type BillingOut = {
 const UNLIMITED = 10_000;
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "");
 
-function Meter({ label, used, limit, testid }: { label: string; used: number; limit: number; testid: string }) {
-  const unlimited = limit >= UNLIMITED;
+function Meter({ label, used, limit, testid, unlimitable }: { label: string; used: number; limit: number; testid: string; unlimitable?: boolean }) {
+  const unlimited = !!unlimitable && limit >= UNLIMITED;
   const ratio = unlimited ? 0 : Math.min(1, used / Math.max(1, limit));
   return (
     <div className="space-y-1" data-testid={testid}>
@@ -125,7 +125,7 @@ function Billing() {
         <Card className="space-y-4 p-5" data-testid="usage">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">Uso neste mês</p>
           <Meter label="Documentos gerados" used={b.usage.docs_this_month} limit={b.limits.docs_per_month} testid="meter-docs" />
-          <Meter label="Modelos" used={b.usage.models} limit={b.limits.models} testid="meter-models" />
+          <Meter label="Modelos" used={b.usage.models} limit={b.limits.models} testid="meter-models" unlimitable />
           <Meter label="Usos de IA" used={b.usage.ai_actions_this_month} limit={b.limits.ai_actions_per_month} testid="meter-ai" />
           <p className="text-xs text-muted">Geração em lote: até {b.limits.batch_rows.toLocaleString("pt-BR")} linhas por planilha. A contagem recomeça no dia 1º.</p>
         </Card>
@@ -148,7 +148,7 @@ function Billing() {
                 className={cn("rounded-full px-3 py-1 font-medium", cycle === c ? "bg-surface text-fg shadow-sm" : "text-muted")}
                 data-testid={`cycle-${c}`}
               >
-                {c === "mensal" ? "Mensal" : "Anual · 2 meses grátis"}
+                {c === "mensal" ? "Mensal" : `Anual · ${Math.max(...PLANS.map(annualDiscountPct))}% off`}
               </button>
             ))}
           </div>

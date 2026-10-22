@@ -288,7 +288,8 @@ function UseForm({ data }: { data: FormPayload }) {
       <div data-sticky-actions className="sticky bottom-0 -mx-4 space-y-2 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5">
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" loading={busy === "docx"} disabled={!!busy} onClick={() => generate("docx")} data-testid="generate-docx">
-            <FileText className="h-4 w-4" aria-hidden /> Gerar documento Word
+            {/* no celular o rótulo encurta: a barra fixa fica em 2 linhas mesmo com "Revisar com IA" */}
+            <FileText className="h-4 w-4" aria-hidden /> Gerar <span className="hidden sm:inline">documento</span> Word
           </Button>
           <Button loading={busy === "pdf"} disabled={!!busy || !data.pdf_available} onClick={() => generate("pdf")} title={data.pdf_available ? undefined : "A conversão para PDF não está disponível neste servidor"} data-testid="generate-pdf">
             <FileText className="h-4 w-4" aria-hidden /> Gerar PDF

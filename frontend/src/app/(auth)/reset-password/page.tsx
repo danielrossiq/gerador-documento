@@ -35,7 +35,7 @@ function ResetForm() {
   if (!token) return <Alert tone="danger">Link inválido. Peça um novo em “Esqueci minha senha”.</Alert>;
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-      <h1 className="text-xl font-semibold">Nova senha</h1>
+      <h1 className="font-display text-2xl font-extrabold tracking-tight">Nova senha</h1>
       {error && <Alert tone="danger">{error}</Alert>}
       <Field label="Nova senha" error={formState.errors.password?.message} required>
         {(a) => <Input type="password" autoComplete="new-password" autoFocus {...a} {...register("password")} />}

@@ -7,7 +7,13 @@ from app.adapters.ai.base import AISuggestionRequest, BlockText
 from app.adapters.ai.local import LocalHeuristicProvider
 from app.modules.fields.normalize import MONTHS
 from app.modules.fields.types import role_before
-from app.modules.suggestions.rules import MONTH_OPTIONS, Hit, detect_rules
+from app.modules.suggestions.rules import (
+    MONTH_OPTIONS,
+    Hit,
+    adopt_semantic_names,
+    detect_rules,
+    resolve_overlaps,
+)
 from app.modules.suggestions.service import _number_duplicate_hits
 
 # ---------------------------------------------------------------------------------------------------------
@@ -182,3 +188,23 @@ def test_local_provider_does_not_relabel_a_name_that_only_appears_once():
     req = _blocks("Pelo CONTRATANTE, assina Fulano de Tal Pereira, uma única vez neste documento.")
     res = LocalHeuristicProvider().suggest(req)
     assert not any(s.text == "Fulano de Tal Pereira" for s in res.suggestions)  # <2 ocorrências: ignorado
+
+
+# ---------------------------------------------------------------------------------------------------------
+# regra + IA no mesmo trecho: tipo da regra, nome da IA
+
+
+def test_rule_keeps_type_but_takes_the_ai_name_for_the_same_span():
+    rule_date = Hit("body/p5", 10, 20, "01/10/2026", "data", "Data", "date", 0.97, "rule", "data")
+    ai_date = Hit("body/p5", 10, 20, "01/10/2026", "data_inicio", "Data de início", "date", 0.9, "ai", "início da vigência")
+    rule_cpf = Hit("body/p2", 0, 14, "123.456.789-09", "cpf_contratante", "CPF — Contratante", "cpf", 0.99, "rule", "cpf")
+    ai_cpf = Hit("body/p2", 0, 14, "123.456.789-09", "cpf_do_cliente", "CPF do cliente", "cpf", 0.9, "ai", "")
+    rule_val = Hit("body/p6", 0, 11, "R$ 5.000,00", "valor", "Valor", "currency", 0.96, "rule", "")
+    ai_text = Hit("body/p6", 0, 11, "R$ 5.000,00", "valor_mensal", "Valor mensal", "text_short", 0.9, "ai", "")
+    hits = [rule_date, ai_date, rule_cpf, ai_cpf, rule_val, ai_text]
+    chosen = adopt_semantic_names(resolve_overlaps(hits), hits)
+    by_text = {h.text: h for h in chosen}
+    assert (by_text["01/10/2026"].name, by_text["01/10/2026"].type, by_text["01/10/2026"].source) == ("data_inicio", "date", "rule")
+    assert by_text["01/10/2026"].label == "Data de início"
+    assert by_text["123.456.789-09"].name == "cpf_contratante"  # a regra já tinha o papel: fica a dela
+    assert by_text["R$ 5.000,00"].name == "valor"  # tipos diferentes: não mistura

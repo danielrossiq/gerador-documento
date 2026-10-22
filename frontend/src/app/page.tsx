@@ -25,7 +25,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LiveDemo } from "@/components/site/live-demo";
@@ -34,8 +34,7 @@ import { Pricing } from "@/components/site/pricing";
 import { RoiCalculator } from "@/components/site/roi-calculator";
 import { Logo, SiteHeader } from "@/components/site/site-header";
 
-// Fontes só do site público; o app autenticado mantém a fonte do sistema.
-const display = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--site-display", display: "swap" });
+// Texto corrido em Inter só no site público (a fonte de títulos, Plus Jakarta, vem do layout raiz para todo o produto).
 const body = Inter({ subsets: ["latin"], variable: "--site-body", display: "swap" });
 
 export const metadata: Metadata = {
@@ -111,7 +110,7 @@ const FEATURES: { icon: typeof Sparkles; title: string; text: string; big?: bool
   {
     icon: ShieldCheck,
     title: "Revisão antes de gerar",
-    text: "A IA aponta o que parece errado: data final antes da inicial, nome escrito de dois jeitos, campo obrigatório vazio.",
+    text: "A IA aponta o que parece errado: “inscrito” para uma cliente, data final antes da inicial, valor por extenso diferente do número, nome escrito de dois jeitos.",
     tag: "IA",
   },
   {
@@ -193,7 +192,7 @@ function Cta({ children = "Começar grátis", testId }: { children?: ReactNode; 
 
 export default function Landing() {
   return (
-    <div className={`site ${display.variable} ${body.variable} bg-white font-[family-name:var(--site-body)] text-zinc-900 antialiased`}>
+    <div className={`site ${body.variable} bg-white font-[family-name:var(--site-body)] text-zinc-900 antialiased`}>
       <SiteHeader />
       <main id="main">
         {/* ------------------------------------------------------------------ topo */}

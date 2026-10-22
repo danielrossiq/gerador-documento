@@ -106,8 +106,9 @@ test("fluxo individual completo pelas etapas Documento → Campos → Revisão �
   // "Preencher com dados de exemplo" completa só o que está vazio (valor, datas…)
   await page.getByTestId("fill-example").click();
   await expect(page.getByTestId("field-nome_do_contratante")).toHaveValue("Maria Aparecida Souza");
-  await expect(page.getByTestId("field-data_1")).toHaveValue("2026-10-01"); // do texto original "01/10/2026"
-  await page.getByTestId("field-valor").fill("1234,5");
+  // nomes "data_1"/"valor" (só regras) ou "data_inicio"/"valor_mensal" (com IA): o teste vale nos dois stacks
+  await expect(page.locator('[data-testid^="field-data"]').first()).toHaveValue("2026-10-01"); // do texto original "01/10/2026"
+  await page.locator('[data-testid^="field-valor"]').first().fill("1234,5");
 
   // ---- rascunho automático: recarregar a página não perde o que foi digitado
   await expect(page.getByTestId("draft-state")).toContainText("Rascunho salvo", { timeout: 10_000 });

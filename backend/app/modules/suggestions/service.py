@@ -46,6 +46,7 @@ from app.modules.fields.types import unique_name
 from app.modules.suggestions.rules import (
     RULES_VERSION,
     Hit,
+    adopt_semantic_names,
     describe_location,
     detect_rules,
     resolve_overlaps,
@@ -282,7 +283,7 @@ def materialize(db: Session, version: TemplateVersion, hits: list[Hit], blocks: 
     )
     surviving = [
         h
-        for h in resolve_overlaps(hits)
+        for h in adopt_semantic_names(resolve_overlaps(hits), hits)
         if (h.block_key, h.start, h.end, h.text) not in ignored
         and not any(s < h.end and h.start < e for s, e in covered.get(h.block_key, []))
     ]

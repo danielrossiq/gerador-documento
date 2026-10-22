@@ -1,11 +1,12 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, FileStack, FileText, History, Home, Layers, LogOut, User } from "lucide-react";
+import { CreditCard, FileStack, History, Home, Layers, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/brand/logo";
 import { ActionMenu } from "@/components/ui/menu";
 import { api } from "@/lib/api";
 import type { Me } from "@/lib/types";
@@ -38,10 +39,8 @@ export function AppShell({ children, wide }: { children: ReactNode; wide?: boole
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-border bg-surface">
         <div className={cn("mx-auto flex h-14 items-center gap-2 px-4 sm:gap-6", wide ? "max-w-[1600px]" : "max-w-6xl")}>
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-primary">
-            <FileText className="h-5 w-5" aria-hidden />
-            <span className="hidden min-[380px]:inline">{APP_NAME}</span>
-            <span className="sr-only min-[380px]:hidden">{APP_NAME}</span>
+          <Link href="/dashboard" aria-label={`${APP_NAME}: início`} className="rounded-md">
+            <Logo tone="app" compact className="text-base" />
           </Link>
           <nav aria-label="Principal" className="flex gap-1">
             {NAV.map((n) => {
@@ -93,7 +92,7 @@ export function PageHeader({ title, description, actions }: { title: string; des
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

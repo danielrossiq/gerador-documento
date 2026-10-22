@@ -37,6 +37,9 @@ test("preencher com IA a partir de um texto colado e revisar antes de gerar", as
   await login(page);
   const status = await (await page.request.get("/api/v1/assist/status")).json();
   test.skip(!status.enabled, "IA desligada neste stack");
+  // o Início apresenta o recurso uma vez, já apontando para um modelo pronto
+  await expect(page.getByTestId("ai-tip")).toBeVisible();
+  await expect(page.getByTestId("ai-usage")).toContainText("IA:");
   const id = await demoGeneratorId(page);
   await page.goto(`/generators/${id}/use`);
   try {

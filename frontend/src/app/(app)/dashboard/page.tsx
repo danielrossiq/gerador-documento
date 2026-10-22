@@ -1,8 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CircleAlert, ClipboardPaste, FilePlus2, Layers, Loader2, Play, Sparkles } from "lucide-react";
+import { ArrowRight, CircleAlert, ClipboardPaste, FilePlus2, Layers, Loader2, Play, Sparkles, WandSparkles, X } from "lucide-react";
 import Link from "next/link";
+import { useState, useSyncExternalStore } from "react";
+import { useAssistStatus } from "@/components/assist/ai-assist";
 import { nextHref, stepHrefs } from "@/components/generators/steps";
 import { AnalysisStep, DocxDropzone, UploadErrorAlert, useNewModelUpload } from "@/components/generators/template-upload";
 import { PasteBatch } from "@/components/home/paste-batch";
@@ -27,8 +29,11 @@ type Dash = {
 
 const QUICK = 6;
 
+const n = (v: number) => v.toLocaleString("pt-BR");
+
 /** Uma linha de atividade — só aparece quando há algo a dizer. */
 function ActivityStrip({ d }: { d: Dash }) {
+  const ai = useAssistStatus().data;
   const quota = d.quota.documents_per_month;
   const used = d.documents_this_month;
   if (!used && !d.jobs_in_progress && !d.jobs_with_problems) return null;
@@ -36,8 +41,17 @@ function ActivityStrip({ d }: { d: Dash }) {
     <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm" aria-label="Atividade do mês">
       <div className="flex min-w-56 flex-1 items-center gap-3">
         <Sparkles className="h-4 w-4 shrink-0 text-success" aria-hidden />
-        <span><strong className="tabular-nums">{used}</strong> {used === 1 ? "documento gerado" : "documentos gerados"} este mês{quota > 0 ? ` (limite: ${quota})` : ""}</span>
+        <span>
+          <strong className="tabular-nums">{n(used)}</strong>
+          {quota > 0 ? ` de ${n(quota)}` : ""} {used === 1 && !quota ? "documento gerado" : "documentos gerados"} este mês
+        </span>
         {quota > 0 && <div className="hidden w-32 sm:block"><ProgressBar value={used / quota} label="Limite mensal usado" tone={used / quota > 0.9 ? "danger" : "success"} /></div>}
+        {ai?.enabled && (
+          <span className="hidden items-center gap-1 text-muted md:inline-flex" data-testid="ai-usage">
+            <WandSparkles className="h-3.5 w-3.5 text-primary" aria-hidden /> IA: {n(ai.actions_used)} de {n(ai.actions_limit)} usos
+          </span>
+        )}
+        <Link href="/assinatura" className="text-xs font-medium text-primary hover:underline">Plano e uso</Link>
       </div>
       {d.jobs_in_progress > 0 && (
         <Link href="/history" className="flex items-center gap-1.5 text-muted hover:text-fg">
@@ -45,10 +59,48 @@ function ActivityStrip({ d }: { d: Dash }) {
         </Link>
       )}
       {d.jobs_with_problems > 0 && (
-        <Link href="/history" className="flex items-center gap-1.5 font-medium text-danger hover:underline">
+        <Link href="/history" className="flex items-center gap-1.5 font-medium text-warning hover:underline">
           <CircleAlert className="h-4 w-4" aria-hidden /> {plural(d.jobs_with_problems, "geração precisa", "gerações precisam")} de atenção
         </Link>
       )}
+    </div>
+  );
+}
+
+const AI_TIP_KEY = "minuta:dica-ia-preencher";
+const noSubscribe = () => () => {};
+function readTipSeen() {
+  try {
+    return localStorage.getItem(AI_TIP_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** Apresenta o "Preencher com IA" uma vez, já levando a um modelo pronto. Some ao fechar ou ao usar. */
+function AiTip({ model }: { model: GeneratorOut | undefined }) {
+  const ai = useAssistStatus().data;
+  // lido do navegador sem efeito: no servidor conta como "já vista" (nada pisca na hidratação)
+  const seen = useSyncExternalStore(noSubscribe, readTipSeen, () => true);
+  const [dismissed, setDismissed] = useState(false);
+  const hidden = seen || dismissed;
+  const dismiss = () => {
+    setDismissed(true);
+    try {
+      localStorage.setItem(AI_TIP_KEY, "1");
+    } catch {
+      /* sem armazenamento: só esconde nesta visita */
+    }
+  };
+  if (hidden || !ai?.enabled || !model) return null;
+  return (
+    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary-soft px-4 py-3 text-sm" data-testid="ai-tip">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-fg" aria-hidden><WandSparkles className="h-4 w-4" /></span>
+      <p className="min-w-56 flex-1">
+        <strong>Novo: preencher com IA.</strong> Cole o e-mail, o WhatsApp ou a ficha do cliente e o formulário se preenche sozinho. Depois, a IA revisa antes de gerar.
+      </p>
+      <ButtonLink href={stepHrefs(model.id).generate} size="sm" variant="primary" onClick={dismiss}>Experimentar em “{model.name.length > 28 ? `${model.name.slice(0, 27)}…` : model.name}”</ButtonLink>
+      <button type="button" onClick={dismiss} className="rounded p-1 text-muted hover:text-fg" aria-label="Fechar dica"><X className="h-4 w-4" aria-hidden /></button>
     </div>
   );
 }
@@ -96,11 +148,13 @@ export default function HomePage() {
   return (
     <AppShell>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">{firstName ? `Olá, ${firstName}` : "Início"}</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">{firstName ? `Olá, ${firstName}` : "Início"}</h1>
         <p className="mt-1 text-sm text-muted">{isNew ? "Vamos transformar o seu primeiro documento em um modelo que se preenche sozinho." : "Crie um modelo novo, gere em lote colando uma planilha ou continue de onde parou."}</p>
       </div>
 
       {d && <ActivityStrip d={d} />}
+      {/* o modelo com mais campos mostra melhor o "preencher com IA" (fixado tem preferência) */}
+      <AiTip model={ready.find((g) => g.is_pinned) ?? [...ready].sort((a, b) => b.fields_count - a.fields_count)[0]} />
 
       <div className="mb-8 grid gap-4 lg:grid-cols-5">
         <Card className="flex flex-col p-5 lg:col-span-2" data-testid="home-new-model">

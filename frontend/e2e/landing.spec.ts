@@ -41,6 +41,19 @@ test.describe("landing", () => {
     await expect(page.getByTestId("plan-cta-gratis")).toHaveAttribute("href", "/register?plano=gratis");
   });
 
+  test("vídeo do app de verdade carrega (pôster + MP4)", async ({ page }) => {
+    await page.goto("/");
+    const video = page.getByTestId("demo-video");
+    await video.scrollIntoViewIfNeeded();
+    await expect(video).toBeVisible();
+    const poster = await video.getAttribute("poster");
+    expect((await page.request.get(poster!)).ok()).toBe(true);
+    const mp4 = await video.locator('source[type="video/mp4"]').getAttribute("src");
+    const r = await page.request.get(mp4!);
+    expect(r.ok()).toBe(true);
+    expect(r.headers()["content-type"]).toContain("video/mp4");
+  });
+
   test("páginas legais existem", async ({ page }) => {
     for (const [path, title] of [["/termos", "Termos de uso"], ["/privacidade", "Política de privacidade"]] as const) {
       await page.goto(path);

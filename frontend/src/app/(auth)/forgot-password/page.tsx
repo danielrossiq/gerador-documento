@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Recuperar senha</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">Recuperar senha</h1>
         <p className="mt-1 text-sm text-muted">Enviaremos um link para você criar uma nova senha.</p>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}

@@ -48,7 +48,7 @@ function RegisterForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Criar conta</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">Criar conta</h1>
         <p className="mt-1 text-sm text-muted">Você terá seu próprio espaço de trabalho, isolado dos demais.</p>
       </div>
       {plan && (

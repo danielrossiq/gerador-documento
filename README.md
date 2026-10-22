@@ -43,7 +43,18 @@ docker compose down                    # parar (mantém dados)
 docker compose down -v                 # parar e APAGAR bancos/arquivos
 ```
 
-Variáveis principais (todas em [.env.example](.env.example)): `SECRET_KEY`, `COOKIE_SECURE`, `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL`, `FILE_RETENTION_DAYS`, `SEED_DEMO`. **Travas do piloto** (padrão desligado): `EXTERNAL_AI_ENABLED` (sem ela nenhuma IA externa é chamada, mesmo com chave) e `PDF_IMPORT_ENABLED`. Retenção, exportação e eliminação: [RETENCAO_E_ELIMINACAO.md](docs/RETENCAO_E_ELIMINACAO.md). Teste local da stack `minuta-fase0`: [TESTE_LOCAL.md](docs/TESTE_LOCAL.md). Sem `AI_API_KEY` o produto usa **apenas regras determinísticas + heurísticas locais** e a interface avisa isso (“Sugestões locais — IA externa não configurada”).
+Variáveis principais (todas em [.env.example](.env.example)): `SECRET_KEY`, `COOKIE_SECURE`, `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL`, `FILE_RETENTION_DAYS`, `SEED_DEMO`. **Travas do piloto** (padrão desligado): `EXTERNAL_AI_ENABLED` (sem ela nenhuma IA externa é chamada, mesmo com chave) e `PDF_IMPORT_ENABLED`. Retenção, exportação e eliminação: [RETENCAO_E_ELIMINACAO.md](docs/RETENCAO_E_ELIMINACAO.md). Teste local da stack `minuta-fase0`: [TESTE_LOCAL.md](docs/TESTE_LOCAL.md). Sem chave de IA, o produto usa **apenas regras determinísticas + heurísticas locais** e a interface avisa isso (“Sugestões locais — IA externa não configurada”).
+
+### Com IA (OpenRouter) e pagamentos (Stripe)
+
+```bash
+# a chave fica num arquivo fora do repositório e entra como secret do Docker (nunca no .env)
+OPENROUTER_KEY_PATH=~/.minuta/openrouter.key docker compose -f docker-compose.yml -f docker-compose.ai.yml up -d --build
+```
+
+- **IA**: a análise do documento usa Claude Haiku 5.5; "Preencher com IA" e "Revisar com IA" usam Gemini 2.5 Flash. Há teto por chamada e por mês e cota por plano. Detalhes e números da escolha em [docs/IA.md](docs/IA.md).
+- **Pagamentos**: são desligados por padrão (`BILLING_ENABLED=false`). O passo a passo para abrir a conta Stripe, criar os preços e o webhook está em [docs/PAGAMENTOS.md](docs/PAGAMENTOS.md). A tela do usuário é **Plano e uso** (`/assinatura`).
+- **Mídia da landing**: as imagens são cenas geradas com o app real composto na tela (`scripts/site_scenes.py`, `site_shots.cjs`, `site_compose.py`). O vídeo é gravado do app de verdade, em tempo real (`scripts/site_video.cjs` e `site_video_encode.py`).
 
 ## Rodar sem Docker (desenvolvimento)
 

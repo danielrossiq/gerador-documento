@@ -40,7 +40,7 @@ function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Entrar</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">Entrar</h1>
         <p className="mt-1 text-sm text-muted">Acesse seus modelos de documentos.</p>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}

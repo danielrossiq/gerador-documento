@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/app/providers";
 
@@ -9,9 +10,12 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
+// fonte de títulos e da marca em todo o produto (landing, entrada e app); o texto corrido segue na fonte do sistema
+const display = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--site-display", display: "swap" });
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={display.variable}>
       <body>
         <a href="#main" className="skip-link">
           Ir para o conteúdo
