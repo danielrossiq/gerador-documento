@@ -43,10 +43,18 @@ def _add_image(
 
 
 def _add_text(
-    doc: pdfium.PdfDocument, page: pdfium.PdfPage, text: str, x: float, y: float, *, invisible: bool
+    doc: pdfium.PdfDocument,
+    page: pdfium.PdfPage,
+    text: str,
+    x: float,
+    y: float,
+    *,
+    invisible: bool,
+    font_name: bytes = b"Helvetica",
+    size: float = 11.0,
 ) -> None:
-    font = pdfium_c.FPDFText_LoadStandardFont(doc.raw, b"Helvetica")
-    obj = pdfium_c.FPDFPageObj_CreateTextObj(doc.raw, font, 11.0)
+    font = pdfium_c.FPDFText_LoadStandardFont(doc.raw, font_name)
+    obj = pdfium_c.FPDFPageObj_CreateTextObj(doc.raw, font, size)
     raw = (text + "\0").encode("utf-16-le")
     buf = ctypes.create_string_buffer(raw, len(raw))
     pdfium_c.FPDFText_SetText(obj, ctypes.cast(buf, ctypes.POINTER(pdfium_c.FPDF_WCHAR)))
@@ -109,3 +117,60 @@ def encrypted_pdf() -> bytes:
     buf = io.BytesIO()
     writer.write(buf)
     return buf.getvalue()
+
+
+def _add_rect(
+    page: pdfium.PdfPage, x: float, y: float, w: float, h: float, rgb: tuple[int, int, int]
+) -> None:
+    obj = pdfium_c.FPDFPageObj_CreateNewRect(x, y, w, h)
+    pdfium_c.FPDFPageObj_SetFillColor(obj, *rgb, 255)
+    pdfium_c.FPDFPath_SetDrawMode(obj, pdfium_c.FPDF_FILLMODE_ALTERNATE, False)
+    pdfium_c.FPDFPage_InsertObject(page.raw, obj)
+
+
+DECLARATION = [
+    "Eu, ANA PAULA REZENDE LIMA, brasileira, solteira, inscrita",
+    "no CPF no 529.982.247-25, residente e domiciliada na Rua das",
+    "Acacias, 120, Centro, Vitoria/ES, venho por meio desta",
+    "RENUNCIAR ao valor de meu credito que exceder a 60",
+    "salarios-minimos, procedimento necessario para o devido",
+    "ajuizamento perante o Juizado Especial Federal.",
+]
+
+
+def ruled_declaration_pdf() -> bytes:
+    """Como o Word exporta uma declaração com fundo de parágrafo: um retângulo BRANCO sem borda atrás de cada
+    linha, trecho preenchido sublinhado (retângulos pretos finos), título e data centralizados e uma linha de
+    assinatura desenhada. Fonte monoespaçada (Courier, 12 pt: 7,2 pt por letra). Dados fictícios."""
+    doc = pdfium.PdfDocument.new()
+    page = doc.new_page(595, 842)
+    cw = 7.2  # largura de cada letra em Courier 12
+
+    def centered(text: str) -> float:
+        return 301 - len(text) * cw / 2
+
+    y0 = 690.0
+    for i in range(len(DECLARATION)):  # fundo branco das linhas (vem antes do texto)
+        _add_rect(page, 84, y0 - 4 - i * 16.2, 428, 16.2, (255, 255, 255))
+    title = "DECLARACAO DE RENUNCIA"
+    _add_text(doc, page, title, centered(title), 750, invisible=False, font_name=b"Courier-Bold", size=12)
+    for i, line in enumerate(DECLARATION):
+        _add_text(doc, page, line, 85, y0 - i * 16.2, invisible=False, font_name=b"Courier", size=12)
+    _add_rect(page, 85 + 4 * cw, y0 - 2.2, (len(DECLARATION[0]) - 4) * cw, 0.8, (0, 0, 0))  # sublinhado
+    _add_rect(page, 85, y0 - 16.2 - 2.2, len(DECLARATION[1]) * cw, 0.8, (0, 0, 0))
+    _add_rect(page, 85, y0 - 32.4 - 2.2, 33 * cw, 0.8, (0, 0, 0))
+    _add_text(
+        doc,
+        page,
+        "Por ser verdade firmo o presente.",
+        85,
+        570,
+        invisible=False,
+        font_name=b"Courier",
+        size=12,
+    )
+    date = "Vitoria/ES, 7 de julho de 2023"
+    _add_text(doc, page, date, centered(date), 540, invisible=False, font_name=b"Courier-Bold", size=12)
+    _add_rect(page, 84, 470, 428, 0.7, (0, 0, 0))  # linha de assinatura
+    page.gen_content()
+    return _save(doc)

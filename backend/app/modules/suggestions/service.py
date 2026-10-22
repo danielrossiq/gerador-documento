@@ -49,6 +49,7 @@ from app.modules.suggestions.rules import (
     adopt_semantic_names,
     describe_location,
     detect_rules,
+    infer_config,
     resolve_overlaps,
 )
 from app.modules.templates import core
@@ -156,7 +157,7 @@ def analyze_version(db: Session, version: TemplateVersion, *, force: bool) -> AI
                         continue
                     for m in re.finditer(re.escape(raw.text), blk.text):
                         hits.append(
-                            Hit(blk.key, m.start(), m.end(), raw.text, raw.name, raw.label, raw.type, raw.confidence, source, raw.reason or "", None)
+                            Hit(blk.key, m.start(), m.end(), raw.text, raw.name, raw.label, raw.type, raw.confidence, source, raw.reason or "", infer_config(raw.type, raw.text))
                         )
 
             try:

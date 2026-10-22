@@ -287,3 +287,9 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
   - O conversor ainda resolve a própria API na rede interna. É o mesmo acesso público que ela já tem: sem sessão, nada é liberado.
 - **Limites conhecidos**: sem gVisor/seccomp customizado (fica o perfil padrão do Docker). Para um host multi-inquilino, considerar `runtime: runsc`.
 - Testes: `test_pdfconv.py` (serviço e cliente por HTTP real, recusas com código, limite de tamanho, 503, serviço fora do ar, modo em produção, upload pelo serviço e validação da saída). Seguem valendo `test_pdf_import.py` e `test_pilot_safety.py`.
+- **Fidelidade (1º teste com PDF real de usuário, 22/10/2026)**: uma declaração exportada do Word saiu como tabela de 6 linhas com bordas, sem centralização, sem a linha de assinatura e em fonte com serifa. Causas e correções:
+  - o Word desenha um **retângulo branco sem borda** atrás de cada linha de parágrafo com fundo, e o detector de tabelas o contava como borda → as tabelas agora só usam bordas visíveis (`_visible`);
+  - **traço solto** (linha de assinatura, separador) era descartado → vira parágrafo vazio de 1 pt com borda inferior, na mesma posição e largura (`RuleItem`). Sublinhado de texto continua sublinhado;
+  - **fonte ausente no worker** (Consolas) caía em DejaVu Serif no PDF → `/etc/fonts/local.conf` com substitutas do mesmo tipo e vínculo forte (Consolas → Liberation Mono, Segoe UI → Liberation Sans, Georgia → Liberation Serif…). Com o vínculo fraco, o LibreOffice ignorava o apelido;
+  - **data por extenso** sugerida pela IA perdia o formato e saía "15/03/2027" → a sugestão escolhida herda a configuração da regra no mesmo trecho, e datas por extenso da IA nascem `date_format: long`.
+  - Teste com PDF fictício de mesma estrutura: `test_paragraph_background_is_not_a_table_and_signature_line_survives`. Antes da correção ele gerava 1 tabela.

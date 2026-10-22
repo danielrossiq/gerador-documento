@@ -45,6 +45,8 @@ RUN apt-get update \
       fonts-crosextra-caladea fonts-dejavu-core fontconfig \
  && rm -rf /var/lib/apt/lists/* \
  && fc-cache -f
+# fontes do Windows/Office ausentes → substitutas instaladas do mesmo tipo (ex.: Consolas → Liberation Mono)
+COPY docker/fonts-local.conf /etc/fonts/local.conf
 USER app
 ENV SOFFICE_PATH=soffice HOME=/home/app
 EXPOSE 9191

@@ -255,6 +255,19 @@ class ImageItem:
 
 
 @dataclass
+class RuleItem:
+    """Traço horizontal solto (linha de assinatura, separador): vira borda inferior de um parágrafo vazio."""
+
+    page: int
+    x0: float
+    x1: float
+    top: float
+    bottom: float
+    gap_before: float = 0.0
+    page_break: bool = False
+
+
+@dataclass
 class Cell:
     r0: int
     r1: int
@@ -378,10 +391,34 @@ def _baseline(ch: dict[str, Any], page_height: float) -> float:
     return page_height - m[5] if m else ch["bottom"]
 
 
+def _is_white(color: Any) -> bool:
+    if isinstance(color, (int, float)):  # cinza como número solto (1 = branco)
+        color = (color,)
+    if not isinstance(color, (tuple, list)) or not color:
+        return False
+    try:
+        vals = [float(v) for v in color]
+    except (TypeError, ValueError):
+        return False
+    if len(vals) == 4:  # CMYK: branco = sem tinta
+        return all(v <= 0.05 for v in vals)
+    return all(v >= 0.95 for v in vals)
+
+
+def _visible(obj: dict[str, Any]) -> bool:
+    """Retângulo que aparece na página. O Word desenha um retângulo BRANCO sem borda atrás de cada linha de um
+    parágrafo com fundo; contado como borda, ele transformava o parágrafo numa tabela (uma "linha" por linha)."""
+    if obj.get("object_type") != "rect":
+        return True
+    if obj.get("stroke") and not _is_white(obj.get("stroking_color")):
+        return True
+    return bool(obj.get("fill")) and not _is_white(obj.get("non_stroking_color"))
+
+
 def _thin_rules(page: Any) -> list[tuple[float, float, float]]:
-    """Traços horizontais finos (candidatos a sublinhado): (x0, x1, y)."""
+    """Traços horizontais finos e visíveis (sublinhado ou linha solta): (x0, x1, y)."""
     rules = []
-    for obj in list(page.lines) + list(page.rects):
+    for obj in list(page.lines) + [r for r in page.rects if _visible(r)]:
         if abs(obj["bottom"] - obj["top"]) <= 1.5 and obj["x1"] - obj["x0"] >= 2:
             rules.append((obj["x0"], obj["x1"], (obj["top"] + obj["bottom"]) / 2))
     return rules if len(rules) <= 500 else []
@@ -600,7 +637,7 @@ def _index(bounds: list[float], v: float) -> int:
 def _tables(page: Any) -> list[TableItem]:
     out = []
     area = page.width * page.height
-    for t in page.find_tables():
+    for t in page.filter(_visible).find_tables():  # só bordas que aparecem
         x0, top, x1, bottom = t.bbox
         cells = [c for c in t.cells if c]
         if not cells:
@@ -626,6 +663,38 @@ def _cell_at(table: TableItem, x: float, y: float) -> Cell | None:
         if table.cols[c.c0] <= x <= table.cols[c.c1] and table.rows[c.r0] <= y <= table.rows[c.r1]:
             return c
     return None
+
+
+def _standalone_rules(
+    rules: list[tuple[float, float, float]],
+    chars: list[dict[str, Any]],
+    tables: list[TableItem],
+    page_no: int,
+    page_height: float,
+    multi_page: bool,
+) -> list[RuleItem]:
+    """Traços que não sublinham texto nem são borda de tabela: linha de assinatura, separador.
+
+    Em documento de várias páginas, traços no cabeçalho/rodapé ficam de fora (costumam se repetir em toda página).
+    """
+    out: list[RuleItem] = []
+    texts = [ch for ch in chars if (ch.get("text") or "").strip()]
+    for x0, x1, y in rules:
+        if x1 - x0 < 40:
+            continue
+        if any(t.x0 - 2 <= x0 and x1 <= t.x1 + 2 and t.top - 2 <= y <= t.bottom + 2 for t in tables):
+            continue
+        if multi_page and not (page_height * HEADER_ZONE <= y <= page_height * FOOTER_ZONE):
+            continue
+        underline = any(  # mesma janela do sublinhado em `_line_from_chars`, um pouco mais folgada
+            ch["x1"] > x0
+            and ch["x0"] < x1
+            and (b := _baseline(ch, page_height)) - 1.5 <= y <= b + 0.35 * ch["size"] + 2
+            for ch in texts
+        )
+        if not underline and not any(abs(r.top - y) <= 1 and r.x0 <= x0 + 1 and x1 <= r.x1 + 1 for r in out):
+            out.append(RuleItem(page_no, x0, x1, y, y + 0.75))
+    return out
 
 
 def _images(ppage: Any, page_no: int, width: float, height: float, warnings: set[str]) -> list[ImageItem]:
@@ -758,6 +827,7 @@ def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
     all_lines: list[list[Line]] = []
     tables: list[list[TableItem]] = []
     images: list[list[ImageItem]] = []
+    rules: list[list[RuleItem]] = []
     unreadable = total_chars = rotated = curves = 0
     sizes = {(round(p.width), round(p.height)) for p in pages}
     for i, page in enumerate(pages):
@@ -773,7 +843,9 @@ def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
             owner = next((t for t in page_tables if t.x0 <= cx <= t.x1 and t.top <= cy <= t.bottom), None)
             (in_table if owner else free).append(ch)
         total_chars += len(page.chars)
-        lines, bad = _build_lines(free, i, page.height, _thin_rules(page))
+        page_rules = _thin_rules(page)
+        lines, bad = _build_lines(free, i, page.height, page_rules)
+        rules.append(_standalone_rules(page_rules, page.chars, page_tables, i, page.height, n > 1))
         unreadable += bad
         for t in page_tables:
             for c in t.cells:
@@ -818,7 +890,7 @@ def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
 
     metrics = _margins(all_lines, pages[0].width)
 
-    flow = _build_flow(all_lines, tables, images, pages, metrics, footer)
+    flow = _build_flow(all_lines, tables, images, pages, metrics, footer, rules)
     docx = _write_docx(flow, header, footer, pages, metrics, all_lines)
     stats = {
         "pages": n,
@@ -978,11 +1050,13 @@ def _build_flow(
     pages: list[Any],
     m: Metrics,
     footer: list[Line | ImageItem],
-) -> list[Para | TableItem | ImageItem]:
-    flow: list[Para | TableItem | ImageItem] = []
-    prev: Line | TableItem | ImageItem | None = None
-    page_items: list[list[Line | TableItem | ImageItem]] = [
-        [*all_lines[i], *tables[i], *images[i]] for i in range(len(pages))
+    rules: list[list[RuleItem]] | None = None,
+) -> list[Para | TableItem | ImageItem | RuleItem]:
+    rules = rules or [[] for _ in pages]
+    flow: list[Para | TableItem | ImageItem | RuleItem] = []
+    prev: Line | TableItem | ImageItem | RuleItem | None = None
+    page_items: list[list[Line | TableItem | ImageItem | RuleItem]] = [
+        [*all_lines[i], *tables[i], *images[i], *rules[i]] for i in range(len(pages))
     ]
     all_bottoms = [it.bottom for items in page_items for it in items]
     footer_top = min((f.top for f in footer), default=None)
@@ -996,8 +1070,8 @@ def _build_flow(
     )
 
     for i in range(len(pages)):
-        items: list[Line | TableItem | ImageItem] = sorted(
-            [*all_lines[i], *tables[i], *images[i]], key=lambda x: x.top
+        items: list[Line | TableItem | ImageItem | RuleItem] = sorted(
+            [*all_lines[i], *tables[i], *images[i], *rules[i]], key=lambda x: x.top
         )
         for j, it in enumerate(items):
             first_on_page = j == 0
@@ -1049,11 +1123,15 @@ def _build_flow(
     return flow
 
 
-def _size_of(it: Line | TableItem | ImageItem) -> float:
+def _size_of(it: Line | TableItem | ImageItem | RuleItem) -> float:
     return it.size if isinstance(it, Line) else 11.0
 
 
-def _gap(prev: Line | TableItem | ImageItem | None, it: Line | TableItem | ImageItem, m: Metrics) -> float:
+def _gap(
+    prev: Line | TableItem | ImageItem | RuleItem | None,
+    it: Line | TableItem | ImageItem | RuleItem,
+    m: Metrics,
+) -> float:
     if prev is None:
         return 0.0
     raw = it.top - prev.bottom
@@ -1120,7 +1198,7 @@ def _para_format(lines: list[Line], left: float, right: float, m: Metrics) -> di
 
 
 def _write_docx(
-    flow: list[Para | TableItem | ImageItem],
+    flow: list[Para | TableItem | ImageItem | RuleItem],
     header: list[Line | ImageItem],
     footer: list[Line | ImageItem],
     pages: list[Any],
@@ -1129,7 +1207,7 @@ def _write_docx(
 ) -> bytes:
     from docx import Document
     from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
-    from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+    from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_LINE_SPACING
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
     from docx.shared import Pt, RGBColor
@@ -1350,6 +1428,34 @@ def _write_docx(
             br_p.add_run().add_break(WD_BREAK.PAGE)
             table._tbl.addprevious(br_p._p)
 
+    def write_rule(r: RuleItem) -> None:
+        """Parágrafo vazio de 1 pt com borda inferior: a linha fica onde estava e aparece no Word e no PDF."""
+        p = doc.add_paragraph()
+        pf = p.paragraph_format
+        if r.x0 - m.left >= 2:
+            pf.left_indent = Pt(round(r.x0 - m.left, 1))
+        if m.right - r.x1 >= 2:
+            pf.right_indent = Pt(round(m.right - r.x1, 1))
+        if r.gap_before >= 2:
+            pf.space_before = Pt(round(r.gap_before))
+        if r.page_break:
+            pf.page_break_before = True
+        pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+        pf.line_spacing = Pt(1)
+        bdr = OxmlElement("w:pBdr")
+        bottom = OxmlElement("w:bottom")
+        for k, v in (("w:val", "single"), ("w:sz", "6"), ("w:space", "0"), ("w:color", "auto")):
+            bottom.set(qn(k), v)
+        bdr.append(bottom)
+        # ordem do esquema: pBdr vem antes de shd/tabs/spacing/ind/jc (Word recusa fora de ordem)
+        p._p.get_or_add_pPr().insert_element_before(
+            bdr, "w:shd", "w:tabs", "w:suppressAutoHyphens", "w:kinsoku", "w:wordWrap", "w:overflowPunct",
+            "w:topLinePunct", "w:autoSpaceDE", "w:autoSpaceDN", "w:bidi", "w:adjustRightInd", "w:snapToGrid",
+            "w:spacing", "w:ind", "w:contextualSpacing", "w:mirrorIndents", "w:suppressOverlap", "w:jc",
+            "w:textDirection", "w:textAlignment", "w:textboxTightWrap", "w:outlineLvl", "w:divId", "w:cnfStyle",
+            "w:rPr", "w:sectPr", "w:pPrChange",
+        )  # fmt: skip
+
     last_was_table = False
     for it in flow:
         if isinstance(it, Para):
@@ -1360,6 +1466,9 @@ def _write_docx(
                 doc.add_paragraph()  # duas tabelas seguidas no Word se fundem: separa com parágrafo vazio
             write_table(it)
             last_was_table = True
+        elif isinstance(it, RuleItem):
+            write_rule(it)
+            last_was_table = False
         else:
             write_image(doc, it, m.left, m.right)
             last_was_table = False

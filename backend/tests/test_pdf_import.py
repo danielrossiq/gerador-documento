@@ -156,3 +156,20 @@ def test_upload_scanned_pdf_is_refused_and_audited(api):
     assert r.status_code == 422 and r.json()["error"]["code"] == "PDF_SCANNED"
     assert api.get(f"/generators/{gid}").json()["has_template"] is False
     assert upload(api, gid, b"nao sou pdf", "contrato.pdf").json()["error"]["code"] == "NOT_A_PDF"
+
+
+def test_paragraph_background_is_not_a_table_and_signature_line_survives():
+    """Fundo branco atrás das linhas (Word) não vira tabela; título/data centralizados, sublinhado do trecho
+    preenchido e a linha de assinatura desenhada são mantidos (teste real com PDF de usuário, 22/10/2026)."""
+    import zipfile
+
+    conv = pdf_to_docx(pdf_samples.ruled_declaration_pdf())
+    assert conv.stats["tables"] == 0
+    xml = zipfile.ZipFile(io.BytesIO(conv.docx)).read("word/document.xml").decode()
+    assert xml.count("<w:tbl>") == 0
+    assert (
+        xml.count("<w:pBdr>") == 1
+    )  # só a linha de assinatura; os sublinhados continuam sublinhado de texto
+    assert xml.count('w:val="center"') >= 2  # título e data
+    assert "<w:u " in xml
+    assert "Courier" in zipfile.ZipFile(io.BytesIO(conv.docx)).read("word/styles.xml").decode()

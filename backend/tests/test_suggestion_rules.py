@@ -196,15 +196,71 @@ def test_local_provider_does_not_relabel_a_name_that_only_appears_once():
 
 def test_rule_keeps_type_but_takes_the_ai_name_for_the_same_span():
     rule_date = Hit("body/p5", 10, 20, "01/10/2026", "data", "Data", "date", 0.97, "rule", "data")
-    ai_date = Hit("body/p5", 10, 20, "01/10/2026", "data_inicio", "Data de início", "date", 0.9, "ai", "início da vigência")
-    rule_cpf = Hit("body/p2", 0, 14, "123.456.789-09", "cpf_contratante", "CPF — Contratante", "cpf", 0.99, "rule", "cpf")
+    ai_date = Hit(
+        "body/p5",
+        10,
+        20,
+        "01/10/2026",
+        "data_inicio",
+        "Data de início",
+        "date",
+        0.9,
+        "ai",
+        "início da vigência",
+    )
+    rule_cpf = Hit(
+        "body/p2", 0, 14, "123.456.789-09", "cpf_contratante", "CPF — Contratante", "cpf", 0.99, "rule", "cpf"
+    )
     ai_cpf = Hit("body/p2", 0, 14, "123.456.789-09", "cpf_do_cliente", "CPF do cliente", "cpf", 0.9, "ai", "")
     rule_val = Hit("body/p6", 0, 11, "R$ 5.000,00", "valor", "Valor", "currency", 0.96, "rule", "")
-    ai_text = Hit("body/p6", 0, 11, "R$ 5.000,00", "valor_mensal", "Valor mensal", "text_short", 0.9, "ai", "")
+    ai_text = Hit(
+        "body/p6", 0, 11, "R$ 5.000,00", "valor_mensal", "Valor mensal", "text_short", 0.9, "ai", ""
+    )
     hits = [rule_date, ai_date, rule_cpf, ai_cpf, rule_val, ai_text]
     chosen = adopt_semantic_names(resolve_overlaps(hits), hits)
     by_text = {h.text: h for h in chosen}
-    assert (by_text["01/10/2026"].name, by_text["01/10/2026"].type, by_text["01/10/2026"].source) == ("data_inicio", "date", "rule")
+    assert (by_text["01/10/2026"].name, by_text["01/10/2026"].type, by_text["01/10/2026"].source) == (
+        "data_inicio",
+        "date",
+        "rule",
+    )
     assert by_text["01/10/2026"].label == "Data de início"
     assert by_text["123.456.789-09"].name == "cpf_contratante"  # a regra já tinha o papel: fica a dela
     assert by_text["R$ 5.000,00"].name == "valor"  # tipos diferentes: não mistura
+
+
+def test_ai_winner_keeps_the_rule_format_and_ai_dates_by_extenso_are_long():
+    from app.modules.suggestions.rules import infer_config
+
+    rule = Hit(
+        "body/p9",
+        0,
+        18,
+        "7 de julho de 2023",
+        "data",
+        "Data",
+        "date",
+        0.9,
+        "rule",
+        "",
+        {"date_format": "long"},
+    )
+    ai = Hit(
+        "body/p9",
+        0,
+        18,
+        "7 de julho de 2023",
+        "data_assinatura",
+        "Data de assinatura",
+        "date",
+        0.95,
+        "ai",
+        "",
+    )
+    [chosen] = adopt_semantic_names(resolve_overlaps([rule, ai]), [rule, ai])
+    assert (chosen.source, chosen.name, chosen.config) == ("ai", "data_assinatura", {"date_format": "long"})
+    assert infer_config("date", "Vitória, 7 de julho de 2023") == {"date_format": "long"}
+    assert (
+        infer_config("date", "07/07/2023") is None
+        and infer_config("text_short", "7 de julho de 2023") is None
+    )

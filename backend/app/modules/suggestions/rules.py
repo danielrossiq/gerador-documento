@@ -250,18 +250,33 @@ def resolve_overlaps(hits: list[Hit]) -> list[Hit]:
 
 
 def adopt_semantic_names(chosen: list[Hit], all_hits: list[Hit]) -> list[Hit]:
-    """A regra ganha a sobreposição (tipo e formato validados), mas às vezes só sabe o nome genérico ("data",
-    "valor"). Se a IA marcou exatamente o mesmo trecho com o mesmo tipo e um nome com papel ("data_inicio",
-    "valor_mensal"), fica o nome/rótulo da IA — evita "Data 1"/"Data 2" quando a IA já disse qual é qual."""
-    ai = {(h.block_key, h.start, h.end, h.type): h for h in all_hits if h.source == "ai" and "_" in h.name}
+    """Regra e IA no MESMO trecho com o MESMO tipo: junta o melhor de cada uma.
+
+    * a regra só sabe o nome genérico ("data", "valor") → fica o nome/rótulo da IA ("data_inicio", "valor_mensal"),
+      o que evita "Data 1"/"Data 2" quando a IA já disse qual é qual;
+    * a IA não sabe o formato do texto (ex.: data por extenso) → fica a configuração da regra, para o documento
+      gerado sair no mesmo formato do original.
+    """
+    key = lambda h: (h.block_key, h.start, h.end, h.type)  # noqa: E731
+    ai = {key(h): h for h in all_hits if h.source == "ai" and "_" in h.name}
+    rule = {key(h): h for h in all_hits if h.source == "rule"}
     for h in chosen:
-        if h.source != "rule" or "_" in h.name:
-            continue
-        twin = ai.get((h.block_key, h.start, h.end, h.type))
-        if twin:
+        if h.source == "rule" and "_" not in h.name and (twin := ai.get(key(h))):
             h.name, h.label = twin.name, twin.label
             h.reason = f"{h.reason} · nome sugerido pela IA" if h.reason else "nome sugerido pela IA"
+        elif h.source == "ai" and not h.config and (twin := rule.get(key(h))) and twin.config:
+            h.config = dict(twin.config)
     return chosen
+
+
+_LONG_DATE = re.compile(rf"\b\d{{1,2}}\s+de\s+(?:{_MONTH_RE})\s+de\s+\d{{4}}\b", re.I)
+
+
+def infer_config(type_: str, text: str) -> dict[str, Any] | None:
+    """Configuração que o próprio texto do documento indica (para sugestões que não vêm das regras)."""
+    if type_ == "date" and _LONG_DATE.search(text):
+        return {"date_format": "long"}
+    return None
 
 
 def describe_location(key: str) -> str:
