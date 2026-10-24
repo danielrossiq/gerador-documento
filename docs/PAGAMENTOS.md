@@ -4,6 +4,26 @@ O código de cobrança já está pronto e testado (D34). Falta só a conta na St
 Enquanto `BILLING_ENABLED=false`, ninguém é cobrado e todos usam os limites padrão. A tela **Plano e uso**
 (`/assinatura`) mostra "período de lançamento".
 
+## Situação (24/10/2026)
+
+**Modo teste configurado e testado de ponta a ponta.** A conta Stripe está criada, na área restrita "MINUTA". Os produtos, os 4 preços e o portal do cliente foram criados por `scripts/stripe_setup.py`. No teste, um checkout com o cartão `4242` voltou ao app com o plano Profissional ativo na hora, mostrou "Renova em 24/11/2026" e o portal abriu com a fatura paga.
+
+- A chave de teste fica em `~/.minuta/stripe-test.key`, legível só pelo usuário, e entra no stack como secret:
+
+  ```bash
+  STRIPE_KEY_PATH=~/.minuta/stripe-test.key STRIPE_WEBHOOK_SECRET_PATH=~/.minuta/stripe-webhook.secret     docker compose -f docker-compose.yml -f docker-compose.ai.yml -f docker-compose.billing.yml up -d
+  ```
+
+- **Sem webhook no `localhost`:** a volta do checkout chama `/billing/sync`, que consulta a sessão direto na Stripe com a nossa chave e ativa o plano. Renovação, cancelamento pelo portal e falha de pagamento precisam do webhook real, que só existe em produção (passo 5). O segredo em `~/.minuta/stripe-webhook.secret` é provisório e só serve localmente.
+- **Para produção:**
+  1. Ativar a conta (dados e banco).
+  2. Gerar uma chave restrita `rk_live_…`.
+  3. Rodar `python scripts/stripe_setup.py --key-file CAMINHO --live --site https://SEU_DOMINIO`.
+  4. Criar o webhook (passo 5) e gravar o `whsec_…` no arquivo do secret.
+
+  Os passos 3 a 6 abaixo explicam o que o script faz, caso prefira fazer pelo painel.
+- **Pix:** quando a Stripe liberar, crie no painel uma configuração de formas de pagamento só com Pix e coloque o `pmc_…` em `STRIPE_PIX_PAYMENT_METHOD_CONFIGURATION`. Assim, o botão "Pagar com Pix" não oferece cartão.
+
 ## Por que Stripe
 
 - O realoficial.com.br usa **Stripe** para cartão. O próprio app deles tem os textos "Acessar Portal Stripe" e
