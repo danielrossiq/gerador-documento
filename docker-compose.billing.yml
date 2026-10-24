@@ -1,0 +1,22 @@
+# Liga a cobrança (Stripe) no stack. As chaves entram como "secrets" (arquivos montados em /run/secrets), nunca
+# como variáveis de ambiente nem no .env; os IDs de preço/portal (não secretos) vêm do .env (scripts/stripe_setup.py).
+# Uso (teste local):
+#   STRIPE_KEY_PATH=~/.minuta/stripe-test.key STRIPE_WEBHOOK_SECRET_PATH=~/.minuta/stripe-webhook.secret \
+#     docker compose -f docker-compose.yml -f docker-compose.billing.yml up -d
+# Sem webhook alcançável (localhost), a volta do Checkout confirma o pagamento direto na Stripe (/billing/sync);
+# renovações, cancelamentos e falhas precisam do webhook real (produção: docs/PAGAMENTOS.md).
+x-billing: &billing
+  BILLING_ENABLED: "true"
+  STRIPE_SECRET_KEY_FILE: /run/secrets/stripe_secret_key
+  STRIPE_WEBHOOK_SECRET_FILE: /run/secrets/stripe_webhook_secret
+
+services:
+  api:
+    environment: *billing
+    secrets: [stripe_secret_key, stripe_webhook_secret]
+
+secrets:
+  stripe_secret_key:
+    file: ${STRIPE_KEY_PATH:?defina STRIPE_KEY_PATH com o caminho do arquivo da chave secreta da Stripe}
+  stripe_webhook_secret:
+    file: ${STRIPE_WEBHOOK_SECRET_PATH:?defina STRIPE_WEBHOOK_SECRET_PATH com o caminho do arquivo do segredo do webhook (whsec_…)}

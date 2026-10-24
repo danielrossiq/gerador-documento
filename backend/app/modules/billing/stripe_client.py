@@ -11,6 +11,7 @@ import hmac
 import json
 import time
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
@@ -53,13 +54,22 @@ class StripeClient:
         self.timeout = timeout
 
     def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
+        # corpo já codificado: o httpx não aceita lista de pares em data= (e a Stripe usa chaves repetidas/aninhadas)
+        form = urlencode(_flatten(data))
+        return self._request("POST", path, content=form, extra_headers={"Content-Type": "application/x-www-form-urlencoded"})
+
+    def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._request("GET", path, params=_flatten(params or {}))
+
+    def _request(self, method: str, path: str, extra_headers: dict[str, str] | None = None, **kw: Any) -> dict[str, Any]:
         client = self._client or httpx.Client(timeout=self.timeout)
         try:
-            resp = client.post(
+            resp = client.request(
+                method,
                 f"{API}/{path}",
-                data=_flatten(data),
-                headers={"Authorization": f"Bearer {self.secret_key}"},  # versão da API = a padrão da conta
+                headers={"Authorization": f"Bearer {self.secret_key}", **(extra_headers or {})},  # versão da API = a padrão da conta
                 timeout=self.timeout,
+                **kw,
             )
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise StripeError("BILLING_UNAVAILABLE", "Não foi possível falar com o processador de pagamentos.") from exc
@@ -75,8 +85,15 @@ class StripeClient:
     def checkout_session(self, data: dict[str, Any]) -> dict[str, Any]:
         return self._post("checkout/sessions", data)
 
-    def portal_session(self, customer: str, return_url: str) -> dict[str, Any]:
-        return self._post("billing_portal/sessions", {"customer": customer, "return_url": return_url})
+    def portal_session(self, customer: str, return_url: str, configuration: str | None = None) -> dict[str, Any]:
+        data = {"customer": customer, "return_url": return_url, "configuration": configuration}
+        return self._post("billing_portal/sessions", data)
+
+    def retrieve_checkout_session(self, session_id: str) -> dict[str, Any]:
+        return self._get(f"checkout/sessions/{session_id}")
+
+    def retrieve_subscription(self, subscription_id: str) -> dict[str, Any]:
+        return self._get(f"subscriptions/{subscription_id}")
 
 
 def verify_webhook(payload: bytes, header: str | None, secret: str, now: float | None = None) -> dict[str, Any]:

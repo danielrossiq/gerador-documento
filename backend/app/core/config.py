@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
@@ -20,6 +21,18 @@ DEFAULT_LIMITS: dict[str, int] = {
     # ações com IA externa por mês (marcar campos, preencher por texto, revisar). Com cobrança ligada vem do plano.
     "max_ai_actions_per_month": 200,
 }
+
+
+def _secret(value: str | None, path: str | None) -> str | None:
+    """Segredo pela variável ou pelo arquivo (secret do Docker). Arquivo ilegível/vazio = não configurado."""
+    if value:
+        return value
+    if path:
+        try:
+            return Path(path).read_text(encoding="utf-8").strip() or None
+        except OSError:
+            return None
+    return None
 
 
 class Settings(BaseSettings):
@@ -112,6 +125,13 @@ class Settings(BaseSettings):
     billing_enabled: bool = False
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
+    # alternativa às variáveis acima: arquivo com o segredo (secret do Docker em /run/secrets; docker-compose.billing.yml)
+    stripe_secret_key_file: str | None = None
+    stripe_webhook_secret_file: str | None = None
+    # configuração do portal do cliente criada por scripts/stripe_setup.py (bpc_…); vazio = a padrão da conta
+    stripe_portal_configuration: str | None = None
+    # configuração de formas de pagamento só com Pix (pmc_…), para o checkout "Pagar com Pix"; vazio = as do painel
+    stripe_pix_payment_method_configuration: str | None = None
     stripe_price_profissional_mensal: str | None = None
     stripe_price_profissional_anual: str | None = None
     stripe_price_escritorio_mensal: str | None = None
@@ -146,6 +166,14 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def stripe_api_key(self) -> str | None:
+        return _secret(self.stripe_secret_key, self.stripe_secret_key_file)
+
+    @property
+    def stripe_webhook_signing_secret(self) -> str | None:
+        return _secret(self.stripe_webhook_secret, self.stripe_webhook_secret_file)
 
     @property
     def pdf_import_mode(self) -> Literal["service", "process", "off"]:

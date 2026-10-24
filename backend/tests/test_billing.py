@@ -154,7 +154,8 @@ def test_checkout_builds_stripe_sessions_for_card_and_pix(api, billing_on, monke
 
     api.post("/billing/checkout", json={"plan": "escritorio", "cycle": "mensal", "method": "pix"})
     _, pix = calls[-1]
-    assert pix["mode"] == "payment" and pix["payment_method_types"] == ["pix"]
+    assert pix["mode"] == "payment" and pix["payment_method_options"]["pix"]["expires_after_seconds"] == 3600
+    assert "payment_method_types" not in data and "payment_method_types" not in pix  # a Stripe recusa esse parâmetro hoje
     assert pix["line_items"][0]["price_data"]["unit_amount"] == 9990
 
 
@@ -162,3 +163,111 @@ def test_checkout_unavailable_without_configuration(api):
     api.register()
     r = api.post("/billing/checkout", json={"plan": "profissional", "cycle": "mensal", "method": "card"})
     assert r.status_code == 409 and r.json()["error"]["code"] == "BILLING_NOT_CONFIGURED"
+
+
+def _fake_stripe_get(objects: dict[str, dict]):  # type: ignore[no-untyped-def]
+    def fake_get(self, path, params=None):  # type: ignore[no-untyped-def]
+        return objects[path]
+
+    return fake_get
+
+
+def test_return_from_checkout_confirms_the_plan_without_waiting_for_the_webhook(
+    api, billing_on, monkeypatch: pytest.MonkeyPatch
+):
+    api.register()
+    ws = _workspace_id(api)
+    end = int(time.time()) + 365 * 86400
+    objects = {
+        "checkout/sessions/cs_test_ok": {
+            "id": "cs_test_ok",
+            "status": "complete",
+            "mode": "subscription",
+            "client_reference_id": ws,
+            "customer": "cus_s",
+            "subscription": "sub_s",
+            "metadata": {"workspace_id": ws, "plan": "profissional", "cycle": "anual", "method": "card"},
+        },
+        "subscriptions/sub_s": {
+            "id": "sub_s",
+            "customer": "cus_s",
+            "status": "active",
+            "items": {"data": [{"price": {"id": "price_pro_a"}, "current_period_end": end}]},
+        },
+    }
+    monkeypatch.setattr("app.modules.billing.stripe_client.StripeClient._get", _fake_stripe_get(objects))
+    out = api.post("/billing/sync", json={"session_id": "cs_test_ok"}).json()
+    assert out["sync"] == "confirmado" and out["plan"] == "profissional"
+    assert out["subscription"]["cycle"] == "anual" and out["subscription"]["current_period_end"]
+    again = api.post("/billing/sync", json={"session_id": "cs_test_ok"}).json()  # a tela pode chamar de novo
+    assert again["plan"] == "profissional"
+
+
+def test_sync_refuses_a_session_from_another_workspace_and_waits_for_unpaid(
+    api, billing_on, monkeypatch: pytest.MonkeyPatch
+):
+    api.register()
+    ws = _workspace_id(api)
+    objects = {
+        "checkout/sessions/cs_test_other": {
+            "id": "cs_test_other",
+            "status": "complete",
+            "mode": "subscription",
+            "client_reference_id": str(uuid.uuid4()),
+        },
+        "checkout/sessions/cs_test_open": {
+            "id": "cs_test_open",
+            "status": "open",
+            "mode": "subscription",
+            "client_reference_id": ws,
+        },
+    }
+    monkeypatch.setattr("app.modules.billing.stripe_client.StripeClient._get", _fake_stripe_get(objects))
+    other = api.post("/billing/sync", json={"session_id": "cs_test_other"})
+    assert other.status_code == 422 and other.json()["error"]["code"] == "BILLING_INVALID_SESSION"
+    assert api.post("/billing/sync", json={"session_id": "nao_e_sessao"}).status_code == 422
+    pending = api.post("/billing/sync", json={"session_id": "cs_test_open"}).json()
+    assert pending["sync"] == "pendente" and pending["plan"] == "gratis"
+
+
+def test_stripe_secrets_can_come_from_files(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    key, whsec = tmp_path / "stripe.key", tmp_path / "whsec"
+    key.write_text("sk_test_arquivo\n", encoding="utf-8")
+    whsec.write_text("whsec_arquivo", encoding="utf-8")
+    monkeypatch.setenv("BILLING_ENABLED", "true")
+    monkeypatch.delenv("STRIPE_SECRET_KEY", raising=False)
+    monkeypatch.setenv("STRIPE_SECRET_KEY_FILE", str(key))
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET_FILE", str(whsec))
+    for k, v in PRICES.items():
+        monkeypatch.setenv(k, v)
+    reset_settings_cache()
+    try:
+        from app.core.config import get_settings
+
+        s = get_settings()
+        assert s.stripe_api_key == "sk_test_arquivo" and s.stripe_webhook_signing_secret == "whsec_arquivo"
+        assert billing.checkout_methods()["card"] is True
+    finally:
+        reset_settings_cache()
+
+
+def test_stripe_client_sends_form_encoded_body_over_real_http():
+    """Sem simular _post: o corpo vai codificado como a Stripe espera (chaves aninhadas), com a chave só no cabeçalho."""
+    import httpx
+
+    from app.modules.billing.stripe_client import StripeClient
+
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"url": "https://checkout.stripe.com/c/pay/cs_test_x"})
+
+    client = StripeClient("sk_test_x", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    out = client.checkout_session({"mode": "subscription", "line_items": [{"price": "price_1", "quantity": 1}], "metadata": {"plan": "profissional"}})
+    assert out["url"].startswith("https://checkout.stripe.com/")
+    req = seen[0]
+    body = req.content.decode()
+    assert req.headers["content-type"] == "application/x-www-form-urlencoded"
+    assert "line_items%5B0%5D%5Bprice%5D=price_1" in body and "metadata%5Bplan%5D=profissional" in body
+    assert req.headers["authorization"] == "Bearer sk_test_x" and "sk_test_x" not in body

@@ -43,6 +43,15 @@ def checkout(body: CheckoutIn, ctx: Ctx = Depends(get_ctx)) -> dict[str, str]:
     return {"url": service.create_checkout(ctx, body.plan, body.cycle, body.method)}
 
 
+class SyncIn(BaseModel):
+    session_id: str
+
+
+@router.post("/sync")
+def sync(body: SyncIn, ctx: Ctx = Depends(get_ctx)) -> dict[str, Any]:
+    return service.sync_checkout(ctx, body.session_id)
+
+
 @router.post("/portal")
 def portal(ctx: Ctx = Depends(get_ctx)) -> dict[str, str]:
     return {"url": service.create_portal(ctx)}
@@ -52,7 +61,7 @@ def portal(ctx: Ctx = Depends(get_ctx)) -> dict[str, str]:
 async def webhook(
     request: Request, stripe_signature: str | None = Header(default=None), db: Session = Depends(get_db)
 ) -> dict[str, str]:
-    secret = get_settings().stripe_webhook_secret
+    secret = get_settings().stripe_webhook_signing_secret
     if not secret:
         raise ValidationFailed("Webhook de pagamentos não configurado.", code="BILLING_NOT_CONFIGURED")
     payload = await request.body()

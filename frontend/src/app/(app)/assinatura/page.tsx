@@ -56,10 +56,12 @@ function Billing() {
   const [cycle, setCycle] = useState<Cycle>(params.get("ciclo") === "mensal" ? "mensal" : "anual");
   const wanted = params.get("plano");
   const [going, setGoing] = useState<string | null>(null);
+  const sessionId = status === "sucesso" ? params.get("session_id") : null;
   const q = useQuery({
-    queryKey: ["billing"],
-    queryFn: () => api.get<BillingOut>("/billing"),
-    // voltando do pagamento: a confirmação chega pelo webhook em alguns segundos; atualiza até o plano mudar
+    queryKey: ["billing", sessionId],
+    // voltando do Checkout: o servidor confirma a sessão direto na Stripe (na hora); sem session_id, vale o webhook
+    queryFn: () => (sessionId ? api.post<BillingOut>("/billing/sync", { session_id: sessionId }) : api.get<BillingOut>("/billing")),
+    // Pix pago depois ou webhook atrasado: atualiza até o plano mudar
     refetchInterval: (query) => (status === "sucesso" && query.state.data?.plan === "gratis" && query.state.dataUpdateCount < 20 ? 3000 : false),
   });
   const owner = me.data?.workspace.role === "owner";

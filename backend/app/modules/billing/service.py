@@ -51,15 +51,15 @@ def price_ids() -> dict[tuple[str, str], str]:
 
 def checkout_methods() -> dict[str, bool]:
     s = get_settings()
-    configured = bool(s.billing_enabled and s.stripe_secret_key)
+    configured = bool(s.billing_enabled and s.stripe_api_key)
     return {"card": configured and len(price_ids()) == 4, "pix": configured and s.billing_pix_enabled}
 
 
 def _client() -> StripeClient:
-    s = get_settings()
-    if not s.stripe_secret_key:
+    key = get_settings().stripe_api_key
+    if not key:
         raise Conflict("Pagamentos ainda não configurados neste ambiente.", code="BILLING_NOT_CONFIGURED")
-    return StripeClient(s.stripe_secret_key)
+    return StripeClient(key)
 
 
 # ------------------------------------------------------------------ plano efetivo e uso
@@ -166,7 +166,8 @@ def create_checkout(ctx: Ctx, plan_id: str, cycle: str, method: str) -> str:
     base = s.public_web_url.rstrip("/")
     meta = {"workspace_id": str(ctx.workspace_id), "plan": plan_id, "cycle": cycle, "method": method}
     data: dict[str, Any] = {
-        "success_url": f"{base}/assinatura?status=sucesso",
+        # a volta traz o id da sessão: a tela confirma na hora (sync_checkout), sem depender só do webhook
+        "success_url": f"{base}/assinatura?status=sucesso&session_id={{CHECKOUT_SESSION_ID}}",
         "cancel_url": f"{base}/assinatura?status=cancelado",
         "client_reference_id": str(ctx.workspace_id),
         "locale": "pt-BR",
@@ -182,7 +183,6 @@ def create_checkout(ctx: Ctx, plan_id: str, cycle: str, method: str) -> str:
             raise Conflict("Você já tem uma assinatura no cartão. Troque de plano em “Gerenciar assinatura”.", code="BILLING_HAS_SUBSCRIPTION")
         data |= {
             "mode": "subscription",
-            "payment_method_types": ["card"],
             "line_items": [{"price": price_ids()[(plan_id, cycle)], "quantity": 1}],
             "subscription_data": {"metadata": meta},
             "allow_promotion_codes": True,
@@ -192,7 +192,10 @@ def create_checkout(ctx: Ctx, plan_id: str, cycle: str, method: str) -> str:
             data["customer_creation"] = "always"
         data |= {
             "mode": "payment",
-            "payment_method_types": ["pix"],
+            # a Stripe não aceita mais payment_method_types no Checkout: as formas vêm do painel. Assinatura no
+            # Brasil só aceita cartão; no avulso, uma configuração só com Pix (STRIPE_PIX_PAYMENT_METHOD_CONFIGURATION)
+            # evita que o fluxo "Pix" ofereça cartão.
+            "payment_method_configuration": get_settings().stripe_pix_payment_method_configuration,
             "payment_method_options": {"pix": {"expires_after_seconds": 3600}},
             "line_items": [
                 {
@@ -222,10 +225,40 @@ def create_portal(ctx: Ctx) -> str:
     if not sub or not sub.stripe_customer_id:
         raise Conflict("Não há assinatura no cartão para gerenciar.", code="BILLING_NO_SUBSCRIPTION")
     try:
-        session = _client().portal_session(sub.stripe_customer_id, f"{get_settings().public_web_url.rstrip('/')}/assinatura")
+        s = get_settings()
+        return_url = f"{s.public_web_url.rstrip('/')}/assinatura"
+        session = _client().portal_session(sub.stripe_customer_id, return_url, s.stripe_portal_configuration)
     except StripeError as exc:
         raise Conflict(str(exc), code=exc.code) from exc
     return str(session["url"])
+
+
+def sync_checkout(ctx: Ctx, session_id: str) -> dict[str, Any]:
+    """Volta do Checkout: busca a sessão na API da Stripe (com a nossa chave; não confia no navegador) e aplica o
+    mesmo tratamento do webhook. Idempotente (ids de evento fixos por sessão). O webhook continua valendo para
+    renovações, cancelamentos e falhas de pagamento."""
+    if not session_id.startswith("cs_") or len(session_id) > 255:
+        raise ValidationFailed("Sessão de pagamento inválida.", code="BILLING_INVALID_SESSION")
+    client = _client()
+    try:
+        session = client.retrieve_checkout_session(session_id)
+    except StripeError as exc:
+        raise Conflict(str(exc), code=exc.code) from exc
+    if _workspace_from(session) != ctx.workspace_id:
+        raise ValidationFailed("Sessão de pagamento inválida.", code="BILLING_INVALID_SESSION")
+    if session.get("status") != "complete":
+        return {"sync": "pendente", **subscription_out(ctx)}
+    event = {"id": f"sync_{session_id}", "type": "checkout.session.completed", "data": {"object": session}}
+    handle_event(ctx.db, event)
+    if session.get("mode") == "subscription" and session.get("subscription"):
+        try:
+            sub_obj = client.retrieve_subscription(str(session["subscription"]))
+        except StripeError:
+            sub_obj = None  # o plano já foi ativado acima; o fim do período chega pelo webhook
+        if sub_obj:
+            sub_event = {"id": f"sync_{session_id}_sub", "type": "customer.subscription.updated", "data": {"object": sub_obj}}
+            handle_event(ctx.db, sub_event)
+    return {"sync": "confirmado", **subscription_out(ctx)}
 
 
 # ------------------------------------------------------------------ webhook
