@@ -73,7 +73,7 @@ def test_long_document_with_lists_page_numbers_and_table_across_pages():
     justified = [
         b for k, b in blocks.items() if k.startswith("body/p") and (b.attrs or {}).get("align") == "justify"
     ]  # type: ignore[attr-defined]
-    assert len(justified) == 6
+    assert len(justified) == 7  # 6 cláusulas + o item b) de 2 linhas rente à margem (documento justificado)
     xml = zf.read("word/document.xml").decode()
     assert "<w:u " in xml  # "R$ 2.350,00" sublinhado no original
     assert '<w:tab w:pos="' in xml  # assinaturas em colunas: paradas de tabulação nas posições do PDF
@@ -106,7 +106,9 @@ def test_mixed_pdf_names_the_scanned_page():
 def test_typed_text_over_letterhead_background_is_accepted():
     conv = pdf_to_docx(pdf_samples.letterhead_pdf())
     assert "CONTRATO DE PRESTACAO DE SERVICOS" in " ".join(b.text for b in parse_docx(conv.docx).blocks)
-    assert any("papel timbrado" in w for w in conv.warnings)
+    # o papel timbrado (imagem de página inteira) agora vem junto, como fundo atrás do texto
+    xml = zipfile.ZipFile(io.BytesIO(conv.docx)).read("word/document.xml").decode()
+    assert 'behindDoc="1"' in xml
 
 
 def test_page_limit():

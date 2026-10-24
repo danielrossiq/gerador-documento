@@ -37,6 +37,7 @@ import math
 import multiprocessing
 import os
 import re
+import statistics
 import sys
 import threading
 from collections import Counter
@@ -44,6 +45,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.logging import get_logger
+from app.docx_engine import fontmetrics
 from app.docx_engine.safety import DocxRejected
 
 log = get_logger(__name__)
@@ -78,7 +80,7 @@ class PdfConversion:
 
 
 def convert_pdf(
-    data: bytes, *, max_bytes: int, max_pages: int = PDF_MAX_PAGES, isolated: bool = True
+    data: bytes, *, max_bytes: int, max_pages: int = PDF_MAX_PAGES, isolated: bool = True, mode: str = "auto"
 ) -> PdfConversion:
     """Valida e converte um PDF digitado. Recusas viram `DocxRejected(code, message)` (mesmo contrato do .docx)."""
     if not data:
@@ -88,8 +90,8 @@ def convert_pdf(
     if not looks_like_pdf(data):
         raise DocxRejected("NOT_A_PDF", "O arquivo não é um PDF válido.")
     if not isolated:
-        return pdf_to_docx(data, max_pages=max_pages)
-    return _run_isolated(data, max_pages)
+        return pdf_to_docx(data, max_pages=max_pages, mode=mode)
+    return _run_isolated(data, max_pages, mode=mode)
 
 
 def convert_pdf_remote(
@@ -151,11 +153,13 @@ def looks_like_pdf(data: bytes) -> bool:
     return b"%PDF-" in data[:1024]
 
 
-def _run_isolated(data: bytes, max_pages: int, timeout: int = PDF_TIMEOUT_S) -> PdfConversion:
+def _run_isolated(
+    data: bytes, max_pages: int, timeout: int = PDF_TIMEOUT_S, mode: str = "auto"
+) -> PdfConversion:
     mp = multiprocessing.get_context("spawn")
     with _SLOTS:
         recv, send = mp.Pipe(duplex=False)
-        proc = mp.Process(target=_child_main, args=(send, data, max_pages, timeout), daemon=True)
+        proc = mp.Process(target=_child_main, args=(send, data, max_pages, timeout, mode), daemon=True)
         proc.start()
         send.close()
         try:
@@ -187,11 +191,11 @@ def _run_isolated(data: bytes, max_pages: int, timeout: int = PDF_TIMEOUT_S) -> 
 
 
 def _child_main(
-    conn: Any, data: bytes, max_pages: int, timeout: int
+    conn: Any, data: bytes, max_pages: int, timeout: int, mode: str = "auto"
 ) -> None:  # pragma: no cover - subprocesso
     try:
         _limit_resources(timeout)
-        conv = pdf_to_docx(data, max_pages=max_pages)
+        conv = pdf_to_docx(data, max_pages=max_pages, mode=mode)
         conn.send(("ok", {"docx": conv.docx, "stats": conv.stats, "warnings": conv.warnings}))
     except DocxRejected as exc:
         conn.send(("rejected", (exc.code, exc.message)))
@@ -252,6 +256,9 @@ class ImageItem:
     png: bytes
     gap_before: float = 0.0
     page_break: bool = False
+    floating: bool = (
+        False  # tem texto ao lado (logo + título): vai flutuando na posição, sem empurrar o texto
+    )
 
 
 @dataclass
@@ -297,6 +304,8 @@ class Para:
     gap_before: float = 0.0
     page_break: bool = False
     top_of_page: bool = False  # começou no alto de uma página por fluxo natural (espaço antes não é medível)
+    lead: float = 0.0  # distância entre linhas de base (pt) usada como entrelinha "pelo menos"
+    floats: list[Any] = field(default_factory=list)  # imagens flutuantes presas a este parágrafo
 
 
 @dataclass
@@ -304,6 +313,9 @@ class Metrics:
     left: float
     right: float
     ratio: float  # distância entre linhas de um parágrafo / tamanho da fonte
+    justified: bool = False  # a maioria dos parágrafos longos é justificada (vale para os de 2 linhas)
+    top: float | None = None  # topo do conteúdo (texto, tabela, imagem ou traço) — margem superior
+    bottom: float | None = None  # pé do conteúdo — margem inferior
 
 
 # ============================================================================ texto e estilo
@@ -360,6 +372,135 @@ def _font_info(fontname: str) -> tuple[str, bool, bool]:
     key = re.sub(r"[^a-z]", "", base.lower())
     family = _KNOWN_FONTS.get(key) or re.sub(r"(?<=[a-z])(?=[A-Z])", " ", base).strip() or "Arial"
     return family, bold, italic
+
+
+_MONO_NAME = re.compile(r"mono|courier|consol|code|menlo|monaco|typewriter", re.I)
+_SERIF_NAME = re.compile(
+    r"times|serif|georgia|garamond|cambria|caladea|book|palatino|bookman|tinos|minion|baskerville|merriweather|"
+    r"didot|bodoni|century(?! ?gothic)|roman",
+    re.I,
+)
+
+
+def _font_kind(name: str, flags: int = 0) -> str:
+    """ "mono" | "serif" | "sans": pelas marcas do descritor da fonte no PDF (bit 1 = largura fixa, bit 2 = serifa),
+    e pelo nome quando o PDF não informa."""
+    if flags & 1 or _MONO_NAME.search(name):
+        return "mono"
+    if (flags & 2 or _SERIF_NAME.search(name)) and not re.search(r"sans", name, re.I):
+        return "serif"
+    return "sans"
+
+
+def _font_kinds(pdoc: Any, max_pages: int = 10) -> dict[str, str]:
+    """Família (como sai no .docx) → tipo, lido das fontes usadas nas primeiras páginas do PDF."""
+    import ctypes
+
+    import pypdfium2.raw as pdfium_c
+
+    kinds: dict[str, str] = {}
+    for i in range(min(len(pdoc), max_pages)):
+        for obj in pdoc[i].get_objects(filter=[pdfium_c.FPDF_PAGEOBJ_TEXT], max_depth=4):
+            font = pdfium_c.FPDFTextObj_GetFont(obj.raw)
+            if not font:
+                continue
+            n = pdfium_c.FPDFFont_GetBaseFontName(font, None, 0)
+            if not n:
+                continue
+            buf = ctypes.create_string_buffer(n)
+            pdfium_c.FPDFFont_GetBaseFontName(font, buf, n)
+            base = buf.value.decode("latin-1", "replace")
+            family = _font_info(base)[0]
+            if family not in kinds:
+                kinds[family] = _font_kind(base, int(pdfium_c.FPDFFont_GetFlags(font)))
+    return kinds
+
+
+def _looks_like_form(pages: list[Any]) -> bool:
+    """Boleto, fatura, nota, formulário? (calibrado na bancada de fidelidade; ver docs/FIDELIDADE.md)"""
+    return False
+
+
+def _char_spacing(pages: list[Any], max_pages: int = 10) -> dict[str, float]:
+    """Por família: espaçamento entre letras do PDF (pt), como o "Condensado/Expandido" do Word. Medido entre
+    letras vizinhas de uma mesma palavra (sem contar espaços), mediana — o ajuste de pares (kerning) não pesa."""
+    acc: dict[str, list[float]] = {}
+    for page in pages[:max_pages]:
+        chars = sorted(
+            (c for c in page.chars if c.get("upright", True)), key=lambda c: (round(c["top"]), c["x0"])
+        )
+        for a, b in itertools.pairwise(chars):
+            ta, tb = (a.get("text") or ""), (b.get("text") or "")
+            if (
+                not ta.strip()
+                or not tb.strip()
+                or abs(a["top"] - b["top"]) > 1
+                or a["fontname"] != b["fontname"]
+            ):
+                continue
+            gap = b["x0"] - a["x1"]
+            if -0.3 * a["size"] < gap < 0.2 * a["size"]:
+                acc.setdefault(_font_info(a.get("fontname", ""))[0], []).append(gap)
+    out = {}
+    for fam, gaps in acc.items():
+        if len(gaps) >= 30:
+            med = statistics.median(gaps)
+            if abs(med) >= 0.04:
+                out[fam] = round(med, 2)
+    return out
+
+
+def _width_ratios(pages: list[Any], kinds: dict[str, str], max_pages: int = 10) -> dict[str, float]:
+    """Por família: largura dos caracteres no PDF ÷ largura na Liberation do mesmo tipo (sem serifa/serifa/mono).
+    O worker usa isso para devolver a largura original se a fonte não existir lá (ver docx_engine.fontmetrics)."""
+    acc: dict[str, list[float]] = {}
+    for page in pages[:max_pages]:
+        for ch in page.chars:
+            text = ch.get("text") or ""
+            if len(text) != 1 or not text.strip() or not ch.get("upright", True):
+                continue
+            family, bold, italic = _font_info(ch.get("fontname", ""))
+            kind = kinds.get(family) or _font_kind(family)
+            a = acc.setdefault(family, [0.0, 0.0, 0])
+            a[0] += ch["x1"] - ch["x0"]
+            a[1] += fontmetrics.substitute_width(text, kind, bold, italic) * ch["size"] / 1000
+            a[2] += 1
+    out = {}
+    for fam, (orig, subst, n) in acc.items():
+        r = fontmetrics.ratio_from_samples(orig, subst, int(n))
+        if r is not None:
+            out[fam] = r
+    return out
+
+
+def _declare_fonts(docx: bytes, kinds: dict[str, str], used: set[str]) -> bytes:
+    """Registra no fontTable do .docx a família de cada fonte usada. O LibreOffice (que gera o PDF) troca uma fonte
+    ausente por outra da MESMA família declarada (sem serifa → Liberation Sans etc.); sem isso, caía numa com serifa."""
+    import zipfile
+    from xml.sax.saxutils import quoteattr
+
+    zin = zipfile.ZipFile(io.BytesIO(docx))
+    xml = zin.read("word/fontTable.xml").decode("utf-8")
+    present = set(re.findall(r'<w:font w:name="([^"]+)"', xml))
+    entries = []
+    for fam in sorted(used - present):
+        kind = kinds.get(fam) or _font_kind(fam)
+        family = {"mono": "modern", "serif": "roman"}.get(kind, "swiss")
+        pitch = "fixed" if kind == "mono" else "variable"
+        entries.append(
+            f'<w:font w:name={quoteattr(fam)}><w:family w:val="{family}"/><w:pitch w:val="{pitch}"/></w:font>'
+        )
+    if not entries:
+        return docx
+    xml = xml.replace("</w:fonts>", "".join(entries) + "</w:fonts>")
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for info in zin.infolist():
+            zout.writestr(
+                info,
+                xml.encode("utf-8") if info.filename == "word/fontTable.xml" else zin.read(info.filename),
+            )
+    return out.getvalue()
 
 
 def _color_hex(color: Any) -> str | None:
@@ -574,6 +715,8 @@ def _breaks(a: Line, b: Line, para: list[Line], m: Metrics, *, check_gap: bool =
     if "\t" in a.text or "\t" in b.text:  # linhas com colunas (assinaturas, "Nome:\tCPF:") são diagramação
         return True
     ca, cb = _align_class(a, m), _align_class(b, m)
+    if abs(a.x0 - b.x0) <= 2 and "center" not in (ca, cb):
+        ca = cb = "left"  # mesmo recuo: bloco recuado (citação) à esquerda/justificado, não "à direita"
     if ca != cb:
         return True
     if ca != "left":
@@ -590,10 +733,15 @@ def _breaks(a: Line, b: Line, para: list[Line], m: Metrics, *, check_gap: bool =
     return b.x0 < a.x0 - 6 and not first  # recuo diminuiu depois da 1ª linha: fim do item
 
 
-def _join_lines(lines: list[Line]) -> list[Seg]:
+def _join_lines(lines: list[Line], hard_breaks: bool = False) -> list[Seg]:
+    """Junta as linhas de um parágrafo. `hard_breaks`: mantém cada quebra do original (títulos centralizados,
+    textos à direita) em vez de deixar o Word redistribuir as palavras."""
     segs: list[Seg] = []
     for i, ln in enumerate(lines):
-        if i:
+        if i and hard_breaks:
+            style = segs[-1].style if segs else ln.segs[0].style
+            segs.append(Seg("", style, "BR"))
+        elif i:
             prev_text = segs[-1].text if segs else ""
             if not prev_text.endswith(("-", "\t", " ")):
                 style = segs[-1].style if segs else ln.segs[0].style
@@ -697,27 +845,29 @@ def _standalone_rules(
     return out
 
 
-def _images(ppage: Any, page_no: int, width: float, height: float, warnings: set[str]) -> list[ImageItem]:
+def _images(
+    ppage: Any, page_no: int, width: float, height: float, warnings: set[str]
+) -> tuple[list[ImageItem], list[ImageItem]]:
+    """(imagens do conteúdo, imagens de página inteira — papel timbrado/marca d'água, que vão como fundo)."""
     import pypdfium2.raw as pdfium_c
 
     out = []
+    backgrounds = []
     for obj in ppage.get_objects(filter=[pdfium_c.FPDF_PAGEOBJ_IMAGE], max_depth=0):
         left, bottom, right, top = obj.get_bounds()
         x0, x1 = max(0.0, left), min(width, right)
         t, b = max(0.0, height - top), min(height, height - bottom)
         if x1 - x0 < 6 or b - t < 6:
             continue
-        if (x1 - x0) * (b - t) > FULLPAGE_COVERAGE * width * height:
-            warnings.add("A imagem de fundo das páginas (papel timbrado ou marca d'água) não foi importada.")
-            continue
+        full = (x1 - x0) * (b - t) > FULLPAGE_COVERAGE * width * height
         try:
             pil = obj.get_bitmap(render=True).to_pil()
         except Exception:  # imagem num formato que o PDFium não rasteriza: recorta a página renderizada
             pil = ppage.render(scale=2, crop=(x0, height - b, width - x1, t)).to_pil()
         buf = io.BytesIO()
         pil.convert("RGBA" if pil.mode in ("RGBA", "LA", "P") else "RGB").save(buf, "PNG", optimize=True)
-        out.append(ImageItem(page_no, x0, x1, t, b, buf.getvalue()))
-    return out
+        (backgrounds if full else out).append(ImageItem(page_no, x0, x1, t, b, buf.getvalue()))
+    return out, backgrounds
 
 
 # ============================================================================ classificação (digitado × digitalizado)
@@ -770,7 +920,7 @@ def _pages_label(pages: list[int]) -> str:
 # ============================================================================ conversão
 
 
-def pdf_to_docx(data: bytes, *, max_pages: int = PDF_MAX_PAGES) -> PdfConversion:
+def pdf_to_docx(data: bytes, *, max_pages: int = PDF_MAX_PAGES, mode: str = "auto") -> PdfConversion:
     import pdfplumber
     import pypdfium2 as pdfium
 
@@ -792,12 +942,26 @@ def pdf_to_docx(data: bytes, *, max_pages: int = PDF_MAX_PAGES) -> PdfConversion
                 f"O PDF tem {n} páginas; o limite para conversão é {max_pages}. Envie o documento em Word (.docx).",
             )
         with pdfplumber.open(io.BytesIO(data)) as pdf:
-            return _convert(pdf, pdoc)
+            return _convert(pdf, pdoc, mode)
     finally:
         pdoc.close()
 
 
-def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
+def _convert_layout(pdf: Any, pdoc: Any) -> PdfConversion:
+    from app.docx_engine import pdf_layout
+
+    spacing = _char_spacing(pdf.pages)
+    docx, stats, warnings, used = pdf_layout.layout_to_docx(
+        pdf, pdoc, lambda doc, segs: _style_runner(doc, segs, spacing)
+    )
+    kinds = _font_kinds(pdoc)
+    docx = _declare_fonts(docx, kinds, used)
+    docx = fontmetrics.write_scale_var(docx, _width_ratios(pdf.pages, kinds))
+    stats["layout"] = 1
+    return PdfConversion(docx=docx, stats=stats, warnings=warnings)
+
+
+def _convert(pdf: Any, pdoc: Any, mode: str = "auto") -> PdfConversion:
     pages = pdf.pages
     n = len(pages)
     kinds = [_classify(pages[i], pdoc[i]) for i in range(n)]
@@ -822,17 +986,22 @@ def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
                 "O texto deste PDF foi transformado em desenho e não pode ser editado. Envie o documento em Word (.docx).",
             )
         raise DocxRejected("EMPTY_DOCUMENT", "O PDF não tem texto para transformar em modelo.")
+    if mode == "layout" or (mode == "auto" and _looks_like_form(pages)):
+        return _convert_layout(pdf, pdoc)
 
     warnings: set[str] = set()
     all_lines: list[list[Line]] = []
     tables: list[list[TableItem]] = []
     images: list[list[ImageItem]] = []
     rules: list[list[RuleItem]] = []
+    backgrounds: list[ImageItem] = []
+    zone_rules: list[tuple[int, str, float, float, float]] = []
     unreadable = total_chars = rotated = curves = 0
     sizes = {(round(p.width), round(p.height)) for p in pages}
     for i, page in enumerate(pages):
         page_tables = _tables(page)
-        page_images = _images(pdoc[i], i, page.width, page.height, warnings)
+        page_images, page_bgs = _images(pdoc[i], i, page.width, page.height, warnings)
+        backgrounds.extend(page_bgs)
         in_table: list[dict[str, Any]] = []
         free: list[dict[str, Any]] = []
         for ch in page.chars:
@@ -846,6 +1015,10 @@ def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
         page_rules = _thin_rules(page)
         lines, bad = _build_lines(free, i, page.height, page_rules)
         rules.append(_standalone_rules(page_rules, page.chars, page_tables, i, page.height, n > 1))
+        if n > 1:
+            for x0, x1, y in page_rules:
+                if x1 - x0 >= 40 and (y < page.height * HEADER_ZONE or y > page.height * FOOTER_ZONE):
+                    zone_rules.append((i, "header" if y < page.height * HEADER_ZONE else "footer", x0, x1, y))
         unreadable += bad
         for t in page_tables:
             for c in t.cells:
@@ -867,6 +1040,12 @@ def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
             if cell is not None:
                 cell.images.append(im)
             else:
+                im.floating = any(
+                    ln.top < im.bottom - 2
+                    and ln.bottom > im.top + 2
+                    and (ln.x0 >= im.x1 - 2 or ln.x1 <= im.x0 + 2)
+                    for ln in lines
+                )
                 loose.append(im)
         curves += len(page.curves)
         all_lines.append(lines)
@@ -887,11 +1066,36 @@ def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
         warnings.add("O PDF mistura tamanhos de página; usamos o tamanho da primeira.")
 
     header, footer = _split_header_footer(all_lines, images, pages)
+    _repeated_zone_rules(zone_rules, n, header, footer)
 
-    metrics = _margins(all_lines, pages[0].width)
+    extents = [(t.x0, t.x1) for ts in tables for t in ts] + [(im.x0, im.x1) for ims in images for im in ims]
+    extents += [(r.x0, r.x1) for rs in rules for r in rs]
+    metrics = _margins(all_lines, pages[0].width, extents)
 
     flow = _build_flow(all_lines, tables, images, pages, metrics, footer, rules)
-    docx = _write_docx(flow, header, footer, pages, metrics, all_lines)
+    long_paras = [f for f in flow if isinstance(f, Para) and len(f.lines) >= 3]
+    if long_paras:  # documento justificado: parágrafos de 2 linhas rentes à margem também são
+        just = sum(
+            _para_format(f.lines, metrics.left, metrics.right, metrics)["align"] == "justify"
+            for f in long_paras
+        )
+        metrics.justified = just / len(long_paras) >= 0.6
+    docx = _write_docx(
+        flow, header, footer, pages, metrics, all_lines, spacing=_char_spacing(pages), backgrounds=backgrounds
+    )
+    used = {seg.style[0] for lines in all_lines for ln in lines for seg in ln.segs}
+    used |= {seg.style[0] for f in flow if isinstance(f, Para) for ln in f.lines for seg in ln.segs}
+    used |= {
+        seg.style[0]
+        for t in (x for x in flow if isinstance(x, TableItem))
+        for c in t.cells
+        for ln in c.lines
+        for seg in ln.segs
+    }
+    used |= {seg.style[0] for x in (*header, *footer) if isinstance(x, Line) for seg in x.segs}
+    kinds = _font_kinds(pdoc)
+    docx = _declare_fonts(docx, kinds, used)
+    docx = fontmetrics.write_scale_var(docx, _width_ratios(pages, kinds))
     stats = {
         "pages": n,
         "paragraphs": sum(1 for f in flow if isinstance(f, Para)),
@@ -910,7 +1114,9 @@ def _convert(pdf: Any, pdoc: Any) -> PdfConversion:
     )
 
 
-def _margins(all_lines: list[list[Line]], page_width: float) -> Metrics:
+def _margins(
+    all_lines: list[list[Line]], page_width: float, extents: list[tuple[float, float]] | None = None
+) -> Metrics:
     """Margem esquerda = onde a maioria das linhas começa; direita = fim da linha mais longa que começa nela.
 
     A direita ganha 1,5pt de folga: uma linha que no original terminava rente à margem não pode quebrar antes
@@ -919,10 +1125,24 @@ def _margins(all_lines: list[list[Line]], page_width: float) -> Metrics:
     body = [ln for lines in all_lines for ln in lines]
     if not body:
         return Metrics(72.0, page_width - 72.0, 1.2)
-    mode = Counter(round(ln.x0) for ln in body).most_common(1)[0][0]
+    # o MENOR recuo usado por um número relevante de linhas (não o mais frequente: num documento cheio de listas
+    # recuadas, o recuo da lista ganharia e o corpo inteiro andaria para a direita, mais estreito)
+    counts = Counter(round(ln.x0) for ln in body)
+    need = max(3, 0.08 * len(body))
+    support = {x: counts[x - 1] + counts[x] + counts[x + 1] for x in counts}
+    candidates = sorted(x for x, n in support.items() if n >= need)
+    mode = candidates[0] if candidates else counts.most_common(1)[0][0]
     left = min(ln.x0 for ln in body if abs(ln.x0 - mode) <= 2)
     ends = sorted((ln.x1 for ln in body if abs(ln.x0 - left) <= 2 and ln.x1 < page_width - 18), reverse=True)
     right = (ends[0] if ends else max(ln.x1 for ln in body)) + 1.5
+    # pouco texto corrido rente às duas margens (ex.: boleto, com quase tudo dentro de tabelas): a largura útil
+    # vem do conteúdo mais largo — tabelas, imagens, traços e as demais linhas
+    full = [x for x in ends if x >= (ends[0] if ends else 0) - 20]
+    if len(full) < 3:
+        widest = [x1 for _, x1 in (extents or []) if x1 < page_width - 10]
+        widest += [ln.x1 for ln in body if ln.x1 < page_width - 10]
+        if widest:
+            right = max(right, max(widest) + 1.5)
     return Metrics(left=left, right=min(right, page_width - 18), ratio=_line_ratio(all_lines))
 
 
@@ -1005,6 +1225,25 @@ def _split_header_footer(
     return header, footer
 
 
+def _repeated_zone_rules(
+    zone_rules: list[tuple[int, str, float, float, float]], n: int, header: list[Any], footer: list[Any]
+) -> None:
+    """Traço que se repete no alto/pé de (quase) toda página (ex.: linha sob o cabeçalho) entra no cabeçalho/rodapé."""
+    need = max(2, math.ceil(0.5 * n))
+    seen: dict[tuple[str, int, int, int], set[int]] = {}
+    first: dict[tuple[str, int, int, int], tuple[float, float, float]] = {}
+    for page, zone, x0, x1, y in zone_rules:
+        key = (zone, round(y / 3), round(x0 / 6), round(x1 / 6))
+        seen.setdefault(key, set()).add(page)
+        first.setdefault(key, (x0, x1, y))
+    for key, pages_with in seen.items():
+        if len(pages_with) >= need:
+            x0, x1, y = first[key]
+            (header if key[0] == "header" else footer).append(RuleItem(0, x0, x1, y, y + 0.75))
+    header.sort(key=lambda x: x.top)
+    footer.sort(key=lambda x: x.top)
+
+
 def _page_number_fields(first: Line, occurrences: list[Line], total: int) -> None:
     """Número que acompanha a página ("Página 2 de 5") vira os campos PAGE/NUMPAGES do Word."""
     token_values: list[list[str]] = [re.findall(r"\d+", ln.text) for ln in occurrences]
@@ -1068,11 +1307,16 @@ def _build_flow(
         (min((it.top for it in items), default=1e9) for items in page_items),
         default=72.0,
     )
+    m.top = top_margin if top_margin < 1e9 else None
+    m.bottom = max(all_bottoms, default=None)
 
     for i in range(len(pages)):
         items: list[Line | TableItem | ImageItem | RuleItem] = sorted(
             [*all_lines[i], *tables[i], *images[i], *rules[i]], key=lambda x: x.top
         )
+        floating = [it for it in items if isinstance(it, ImageItem) and it.floating]
+        items = [it for it in items if not (isinstance(it, ImageItem) and it.floating)]
+        page_paras: list[Para] = []
         for j, it in enumerate(items):
             first_on_page = j == 0
             page_break = False
@@ -1094,6 +1338,7 @@ def _build_flow(
                     gap = max(0.0, it.top - top_margin)
                 natural_top = first_on_page and prev is not None and not page_break
                 flow.append(Para([it], gap_before=gap, page_break=page_break, top_of_page=natural_top))
+                page_paras.append(flow[-1])
             elif isinstance(it, TableItem):
                 last = flow[-1] if flow else None
                 if (
@@ -1113,6 +1358,15 @@ def _build_flow(
                 it.page_break = page_break
                 flow.append(it)
             prev = it
+        # imagem com texto ao lado: presa ao parágrafo mais próximo na vertical, na posição exata (não ocupa linha)
+        for im in floating:
+            host = min(page_paras, key=lambda p: abs(p.lines[0].top - im.top), default=None)
+            if host is not None:
+                host.floats.append(im)
+            else:
+                im.floating = False
+                flow.append(im)
+    _measure_leads(flow, m)
     # parágrafo que abriu uma página por falta de espaço tinha o espaçamento normal do documento antes dele
     gaps = Counter(round(p.gap_before) for p in flow if isinstance(p, Para) and p.gap_before >= 2)
     if gaps:
@@ -1121,6 +1375,43 @@ def _build_flow(
             if isinstance(p, Para) and p.top_of_page:
                 p.gap_before = typical
     return flow
+
+
+def _baseline_steps(lines: list[Line]) -> list[float]:
+    return [b.base - a.base for a, b in itertools.pairwise(lines) if a.page == b.page and b.base > a.base]
+
+
+def _para_lead(lines: list[Line], by_size: dict[float, float], ratio: float) -> float:
+    """Entrelinha do parágrafo: a distância real entre as linhas de base dele; com uma linha só, a típica do
+    documento para aquele tamanho de letra (ou um espaçamento simples, ~1,15 × o tamanho)."""
+    steps = _baseline_steps(lines)
+    if steps:
+        return float(statistics.median(steps))
+    size = max(ln.size for ln in lines)
+    return by_size.get(round(size * 2) / 2) or size * min(ratio, 1.2)
+
+
+def _measure_leads(flow: list[Any], m: Metrics) -> None:
+    """Entrelinha por parágrafo e espaço antes calculado pelas linhas de base: cada parágrafo começa na mesma
+    altura do original, mesmo quando título e corpo usam espaçamentos diferentes (ex.: simples × 1,5)."""
+    samples: dict[float, list[float]] = {}
+    for it in flow:
+        if isinstance(it, Para) and len(it.lines) >= 2:
+            size = round(max(ln.size for ln in it.lines) * 2) / 2
+            samples.setdefault(size, []).extend(_baseline_steps(it.lines))
+    by_size = {k: float(statistics.median(v)) for k, v in samples.items() if v}
+    prev: Any = None
+    for it in flow:
+        if isinstance(it, Para):
+            it.lead = _para_lead(it.lines, by_size, m.ratio)
+            if (
+                isinstance(prev, Para)
+                and not it.page_break
+                and not it.top_of_page
+                and prev.lines[-1].page == it.lines[0].page
+            ):
+                it.gap_before = max(0.0, min(72.0, it.lines[0].base - prev.lines[-1].base - it.lead))
+        prev = it
 
 
 def _size_of(it: Line | TableItem | ImageItem | RuleItem) -> float:
@@ -1172,12 +1463,15 @@ def _para_format(lines: list[Line], left: float, right: float, m: Metrics) -> di
     if all(c == "center" for c in classes):
         fmt["align"] = "center"
         return fmt
-    if all(c == "right" for c in classes):
+    same_left = len(lines) >= 2 and max(ln.x0 for ln in lines[1:]) - min(ln.x0 for ln in lines[1:]) <= 2
+    if all(c == "right" for c in classes) and not same_left:
         fmt["align"] = "right"
         return fmt
     # justificado: todas as linhas (menos a última) terminam na margem direita — com uma linha só isso pode ser
     # coincidência de um texto alinhado à esquerda, então exige ao menos duas
-    if len(lines) >= 3 and all(abs(ln.x1 - right) <= 2.5 for ln in lines[:-1]):
+    # (a margem direita tem 1,5 pt de folga: a linha "rente" fica até ~4 pt antes dela)
+    at_right = [-1.0 <= right - ln.x1 <= 4.5 for ln in lines[:-1]]
+    if (len(lines) >= 3 and all(at_right)) or (len(lines) == 2 and m.justified and all(at_right)):
         fmt["align"] = "justify"
     head = lines[0]
     base = min(ln.x0 for ln in lines[1:]) if len(lines) >= 2 else head.x0
@@ -1197,40 +1491,32 @@ def _para_format(lines: list[Line], left: float, right: float, m: Metrics) -> di
     return fmt
 
 
-def _write_docx(
-    flow: list[Para | TableItem | ImageItem | RuleItem],
-    header: list[Line | ImageItem],
-    footer: list[Line | ImageItem],
-    pages: list[Any],
-    m: Metrics,
-    all_lines: list[list[Line]],
-) -> bytes:
-    from docx import Document
-    from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
-    from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_LINE_SPACING
+def _set_char_spacing(rpr: Any, pts: float) -> None:
     from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    el = rpr.find(qn("w:spacing"))
+    if el is None:
+        el = OxmlElement("w:spacing")
+        rpr.insert_element_before(
+            el, "w:w", "w:kern", "w:position", "w:sz", "w:szCs", "w:highlight", "w:u", "w:effect", "w:bdr", "w:shd",
+            "w:fitText", "w:vertAlign", "w:rtl", "w:cs", "w:em", "w:lang", "w:eastAsianLayout", "w:specVanish",
+            "w:oMath",
+        )  # fmt: skip
+    el.set(qn("w:val"), str(round(pts * 20)))
+
+
+def _style_runner(
+    doc: Any, segs: list[Seg], spacing: dict[str, float] | None = None
+) -> tuple[Any, str, float]:
+    """Estilo Normal = fonte/tamanho mais comuns do texto; devolve a função que estiliza cada trecho (só o que
+    difere do Normal). Usada pelos dois modos de conversão."""
     from docx.oxml.ns import qn
     from docx.shared import Pt, RGBColor
 
-    align_map = {
-        "left": WD_ALIGN_PARAGRAPH.LEFT,
-        "center": WD_ALIGN_PARAGRAPH.CENTER,
-        "right": WD_ALIGN_PARAGRAPH.RIGHT,
-        "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
-    }
-    doc = Document()
-
-    # estilo Normal = fonte/tamanho mais comuns do corpo; os trechos só sobrescrevem o que difere
     counter: Counter[tuple[str, float]] = Counter()
-    for lines in all_lines:
-        for ln in lines:
-            for s in ln.segs:
-                counter[(s.style[0], s.style[1])] += len(s.text)
-    for it in flow:
-        if isinstance(it, Para):
-            for ln in it.lines:
-                for s in ln.segs:
-                    counter[(s.style[0], s.style[1])] += len(s.text)
+    for sg in segs:
+        counter[(sg.style[0], sg.style[1])] += len(sg.text)
     default_family, default_size = counter.most_common(1)[0][0] if counter else ("Arial", 11.0)
     normal = doc.styles["Normal"]
     normal.font.name = default_family
@@ -1241,6 +1527,68 @@ def _write_docx(
     normal.paragraph_format.space_after = Pt(0)
     normal.paragraph_format.space_before = Pt(0)
     normal.paragraph_format.line_spacing = 1.0
+    spacing = spacing or {}
+    if spacing.get(default_family):
+        _set_char_spacing(normal.element.get_or_add_rPr(), spacing[default_family])
+
+    def style_run(run: Any, style: Style) -> None:
+        family, size, bold, italic, underline, color = style
+        if family != default_family:
+            run.font.name = family
+            run._r.get_or_add_rPr().get_or_add_rFonts().set(qn("w:cs"), family)
+            if spacing.get(family) or spacing.get(default_family):
+                _set_char_spacing(run._r.get_or_add_rPr(), spacing.get(family, 0.0))
+        if abs(size - default_size) >= 0.5:
+            run.font.size = Pt(size)
+        if bold:
+            run.font.bold = True
+        if italic:
+            run.font.italic = True
+        if underline:
+            run.font.underline = True
+        if color:
+            run.font.color.rgb = RGBColor.from_string(color)
+
+    return style_run, default_family, default_size
+
+
+def anchor_image(
+    run: Any, png: bytes, x: float, y: float, w: float, h: float, *, v_from: str = "page", behind: bool = True
+) -> None:
+    """Imagem flutuante na posição exata (pt): horizontal em relação à página; vertical em relação à página ou ao
+    parágrafo. `behind`: atrás do texto (fundo, papel timbrado) ou à frente (logo ao lado do texto)."""
+    from app.docx_engine.pdf_layout import anchor_behind
+
+    anchor_behind(run, png, x, y, w, h, v_from=v_from, behind=behind)
+
+
+def _write_docx(
+    flow: list[Para | TableItem | ImageItem | RuleItem],
+    header: list[Line | ImageItem],
+    footer: list[Line | ImageItem],
+    pages: list[Any],
+    m: Metrics,
+    all_lines: list[list[Line]],
+    spacing: dict[str, float] | None = None,
+    backgrounds: list[ImageItem] | None = None,
+) -> bytes:
+    from docx import Document
+    from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_LINE_SPACING
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.shared import Pt
+
+    align_map = {
+        "left": WD_ALIGN_PARAGRAPH.LEFT,
+        "center": WD_ALIGN_PARAGRAPH.CENTER,
+        "right": WD_ALIGN_PARAGRAPH.RIGHT,
+        "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
+    }
+    doc = Document()
+    body_segs = [s for lines in all_lines for ln in lines for s in ln.segs]
+    body_segs += [s for it in flow if isinstance(it, Para) for ln in it.lines for s in ln.segs]
+    style_run, _, _ = _style_runner(doc, body_segs, spacing)
 
     first = pages[0]
     section = doc.sections[0]
@@ -1249,7 +1597,7 @@ def _write_docx(
     header_bottom = max((h.bottom for h in header), default=None)
     footer_top = min((f.top for f in footer), default=None)
     body_tops = [it.top for lines in all_lines for it in lines]
-    top_margin = min(body_tops, default=72.0) - 2
+    top_margin = (m.top if m.top is not None else min(body_tops, default=72.0)) - 2
     if header_bottom is not None:
         top_margin = max(top_margin, header_bottom + 6)
         section.header_distance = Pt(max(18.0, min(h.top for h in header) - 2))
@@ -1257,7 +1605,9 @@ def _write_docx(
         bottom_margin = first.height - footer_top + 6
         section.footer_distance = Pt(max(18.0, first.height - max(f.bottom for f in footer) - 2))
     else:
-        body_bottom = max((ln.bottom for lines in all_lines for ln in lines), default=first.height - 72)
+        body_bottom = m.bottom or max(
+            (ln.bottom for lines in all_lines for ln in lines), default=first.height - 72
+        )
         bottom_margin = min(72.0, first.height - body_bottom)
     section.top_margin = Pt(max(28.0, min(144.0, top_margin)))
     section.bottom_margin = Pt(max(28.0, min(144.0, bottom_margin)))
@@ -1286,22 +1636,6 @@ def _write_docx(
         if run is not None:
             style_run(run, seg.style)
 
-    def style_run(run: Any, style: Style) -> None:
-        family, size, bold, italic, underline, color = style
-        if family != default_family:
-            run.font.name = family
-            run._r.get_or_add_rPr().get_or_add_rFonts().set(qn("w:cs"), family)
-        if abs(size - default_size) >= 0.5:
-            run.font.size = Pt(size)
-        if bold:
-            run.font.bold = True
-        if italic:
-            run.font.italic = True
-        if underline:
-            run.font.underline = True
-        if color:
-            run.font.color.rgb = RGBColor.from_string(color)
-
     def write_lines(container: Any, lines: list[Line], left: float, right: float, reuse: Any = None) -> Any:
         """Agrupa as linhas em parágrafos e escreve; `reuse` = parágrafo vazio existente (célula/cabeçalho)."""
         sub = Metrics(left, right, m.ratio)
@@ -1315,12 +1649,9 @@ def _write_docx(
         for k, group in enumerate(paras):
             p = reuse if (k == 0 and reuse is not None) else container.add_paragraph()
             prev_group = paras[k - 1] if k else None
-            write_para(
-                p,
-                Para(group, gap_before=_gap(prev_group[-1], group[0], sub) if prev_group else 0.0),
-                left,
-                right,
-            )
+            para = Para(group, gap_before=_gap(prev_group[-1], group[0], sub) if prev_group else 0.0)
+            para.lead = _para_lead(group, {}, m.ratio)
+            write_para(p, para, left, right)
             last = p
         return last
 
@@ -1340,12 +1671,23 @@ def _write_docx(
         for pos in fmt.get("tabs", []):
             pf.tab_stops.add_tab_stop(Pt(pos))
         size = max(ln.size for ln in para.lines)
-        set_line_spacing(p, round(size * m.ratio * 0.98, 1))
-        segs = _join_lines(para.lines)
+        set_line_spacing(p, round(para.lead or size * m.ratio * 0.98, 1))
+        segs = _join_lines(
+            para.lines, hard_breaks=fmt["align"] in ("center", "right") and len(para.lines) > 1
+        )
         if fmt.get("marker_tab"):
             _marker_tab(segs)
+        for im in (
+            para.floats
+        ):  # imagem com texto ao lado, na posição exata (horizontal: página; vertical: este parágrafo)
+            anchor_image(
+                p.add_run(), im.png, im.x0, im.top - para.lines[0].top, im.x1 - im.x0, im.bottom - im.top,
+                v_from="paragraph", behind=False,
+            )  # fmt: skip
         for seg in segs:
-            if seg.field:
+            if seg.field == "BR":
+                p.add_run().add_break()
+            elif seg.field:
                 add_field(p, seg)
             elif seg.text:
                 style_run(p.add_run(seg.text), seg.style)
@@ -1428,9 +1770,9 @@ def _write_docx(
             br_p.add_run().add_break(WD_BREAK.PAGE)
             table._tbl.addprevious(br_p._p)
 
-    def write_rule(r: RuleItem) -> None:
+    def write_rule(r: RuleItem, container: Any = None) -> None:
         """Parágrafo vazio de 1 pt com borda inferior: a linha fica onde estava e aparece no Word e no PDF."""
-        p = doc.add_paragraph()
+        p = (container or doc).add_paragraph()
         pf = p.paragraph_format
         if r.x0 - m.left >= 2:
             pf.left_indent = Pt(round(r.x0 - m.left, 1))
@@ -1456,10 +1798,29 @@ def _write_docx(
             "w:rPr", "w:sectPr", "w:pPrChange",
         )  # fmt: skip
 
+    # papel timbrado / marca d'água (imagem de página inteira): fundo atrás do texto, no lugar exato. Igual em
+    # (quase) toda página → no cabeçalho, uma vez só; senão, preso ao 1º parágrafo da página dela
+    bgs = backgrounds or []
+    bg_by_page: dict[int, ImageItem] = {}
+    if bgs:
+        same = Counter(b.png for b in bgs).most_common(1)[0]
+        if len(pages) >= 2 and same[1] >= max(2, math.ceil(0.5 * len(pages))):
+            hdr = section.header
+            hdr.is_linked_to_previous = False
+            host = hdr.paragraphs[0] if hdr.paragraphs else hdr.add_paragraph()
+            b = next(b for b in bgs if b.png == same[0])
+            anchor_image(host.add_run(), b.png, b.x0, b.top, b.x1 - b.x0, b.bottom - b.top)
+        else:
+            bg_by_page = {b.page: b for b in bgs}
+
     last_was_table = False
     for it in flow:
         if isinstance(it, Para):
-            write_para(doc.add_paragraph(), it, m.left, m.right)
+            p_new = doc.add_paragraph()
+            bg = bg_by_page.pop(it.lines[0].page, None)
+            if bg is not None:
+                anchor_image(p_new.add_run(), bg.png, bg.x0, bg.top, bg.x1 - bg.x0, bg.bottom - bg.top)
+            write_para(p_new, it, m.left, m.right)
             last_was_table = False
         elif isinstance(it, TableItem):
             if last_was_table:
@@ -1481,17 +1842,41 @@ def _write_docx(
         part.is_linked_to_previous = False
         reuse = part.paragraphs[0] if part.paragraphs else None
         pending_h: list[Line] = []
+        part_lines = [x for x in part_items if isinstance(x, Line)]
+        floats_h: list[ImageItem] = []
+        prev_bottom: float | None = None
         for x in part_items:
             if isinstance(x, Line):
                 pending_h.append(x)
+                prev_bottom = x.bottom
+                continue
+            if isinstance(x, ImageItem) and any(
+                ln.top < x.bottom - 2 and ln.bottom > x.top + 2 and (ln.x0 >= x.x1 - 2 or ln.x1 <= x.x0 + 2)
+                for ln in part_lines
+            ):
+                floats_h.append(x)  # logo ao lado do texto do cabeçalho: flutua na posição exata
                 continue
             if pending_h:
                 write_lines(part, pending_h, m.left, m.right, reuse)
                 reuse, pending_h = None, []
-            write_image(part, x, m.left, m.right, reuse)
-            reuse = None
+            if isinstance(x, RuleItem):
+                x.gap_before = max(0.0, x.top - prev_bottom - 1) if prev_bottom is not None else 0.0
+                if reuse is not None:  # cabeçalho só com o traço: usa o parágrafo vazio que já existe
+                    reuse._p.getparent().remove(reuse._p)
+                    reuse = None
+                write_rule(x, part)
+            else:
+                write_image(part, x, m.left, m.right, reuse)
+                reuse = None
+            prev_bottom = x.bottom
         if pending_h:
             write_lines(part, pending_h, m.left, m.right, reuse)
+        if floats_h:
+            host = part.paragraphs[0] if part.paragraphs else part.add_paragraph()
+            for im in floats_h:
+                anchor_image(
+                    host.add_run(), im.png, im.x0, im.top, im.x1 - im.x0, im.bottom - im.top, behind=False
+                )
 
     out = io.BytesIO()
     doc.save(out)

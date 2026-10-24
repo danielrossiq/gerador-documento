@@ -23,6 +23,7 @@ from typing import Protocol
 from app.core.config import get_settings
 from app.core.errors import PermanentError, ServiceUnavailable, TransientError
 from app.core.logging import get_logger
+from app.docx_engine.fontmetrics import compensate_widths
 
 log = get_logger(__name__)
 
@@ -141,7 +142,7 @@ class LibreOfficeConverter:
             raise PdfConverterUnavailable
         with tempfile.TemporaryDirectory(prefix="minuta_pdf_") as tmp:
             src = Path(tmp) / "doc.docx"
-            src.write_bytes(docx)
+            src.write_bytes(compensate_widths(docx))  # fontes ausentes: mesma largura do original
             out = Path(tmp) / "out"
             out.mkdir()
             started = time.monotonic()
@@ -170,7 +171,7 @@ class LibreOfficeConverter:
             paths: dict[str, Path] = {}
             for n, (key, data) in enumerate(chunk):
                 p = Path(tmp) / f"d{n}.docx"
-                p.write_bytes(data)
+                p.write_bytes(compensate_widths(data))
                 paths[key] = p
             started = time.monotonic()
             try:
