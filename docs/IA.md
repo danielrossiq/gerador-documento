@@ -10,6 +10,7 @@ do servidor.
 |---|---|---|---|
 | **Achar os campos** no documento enviado | Ao enviar um modelo, na etapa *Campos*: "Campos encontrados pela IA" | Marcar à mão nome, CPF, valores e datas num contrato de 10 páginas | Claude Haiku 5.5 |
 | **Preencher com IA** | Tela *Gerar*, de um documento ou de um kit: "Cole o e-mail, o WhatsApp ou a ficha do cliente" | Copiar e colar campo por campo o que o cliente mandou por mensagem | Gemini 2.5 Flash |
+| **Preencher com a foto dos documentos** | Tela *Gerar*, aba "Foto ou PDF" do Preencher com IA | Digitar à mão nome, CPF, RG, endereço e CEP a partir da foto do RG/CNH e da conta de luz que o cliente mandou | Gemini 2.5 Flash (ver D37) |
 | **Revisar com IA** | Tela *Gerar*, ao lado de "Gerar documento" | Erros que passam batido: término antes do início, "inscrita" para um homem, valor por extenso diferente do número, nome escrito de dois jeitos | Gemini 2.5 Flash |
 
 ### Garantias

@@ -86,10 +86,13 @@ class OpenRouterChat:
         schema_name: str,
         schema: dict[str, Any],
         max_tokens: int,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> ChatResult:
+        # anexos (fotos/PDF de documentos): a mensagem vira uma lista de partes — texto + imagens/arquivos
+        content: Any = [{"type": "text", "text": user}, *attachments] if attachments else user
         body = {
             "model": model,
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
             # sem "temperature": vários modelos (de raciocínio) não aceitam, e com require_parameters a OpenRouter
             # ficaria sem provedor (404). O formato já vem garantido pelo schema estrito.
             "max_tokens": max_tokens,

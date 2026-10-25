@@ -11,6 +11,7 @@ valores). Nada disso é gravado: a razão de custo guarda só workspace, finalid
 
 from __future__ import annotations
 
+import io
 import re
 import unicodedata
 import uuid
@@ -155,7 +156,9 @@ def _call(ctx: Ctx, purpose: str, **kw: Any):  # type: ignore[no-untyped-def]
     # a reserva de custo usa uma transação própria (vale mesmo se esta requisição cair): libera a da requisição antes
     ctx.db.commit()
     try:
-        return ai.guarded_chat(purpose=purpose, workspace_id=ctx.workspace_id, quota=ctx.limit("max_ai_actions_per_month"), **kw)
+        return ai.guarded_chat(
+            purpose=purpose, workspace_id=ctx.workspace_id, quota=ctx.limit("max_ai_actions_per_month"), **kw
+        )
     except ai.AIDisabled as exc:
         raise Conflict("A IA não está ativada neste ambiente.", code="AI_DISABLED") from exc
     except ai_budget.BudgetExceeded as exc:
@@ -169,7 +172,9 @@ def _require_ai() -> None:
         raise Conflict("A IA não está ativada neste ambiente.", code="AI_DISABLED")
 
 
-def fill_values(ctx: Ctx, defs: list[FieldDef], text: str, *, entity: tuple[str, uuid.UUID]) -> dict[str, Any]:
+def fill_values(
+    ctx: Ctx, defs: list[FieldDef], text: str, *, entity: tuple[str, uuid.UUID]
+) -> dict[str, Any]:
     text = (text or "").strip()
     if len(text) < 3:
         raise ValidationFailed("Cole o texto com os dados do cliente.", code="AI_FILL_EMPTY")
@@ -198,7 +203,9 @@ def fill_values(ctx: Ctx, defs: list[FieldDef], text: str, *, entity: tuple[str,
         if not fd or not raw or name in values:
             continue
         if not _grounded(clipped, raw, str(item.get("evidence") or "")):
-            dropped += 1  # não estava no texto: fica em branco (a pessoa preenche), em vez de um valor inventado
+            dropped += (
+                1  # não estava no texto: fica em branco (a pessoa preenche), em vez de um valor inventado
+            )
             continue
         _, err = normalize_value(fd, raw)
         if err:
@@ -206,7 +213,14 @@ def fill_values(ctx: Ctx, defs: list[FieldDef], text: str, *, entity: tuple[str,
         values[name] = raw  # o formulário aplica a máscara/formato do tipo ao receber
         if item.get("evidence"):
             evidence[name] = str(item["evidence"])[:160]
-    audit.record(ctx.db, "assist.fill", ctx=ctx, entity_type=entity[0], entity_id=entity[1], meta={"found": len(values), "invalid": len(invalid), "dropped": dropped, "chars": len(clipped)})
+    audit.record(
+        ctx.db,
+        "assist.fill",
+        ctx=ctx,
+        entity_type=entity[0],
+        entity_id=entity[1],
+        meta={"found": len(values), "invalid": len(invalid), "dropped": dropped, "chars": len(clipped)},
+    )
     ctx.db.commit()
     return {
         "values": values,
@@ -232,6 +246,182 @@ def fill_kit(ctx: Ctx, kit_id: uuid.UUID, text: str) -> dict[str, Any]:
     return fill_values(ctx, kits_service.kit_field_defs(ctx.db, kit.id), text, entity=("kit", kit.id))
 
 
+# ------------------------------------------------------------------ preencher a partir de fotos/PDF de documentos
+
+
+MAX_FILES = 4
+MAX_FILE_BYTES = 8 * 1024 * 1024
+MAX_IMAGE_SIDE = 2000  # suficiente para ler RG/CNH/conta de luz; menos tokens (e custo) que a foto original
+MAX_IMAGE_PIXELS = 50_000_000
+
+FILES_SYSTEM = """Você lê fotos e PDFs de documentos brasileiros que o cliente enviou — RG, CNH, CPF, certidões,
+comprovante de residência (conta de luz, água, telefone, internet), cartão CNPJ, contrato social — e preenche um
+formulário com os dados deles.
+
+Para cada campo do formulário, procure o valor nos documentos. Regras:
+- copie só o que está legível no documento; se o dado não aparece ou está ilegível, devolva value "" (nunca deduza,
+  complete ou invente — melhor vazio que errado);
+- nomes exatamente como no documento;
+- formatos: datas dd/mm/aaaa; valores em reais 1.234,56; CPF 000.000.000-00; CNPJ 00.000.000/0000-00;
+  CEP 00000-000; telefone (00) 00000-0000;
+- endereço completo numa linha só (logradouro, número, complemento, bairro, cidade/UF), só se o campo pedir o
+  endereço inteiro; campos separados (CEP, cidade, bairro…) recebem só a parte deles;
+- campos de lista: escolha uma das opções só se o documento indicar claramente qual é; senão "";
+- campos que não são dados de documento (valor do contrato, prazo, objeto…) ficam "".
+"evidence": de qual documento veio e o que estava escrito (ex.: "CNH, campo nome"), até 12 palavras; "" se vazio.
+"documents": o tipo de cada documento recebido, na ordem (ex.: "CNH", "Conta de luz"); "ilegível" se não der para ler.
+"""
+
+
+def _files_schema(names: list[str]) -> dict[str, Any]:
+    schema = _fill_schema(names)
+    schema["required"] = ["values", "documents"]
+    schema["properties"]["documents"] = {"type": "array", "items": {"type": "string"}}
+    return schema
+
+
+def _attachment(data: bytes, index: int) -> tuple[dict[str, Any], int, str]:
+    """Arquivo enviado → (parte da mensagem para a IA, tokens estimados com folga, tipo).
+
+    Foto: aberta, girada conforme a câmera, reduzida e REGRAVADA em JPEG — sai sem metadados (GPS, aparelho).
+    PDF: vai como está para a IA ler (não é aberto aqui: o leitor de PDF só roda isolado, ver D35)."""
+    import base64
+
+    if (
+        data[:3] == b"\xff\xd8\xff"
+        or data[:8] == b"\x89PNG\r\n\x1a\n"
+        or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")
+    ):
+        from PIL import Image, ImageOps, UnidentifiedImageError
+
+        try:
+            with Image.open(io.BytesIO(data)) as im:
+                if im.width * im.height > MAX_IMAGE_PIXELS:
+                    raise ValidationFailed(
+                        "Imagem grande demais. Envie uma foto comum do documento.", code="AI_FILE_INVALID"
+                    )
+                img = ImageOps.exif_transpose(im).convert("RGB")
+                img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
+                buf = io.BytesIO()
+                img.save(buf, "JPEG", quality=85)
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+            raise ValidationFailed(
+                f"Não foi possível abrir a imagem {index + 1}.", code="AI_FILE_INVALID"
+            ) from exc
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        return {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}, 2000, "foto"
+    if b"%PDF-" in data[:1024]:
+        b64 = base64.b64encode(data).decode()
+        pages = min(60, len(data) // 30_000 + 2)  # estimativa folgada (não abrimos o PDF aqui)
+        part = {
+            "type": "file",
+            "file": {
+                "filename": f"documento-{index + 1}.pdf",
+                "file_data": f"data:application/pdf;base64,{b64}",
+            },
+        }
+        return part, pages * 800, "pdf"
+    raise ValidationFailed("Envie fotos (JPG, PNG ou WEBP) ou PDF do documento.", code="AI_FILE_TYPE")
+
+
+def fill_values_from_files(
+    ctx: Ctx, defs: list[FieldDef], files: list[bytes], *, entity: tuple[str, uuid.UUID]
+) -> dict[str, Any]:
+    if not files:
+        raise ValidationFailed("Envie a foto ou o PDF do documento.", code="AI_FILE_EMPTY")
+    if len(files) > MAX_FILES:
+        raise ValidationFailed(f"Envie no máximo {MAX_FILES} arquivos por vez.", code="AI_TOO_MANY_FILES")
+    for i, data in enumerate(files):
+        if not data:
+            raise ValidationFailed(f"O arquivo {i + 1} está vazio.", code="AI_FILE_EMPTY")
+        if len(data) > MAX_FILE_BYTES:
+            raise ValidationFailed(
+                f"O arquivo {i + 1} passa de {MAX_FILE_BYTES // (1024 * 1024)} MB.", code="FILE_TOO_LARGE"
+            )
+    defs = [d for d in defs if d.type != "checkbox"]
+    if not defs:
+        raise ValidationFailed("Este formulário não tem campos para preencher.", code="AI_FILL_NO_FIELDS")
+    prepared = [_attachment(data, i) for i, data in enumerate(files)]
+    user = (
+        "CAMPOS DO FORMULÁRIO:\n"
+        + "\n".join(_describe(d) for d in defs)
+        + f"\n\nDOCUMENTOS ANEXADOS: {len(prepared)} ({', '.join(k for _, _, k in prepared)})."
+    )
+    res = _call(
+        ctx,
+        "fill",
+        system=FILES_SYSTEM,
+        user=user,
+        schema_name="preenchimento_documentos",
+        schema=_files_schema([d.name for d in defs]),
+        max_tokens=1500 + 80 * len(defs),
+        attachments=[p for p, _, _ in prepared],
+        attachment_tokens=sum(t for _, t, _ in prepared),
+    )
+    by_name = {d.name: d for d in defs}
+    values: dict[str, str] = {}
+    invalid: dict[str, str] = {}
+    evidence: dict[str, str] = {}
+    dropped = 0
+    for item in res.data.get("values") or []:
+        name, raw = item.get("name"), str(item.get("value") or "").strip()
+        fd = by_name.get(name)
+        if not fd or not raw or name in values:
+            continue
+        ev = str(item.get("evidence") or "").strip()
+        if not ev:  # sem dizer de onde leu, não entra: a pessoa preenche (evita valor "completado" pela IA)
+            dropped += 1
+            continue
+        _, err = normalize_value(fd, raw)
+        if err:
+            invalid[name] = err  # vai assim mesmo: a pessoa vê o erro no campo (ex.: CPF com dígito ilegível)
+        values[name] = raw
+        evidence[name] = ev[:160]
+    documents = [str(d)[:60] for d in (res.data.get("documents") or [])][: MAX_FILES * 2]
+    audit.record(
+        ctx.db,
+        "assist.fill_files",
+        ctx=ctx,
+        entity_type=entity[0],
+        entity_id=entity[1],
+        meta={
+            "files": len(files),
+            "kinds": [k for _, _, k in prepared],
+            "found": len(values),
+            "invalid": len(invalid),
+            "dropped": dropped,
+        },
+    )
+    ctx.db.commit()
+    return {
+        "values": values,
+        "invalid": invalid,
+        "evidence": evidence,
+        "missing": [d.name for d in defs if d.name not in values],
+        "documents": documents,
+        "truncated": False,
+    }
+
+
+def fill_generator_files(ctx: Ctx, generator_id: uuid.UUID, files: list[bytes]) -> dict[str, Any]:
+    _require_ai()
+    gen = core.get_generator(ctx.db, ctx.workspace_id, generator_id)
+    version = core.current_version(ctx.db, gen)
+    return fill_values_from_files(
+        ctx, fields_service.field_defs(ctx.db, version.id), files, entity=("generator", gen.id)
+    )
+
+
+def fill_kit_files(ctx: Ctx, kit_id: uuid.UUID, files: list[bytes]) -> dict[str, Any]:
+    from app.modules.kits import service as kits_service
+
+    _require_ai()
+    kit = kits_service.get_kit(ctx.db, ctx.workspace_id, kit_id)
+    return fill_values_from_files(
+        ctx, kits_service.kit_field_defs(ctx.db, kit.id), files, entity=("kit", kit.id)
+    )
+
+
 def _document_with_values(ctx: Ctx, version, defs: list[FieldDef], values: dict[str, Any]) -> str:  # type: ignore[no-untyped-def]
     by_id = {d.id: d for d in defs}
     loaded = core.load_blocks(ctx.db, version.id)
@@ -254,7 +444,11 @@ def _document_with_values(ctx: Ctx, version, defs: list[FieldDef], values: dict[
                     continue
                 raw = values.get(fd.name)
                 canonical, err = normalize_value(fd, raw)
-                shown = format_value(fd, canonical) if not err and canonical not in (None, "") else (str(raw) if raw else "")
+                shown = (
+                    format_value(fd, canonical)
+                    if not err and canonical not in (None, "")
+                    else (str(raw) if raw else "")
+                )
                 parts.append(f"⟦{fd.name}: {shown or '(vazio)'}⟧")
         line = "".join(parts).strip()
         if not line:
@@ -276,7 +470,15 @@ def review_generator(ctx: Ctx, generator_id: uuid.UUID, values: dict[str, Any]) 
         raise ValidationFailed("O documento está vazio.", code="AI_REVIEW_EMPTY")
     legend = "CAMPOS:\n" + "\n".join(f"- {d.name} = {d.label}" for d in defs)
     user = f"{legend}\n\nDOCUMENTO:\n{doc}"
-    res = _call(ctx, "review", system=REVIEW_SYSTEM, user=user, schema_name="revisao", schema=REVIEW_SCHEMA, max_tokens=3000)
+    res = _call(
+        ctx,
+        "review",
+        system=REVIEW_SYSTEM,
+        user=user,
+        schema_name="revisao",
+        schema=REVIEW_SCHEMA,
+        max_tokens=3000,
+    )
     names = {d.name: d.label for d in defs}
     issues = []
     for it in (res.data.get("issues") or [])[:MAX_ISSUES]:
@@ -284,8 +486,22 @@ def review_generator(ctx: Ctx, generator_id: uuid.UUID, values: dict[str, Any]) 
         if not msg:
             continue
         field = it.get("field") if it.get("field") in names else ""
-        issues.append({"field": field, "label": names.get(field or "", ""), "severity": it.get("severity") or "media", "message": msg[:300]})
-    audit.record(ctx.db, "assist.review", ctx=ctx, entity_type="generator", entity_id=gen.id, meta={"issues": len(issues)})
+        issues.append(
+            {
+                "field": field,
+                "label": names.get(field or "", ""),
+                "severity": it.get("severity") or "media",
+                "message": msg[:300],
+            }
+        )
+    audit.record(
+        ctx.db,
+        "assist.review",
+        ctx=ctx,
+        entity_type="generator",
+        entity_id=gen.id,
+        meta={"issues": len(issues)},
+    )
     ctx.db.commit()
     return {"issues": issues}
 

@@ -317,3 +317,14 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
   - Identificadores técnicos invisíveis: cookie `minuta_csrf`, chaves `minuta:` do navegador, projeto e banco `minuta` do Docker, `~/.minuta`, pacote `minuta_backend`, metadata `minuta_plan` na Stripe. Renomear deslogaria todo mundo e apagaria rascunhos.
   - O histórico destas decisões (D01–D35) continua dizendo "Minuta".
 - Detalhes e arquivos: [MARCA.md](MARCA.md).
+
+## D37 — Preencher com a foto dos documentos do cliente (RG, CNH, comprovante)
+- **Pedido (Daniel)**: nova feature com IA. A dor escolhida: o cliente manda pelo WhatsApp a foto do RG/CNH e da conta de luz, e alguém digita nome, CPF, RG, endereço e CEP no formulário.
+- **Decisão**: o "Preencher com IA" ganha a aba **Foto ou PDF**, ao lado de "Colar texto". O usuário arrasta, escolhe ou cola (Ctrl+V) até 4 arquivos (JPG, PNG, WEBP ou PDF, 8 MB cada). Uma chamada ao Gemini 2.5 Flash (o mesmo modelo de preencher e revisar) lê todos os arquivos juntos e devolve valor + evidência ("CNH, campo nome") para cada campo. Rotas: `POST /generators/{id}/assist/fill-files` e `POST /kits/{id}/assist/fill-files` (multipart `files`).
+- **Garantias**:
+  - **foto regravada antes de sair**: aberta, girada conforme a câmera, reduzida a 2.000 px e salva de novo em JPEG — sem metadados (aparelho, GPS) e com menos tokens. Imagem acima de 50 Mpx é recusada;
+  - **PDF não é aberto na API** (o leitor de PDF só roda isolado, D35): vai como arquivo para a IA ler; o nome original do arquivo não é enviado (`documento-N.pdf`);
+  - **não inventa**: valor sem evidência é descartado; campo que não é dado de documento (valor do contrato, prazo) fica vazio; todo valor passa pela validação do tipo (CPF com dígito ilegível vai marcado em vermelho);
+  - nada é gravado: a auditoria guarda só quantidade/tipo de arquivo e contagens; mesma cota e tetos de custo da IA (D33), `data_collection: deny`.
+- **Medido** (documentos fictícios: conta de luz de empresa inventada + ficha cadastral, fotografadas tortas, com ruído e compressão de WhatsApp): 8 de 8 campos certos, inclusive estado civil escolhido da lista; valor do contrato e data de início corretamente vazios; 4,5 s; US$ 0,0012 por leitura.
+- Testes: `test_assist_ai.py` (foto sem metadados e reduzida, PDF sem nome original, valor sem evidência descartado, tipo inválido/arquivos demais/imagem quebrada recusados sem chamar a IA, trava geral) e `e2e/assist-photo.spec.ts` (com a IA real, quando ligada; imagens fictícias em `e2e/fixtures/*_ficticia.jpg`).
