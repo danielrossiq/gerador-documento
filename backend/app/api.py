@@ -62,6 +62,29 @@ def assist_fill_kit(kit_id: uuid.UUID, body: AssistFillIn, ctx: Ctx = Depends(ge
     return assist_service.fill_kit(ctx, kit_id, body.text)
 
 
+@api.post("/generators/{generator_id}/assist/fill-files", tags=["assist"])
+def assist_fill_files(
+    generator_id: uuid.UUID, files: list[UploadFile] = File(...), ctx: Ctx = Depends(get_ctx)
+) -> dict[str, Any]:
+    """Fotos/PDF dos documentos do cliente (RG, CNH, comprovante…) → valores para os campos, já validados."""
+    return assist_service.fill_generator_files(ctx, generator_id, _read_assist_files(files, ctx))
+
+
+@api.post("/kits/{kit_id}/assist/fill-files", tags=["assist"])
+def assist_fill_kit_files(
+    kit_id: uuid.UUID, files: list[UploadFile] = File(...), ctx: Ctx = Depends(get_ctx)
+) -> dict[str, Any]:
+    return assist_service.fill_kit_files(ctx, kit_id, _read_assist_files(files, ctx))
+
+
+def _read_assist_files(files: list[UploadFile], ctx: Ctx) -> list[bytes]:
+    if len(files) > assist_service.MAX_FILES:
+        raise ValidationFailed(
+            f"Envie no máximo {assist_service.MAX_FILES} arquivos por vez.", code="AI_TOO_MANY_FILES"
+        )
+    return [_read_upload(f, ctx, limit_mb=assist_service.MAX_FILE_BYTES // (1024 * 1024)) for f in files]
+
+
 @api.post("/generators/{generator_id}/assist/review", tags=["assist"])
 def assist_review(generator_id: uuid.UUID, body: AssistReviewIn, ctx: Ctx = Depends(get_ctx)) -> dict[str, Any]:
     """Documento preenchido → apontamentos de incoerência (datas, nomes, concordância, valores)."""

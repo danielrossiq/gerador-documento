@@ -55,9 +55,11 @@ def model_prices(model: str) -> tuple[float, float]:
     return FALLBACK_PRICE
 
 
-def worst_cost(model: str, prompt_chars: int, max_tokens: int) -> Decimal:
+def worst_cost(model: str, prompt_chars: int, max_tokens: int, extra_input_tokens: int = 0) -> Decimal:
     pin, pout = model_prices(model)
-    tokens_in = prompt_chars / 2.5  # português ≈ 3–4 caracteres por token; 2,5 deixa folga
+    tokens_in = (
+        prompt_chars / 2.5 + extra_input_tokens
+    )  # português ≈ 3–4 caracteres por token; 2,5 deixa folga
     return Decimal(str(round(tokens_in * pin + max_tokens * pout, 6))) or Decimal("0.000001")
 
 
@@ -66,7 +68,9 @@ def chat_client() -> OpenRouterChat:
     if not get_settings().external_ai_enabled or not key:
         raise AIDisabled()
     s = get_settings()
-    return OpenRouterChat(key, base_url=s.openrouter_base_url, timeout=s.ai_timeout_seconds, referer=s.public_web_url)
+    return OpenRouterChat(
+        key, base_url=s.openrouter_base_url, timeout=s.ai_timeout_seconds, referer=s.public_web_url
+    )
 
 
 def guarded_chat(
@@ -79,16 +83,31 @@ def guarded_chat(
     schema_name: str,
     schema: dict[str, Any],
     max_tokens: int,
+    attachments: list[dict[str, Any]] | None = None,
+    attachment_tokens: int = 0,
 ) -> ChatResult:
-    """Chamada com teto e cota. Levanta AIDisabled, ai_budget.BudgetExceeded ou AIUnavailable."""
+    """Chamada com teto e cota. Levanta AIDisabled, ai_budget.BudgetExceeded ou AIUnavailable.
+    `attachment_tokens`: estimativa (com folga) dos tokens de imagens/PDF anexados, para a reserva do custo."""
     client = chat_client()
     s = get_settings()
     model = s.openrouter_assist_model if purpose in ("fill", "review") else s.openrouter_model
     spend_id = ai_budget.reserve(
-        model, purpose, worst_cost(model, len(system) + len(user), max_tokens), workspace_id=workspace_id, quota=quota
+        model,
+        purpose,
+        worst_cost(model, len(system) + len(user), max_tokens, attachment_tokens),
+        workspace_id=workspace_id,
+        quota=quota,
     )
     try:
-        res = client.complete(model=model, system=system, user=user, schema_name=schema_name, schema=schema, max_tokens=max_tokens)
+        res = client.complete(
+            model=model,
+            system=system,
+            user=user,
+            schema_name=schema_name,
+            schema=schema,
+            max_tokens=max_tokens,
+            **({"attachments": attachments} if attachments else {}),
+        )
     except AIUnavailable:
         ai_budget.fail(spend_id)
         raise

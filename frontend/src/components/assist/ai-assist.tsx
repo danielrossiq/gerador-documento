@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ClipboardPaste, Info, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, ClipboardPaste, FileImage, Info, ScanText, ShieldCheck, Sparkles, X } from "lucide-react";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/form";
@@ -16,7 +16,12 @@ import type { FieldOut } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type AssistStatus = { enabled: boolean; actions_used: number; actions_limit: number };
-type FillResult = { values: Record<string, string>; invalid: Record<string, string>; evidence: Record<string, string>; missing: string[]; truncated: boolean };
+type FillResult = { values: Record<string, string>; invalid: Record<string, string>; evidence: Record<string, string>; missing: string[]; truncated: boolean; documents?: string[] };
+
+const MAX_FILES = 4;
+const MAX_MB = 8;
+const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const okType = (f: File) => ACCEPT.split(",").includes(f.type) || /\.(jpe?g|png|webp|pdf)$/i.test(f.name);
 type Issue = { field: string; label: string; severity: "alta" | "media" | "baixa"; message: string };
 
 export function useAssistStatus() {
@@ -54,26 +59,56 @@ export function AiFill({ endpoint, fields, onApply }: { endpoint: string; fields
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState<FillResult | null>(null);
+  const [mode, setMode] = useState<"texto" | "arquivos">("texto");
+  const [files, setFiles] = useState<File[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   if (!status.data?.enabled) return null;
   const left = Math.max(0, status.data.actions_limit - status.data.actions_used);
 
+  function addFiles(list: FileList | File[] | null) {
+    const incoming = Array.from(list ?? []);
+    const bad = incoming.filter((f) => !okType(f) || f.size > MAX_MB * 1024 * 1024);
+    if (bad.length) {
+      toast.push({ tone: "danger", title: "Arquivo não aceito", description: `Envie fotos (JPG, PNG, WEBP) ou PDF de até ${MAX_MB} MB.` });
+    }
+    const good = incoming.filter((f) => !bad.includes(f));
+    setFiles((cur) => [...cur, ...good].slice(0, MAX_FILES));
+    if (files.length + good.length > MAX_FILES) toast.push({ tone: "info", title: `No máximo ${MAX_FILES} arquivos por vez` });
+  }
+
+  function apply(r: FillResult, from: "texto" | "arquivos") {
+    const byName = Object.fromEntries(fields.map((f) => [f.name, f]));
+    const values: Record<string, unknown> = {};
+    for (const [name, raw] of Object.entries(r.values)) if (byName[name]) values[name] = toFormValue(byName[name], raw);
+    onApply(values, r.invalid);
+    setLast(r);
+    void status.refetch();
+    const n = Object.keys(values).length;
+    const read = r.documents?.length ? ` Lidos: ${r.documents.join(", ")}.` : "";
+    toast.push({
+      tone: n ? "success" : "info",
+      title: n ? `${n} ${n === 1 ? "campo preenchido" : "campos preenchidos"} pela IA` : from === "texto" ? "Nenhum dado encontrado no texto" : "Nenhum dado legível nos documentos",
+      description: n
+        ? `Confira cada campo antes de gerar. O que faltou continua em branco.${read}`
+        : from === "texto"
+          ? "Cole um texto que tenha nome, CPF, endereço, valores…"
+          : `Envie uma foto nítida e bem iluminada do documento inteiro.${read}`,
+    });
+  }
+
   async function run() {
     setBusy(true);
     try {
-      const r = await api.post<FillResult>(endpoint, { text });
-      const byName = Object.fromEntries(fields.map((f) => [f.name, f]));
-      const values: Record<string, unknown> = {};
-      for (const [name, raw] of Object.entries(r.values)) if (byName[name]) values[name] = toFormValue(byName[name], raw);
-      onApply(values, r.invalid);
-      setLast(r);
-      void status.refetch();
-      const n = Object.keys(values).length;
-      toast.push({
-        tone: n ? "success" : "info",
-        title: n ? `${n} ${n === 1 ? "campo preenchido" : "campos preenchidos"} pela IA` : "Nenhum dado encontrado no texto",
-        description: n ? "Confira cada campo antes de gerar. O que faltou continua em branco." : "Cole um texto que tenha nome, CPF, endereço, valores…",
-      });
+      if (mode === "texto") {
+        apply(await api.post<FillResult>(endpoint, { text }), "texto");
+      } else {
+        const fd = new FormData();
+        files.forEach((f) => fd.append("files", f));
+        apply(await api.post<FillResult>(`${endpoint}-files`, fd), "arquivos");
+        setFiles([]);
+      }
     } catch (e) {
       toast.push({ tone: "danger", title: "Não foi possível preencher com a IA", description: quotaMessage(e) });
     } finally {
@@ -87,25 +122,111 @@ export function AiFill({ endpoint, fields, onApply }: { endpoint: string; fields
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-fg" aria-hidden><Sparkles className="h-4 w-4" /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">Preencher com IA</span>
-          <span className="block text-xs text-muted">Cole o e-mail, a mensagem do WhatsApp ou a ficha do cliente: a IA coloca cada dado no campo certo.</span>
+          <span className="block text-xs text-muted">Cole a mensagem do cliente ou envie a foto do RG, da CNH e do comprovante de residência: a IA coloca cada dado no campo certo.</span>
         </span>
         <span className="text-xs font-medium text-primary">{open ? "Fechar" : "Abrir"}</span>
       </button>
       {open && (
         <div className="mt-3 space-y-2">
-          <label htmlFor={id} className="sr-only">Texto com os dados do cliente</label>
-          <Textarea
-            id={id}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={5}
-            maxLength={20000}
-            placeholder={"Ex.: Oi! Segue meus dados para o contrato: Maria Aparecida Souza, CPF 529.982.247-25, moro na Rua das Acácias, 120, BH. O valor combinado foi R$ 4.500, começando em 10/11."}
-            data-testid="ai-fill-text"
-          />
+          <div role="tablist" aria-label="De onde vêm os dados" className="inline-flex rounded-md border border-border bg-surface p-0.5 text-xs">
+            {(
+              [
+                ["texto", "Colar texto", ClipboardPaste],
+                ["arquivos", "Foto ou PDF", FileImage],
+              ] as const
+            ).map(([value, label, Icon]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={mode === value}
+                onClick={() => setMode(value)}
+                className={cn("inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-medium", mode === value ? "bg-primary text-primary-fg" : "text-muted hover:text-fg")}
+                data-testid={`ai-fill-mode-${value}`}
+              >
+                <Icon className="h-3.5 w-3.5" aria-hidden /> {label}
+              </button>
+            ))}
+          </div>
+          {mode === "texto" ? (
+            <>
+              <label htmlFor={id} className="sr-only">Texto com os dados do cliente</label>
+              <Textarea
+                id={id}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={5}
+                maxLength={20000}
+                placeholder={"Ex.: Oi! Segue meus dados para o contrato: Maria Aparecida Souza, CPF 529.982.247-25, moro na Rua das Acácias, 120, BH. O valor combinado foi R$ 4.500, começando em 10/11."}
+                data-testid="ai-fill-text"
+              />
+            </>
+          ) : (
+            <div
+              tabIndex={0}
+              role="button"
+              aria-label="Enviar fotos ou PDF dos documentos do cliente"
+              onClick={() => fileInput.current?.click()}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && fileInput.current?.click()}
+              onPaste={(e) => addFiles(e.clipboardData.files)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                addFiles(e.dataTransfer.files);
+              }}
+              className={cn(
+                "cursor-pointer rounded-md border-2 border-dashed p-4 text-center text-xs text-muted outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                dragging ? "border-primary bg-surface" : "border-border-strong bg-surface/60",
+              )}
+              data-testid="ai-fill-drop"
+            >
+              <ScanText className="mx-auto mb-1 h-6 w-6 text-primary" aria-hidden />
+              <p className="font-medium text-fg">Arraste, escolha ou cole (Ctrl+V) as fotos dos documentos</p>
+              <p>RG, CNH, comprovante de residência, cartão CNPJ… · JPG, PNG ou PDF · até {MAX_FILES} arquivos</p>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                accept={ACCEPT}
+                className="sr-only"
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+                data-testid="ai-fill-files"
+              />
+            </div>
+          )}
+          {mode === "arquivos" && files.length > 0 && (
+            <ul className="space-y-1 text-xs" data-testid="ai-fill-file-list">
+              {files.map((f, i) => (
+                <li key={`${f.name}-${i}`} className="flex items-center gap-2 rounded border border-border bg-surface px-2 py-1">
+                  <FileImage className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="shrink-0 text-muted">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                  <button type="button" onClick={() => setFiles((cur) => cur.filter((_, k) => k !== i))} className="rounded p-0.5 text-muted hover:text-fg" aria-label={`Remover ${f.name}`}>
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="primary" size="sm" onClick={run} loading={busy} disabled={text.trim().length < 3 || left === 0} data-testid="ai-fill-run">
-              <ClipboardPaste className="h-4 w-4" aria-hidden /> Preencher os campos
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={run}
+              loading={busy}
+              disabled={(mode === "texto" ? text.trim().length < 3 : files.length === 0) || left === 0}
+              data-testid="ai-fill-run"
+            >
+              {mode === "texto" ? <ClipboardPaste className="h-4 w-4" aria-hidden /> : <ScanText className="h-4 w-4" aria-hidden />}
+              {mode === "texto" ? " Preencher os campos" : " Ler documentos e preencher"}
             </Button>
             <span className="text-xs text-muted">{left} de {status.data.actions_limit} usos de IA restantes este mês</span>
             {left === 0 && <Link href="/assinatura" className="text-xs font-medium text-primary underline">Ver planos</Link>}
@@ -115,7 +236,8 @@ export function AiFill({ endpoint, fields, onApply }: { endpoint: string; fields
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               {Object.keys(last.values).length} preenchidos
               {Object.keys(last.invalid).length > 0 && `, ${Object.keys(last.invalid).length} com formato a conferir`}
-              {last.missing.length > 0 && `, ${last.missing.length} não estavam no texto`}. A IA não inventa: o que não estava no texto fica em branco.
+              {last.missing.length > 0 && `, ${last.missing.length} não ${last.documents ? "estavam nos documentos" : "estavam no texto"}`}.
+              {last.documents?.length ? ` Lidos: ${last.documents.join(", ")}.` : ""} A IA não inventa: o que não estava lá fica em branco.
             </p>
           )}
         </div>

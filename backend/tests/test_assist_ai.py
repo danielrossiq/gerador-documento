@@ -195,3 +195,81 @@ def test_openrouter_errors_become_stable_codes(status, code):
     with pytest.raises(AIUnavailable) as exc:
         chat.complete(model="m", system="s", user="u", schema_name="x", schema={"type": "object"}, max_tokens=10)
     assert exc.value.code == code
+
+
+# ------------------------------------------------------------------ fotos/PDF dos documentos do cliente
+
+
+def _photo(width: int = 4000, height: int = 3000) -> bytes:
+    """Foto grande de câmera, com metadados (aparelho) que não podem sair para a IA."""
+    import io as _io
+
+    from PIL import Image
+
+    img = Image.new("RGB", (width, height), (240, 240, 235))
+    exif = Image.Exif()
+    exif[0x010F] = "Camera de Teste"  # Make
+    exif[0x0110] = "Modelo XYZ"  # Model
+    buf = _io.BytesIO()
+    img.save(buf, "JPEG", exif=exif.tobytes(), quality=70)
+    return buf.getvalue()
+
+
+def test_fill_from_document_photos_and_pdf(api, demo_docx, ai_on, fake_chat):
+    import base64
+    import io as _io
+
+    from PIL import Image
+
+    from tests import pdf_samples
+
+    api.register()
+    gid = build_generator(api, demo_docx)["id"]
+    fake_chat.responses.append(
+        {
+            "values": [
+                {"name": "nome_do_contratante", "value": "Marina Duarte Campos", "evidence": "CNH, campo nome"},
+                {"name": "cpf_do_contratante", "value": "529.982.247-25", "evidence": "CNH, campo CPF"},
+                {"name": "valor_mensal", "value": "3.200,00", "evidence": ""},  # sem dizer de onde leu: descartado
+            ],
+            "documents": ["CNH", "Conta de luz"],
+        }
+    )
+    files = [
+        ("files", ("IMG_2026_maria.jpg", _photo(), "image/jpeg")),
+        ("files", ("comprovante maria.pdf", pdf_samples.typed_pdf(), "application/pdf")),
+    ]
+    out = api.post(f"/generators/{gid}/assist/fill-files", files=files).json()
+    assert out["values"] == {"nome_do_contratante": "Marina Duarte Campos", "cpf_do_contratante": "529.982.247-25"}
+    assert out["evidence"]["cpf_do_contratante"] == "CNH, campo CPF"
+    assert out["documents"] == ["CNH", "Conta de luz"] and "valor_mensal" in out["missing"]
+
+    sent = fake_chat.calls[0]
+    image, pdf = sent["attachments"]
+    jpeg = base64.b64decode(image["image_url"]["url"].split(",", 1)[1])
+    with Image.open(_io.BytesIO(jpeg)) as im:
+        assert max(im.size) <= 2000  # reduzida
+        assert not dict(im.getexif())  # regravada: sem aparelho, sem GPS
+    assert pdf["file"]["filename"] == "documento-2.pdf"  # o nome do arquivo (com o nome da pessoa) não vai
+    assert "Marina" not in sent["user"]  # o texto da chamada só tem os campos
+    assert api.get("/assist/status").json()["actions_used"] == 1
+
+
+def test_fill_files_refuses_bad_input_without_calling_the_ai(api, demo_docx, ai_on, fake_chat):
+    api.register()
+    gid = build_generator(api, demo_docx)["id"]
+    r = api.post(f"/generators/{gid}/assist/fill-files", files=[("files", ("x.exe", b"MZ\x90\x00binario", "application/octet-stream"))])
+    assert r.status_code == 422 and r.json()["error"]["code"] == "AI_FILE_TYPE"
+    many = [("files", (f"f{i}.jpg", _photo(40, 30), "image/jpeg")) for i in range(5)]
+    r = api.post(f"/generators/{gid}/assist/fill-files", files=many)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "AI_TOO_MANY_FILES"
+    r = api.post(f"/generators/{gid}/assist/fill-files", files=[("files", ("x.jpg", b"\xff\xd8\xff quebrado", "image/jpeg"))])
+    assert r.status_code == 422 and r.json()["error"]["code"] == "AI_FILE_INVALID"
+    assert fake_chat.calls == []
+
+
+def test_fill_files_is_off_without_the_ai_gate(api, no_network):
+    api.register()
+    gid = api.post("/generators", json={"name": "G"}).json()["id"]
+    r = api.post(f"/generators/{gid}/assist/fill-files", files=[("files", ("a.jpg", _photo(40, 30), "image/jpeg"))])
+    assert r.status_code == 409 and r.json()["error"]["code"] == "AI_DISABLED"

@@ -99,6 +99,8 @@ Só responde com `EXTERNAL_AI_ENABLED=true` e a chave da OpenRouter configurada.
 | GET | `/assist/status` | `{enabled, actions_used, actions_limit}`. A interface só mostra os botões de IA com `enabled: true` |
 | POST | `/generators/{id}/assist/fill` | `{text}` (até 8.000 caracteres usados) → `{values, invalid, evidence, missing, truncated}`. `values` traz só o que tem evidência no texto. `invalid` lista os valores que não passam na validação do tipo; eles vão mesmo assim, marcados |
 | POST | `/kits/{id}/assist/fill` | igual, com os campos em comum do kit |
+| POST | `/generators/{id}/assist/fill-files` | multipart `files` (1 a 4 fotos JPG/PNG/WEBP ou PDF, 8 MB cada) → `{values, invalid, evidence, missing, documents}`. Fotos regravadas sem metadados antes de sair; PDF não é aberto na API (D37). Recusas: `AI_FILE_TYPE`, `AI_FILE_INVALID`, `AI_TOO_MANY_FILES`, `FILE_TOO_LARGE` |
+| POST | `/kits/{id}/assist/fill-files` | igual, com os campos em comum do kit |
 | POST | `/generators/{id}/assist/review` | `{values}` → `{issues: [{field, label, severity: alta\|media\|baixa, message}]}`, no máximo 8. Não altera nada |
 
 ## Cobrança (D34)
