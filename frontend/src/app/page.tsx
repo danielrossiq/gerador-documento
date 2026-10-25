@@ -38,11 +38,11 @@ import { Logo, SiteHeader } from "@/components/site/site-header";
 const body = Inter({ subsets: ["latin"], variable: "--site-body", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { absolute: "Minuta — seus documentos se preenchem sozinhos" },
+  title: { absolute: "DocFeito — documento feito, sem copiar e colar" },
   description:
     "Envie o contrato, a procuração ou o recibo que você já usa (Word ou PDF). A IA marca nome, CPF, valores e datas; você preenche um formulário e gera 1 ou 1.000 documentos prontos.",
   openGraph: {
-    title: "Minuta — seus documentos se preenchem sozinhos",
+    title: "DocFeito — documento feito, sem copiar e colar",
     description: "Pare de copiar e colar no Word. A IA transforma os documentos que você já usa em formulários: gere 1 ou 1.000 em segundos.",
     type: "website",
     locale: "pt_BR",
@@ -148,7 +148,7 @@ const SECURITY = [
 ];
 
 const FAQ: { q: string; a: ReactNode }[] = [
-  { q: "Preciso instalar alguma coisa?", a: "Não. O Minuta funciona no navegador, no computador ou no celular. Você entra, envia um documento e já pode gerar." },
+  { q: "Preciso instalar alguma coisa?", a: "Não. O DocFeito funciona no navegador, no computador ou no celular. Você entra, envia um documento e já pode gerar." },
   {
     q: "Quais documentos posso usar?",
     a: "Word (.docx) e PDF digitado, aquele que sai do Word, do Google Docs ou de um sistema. PDF escaneado (foto do papel) não é aceito, porque o texto ali é uma imagem e os dados sairiam com erros.",
@@ -163,16 +163,16 @@ const FAQ: { q: string; a: ReactNode }[] = [
   { q: "E se eu passar do limite do plano?", a: "Avisamos antes de chegar no limite. Você pode trocar de plano a qualquer momento, e a diferença é calculada proporcionalmente." },
   {
     q: "Os documentos gerados têm validade jurídica?",
-    a: "O Minuta preenche os seus próprios modelos, com o texto que você definiu. A validade depende desse conteúdo e da assinatura das partes. O Minuta não presta orientação jurídica.",
+    a: "O DocFeito preenche os seus próprios modelos, com o texto que você definiu. A validade depende desse conteúdo e da assinatura das partes. O DocFeito não presta orientação jurídica.",
   },
 ];
 
 function Section({ id, eyebrow, title, sub, children, dark, className }: { id?: string; eyebrow?: string; title: ReactNode; sub?: ReactNode; children: ReactNode; dark?: boolean; className?: string }) {
   return (
-    <section id={id} className={`scroll-mt-20 px-5 py-20 sm:py-28 ${dark ? "bg-zinc-950 text-white" : ""} ${className ?? ""}`}>
+    <section id={id} className={`scroll-mt-20 px-5 py-20 sm:py-28 ${dark ? "bg-ink text-white" : ""} ${className ?? ""}`}>
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto mb-12 max-w-3xl text-center sm:mb-16">
-          {eyebrow && <p className={`mb-3 text-sm font-bold uppercase tracking-[0.18em] ${dark ? "text-indigo-300" : "text-indigo-600"}`}>{eyebrow}</p>}
+          {eyebrow && <p className={`mb-3 text-sm font-bold uppercase tracking-[0.18em] ${dark ? "text-brand-bright" : "text-primary"}`}>{eyebrow}</p>}
           <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-5xl">{title}</h2>
           {sub && <p className={`mt-5 text-lg ${dark ? "text-zinc-400" : "text-zinc-600"}`}>{sub}</p>}
         </div>
@@ -184,7 +184,7 @@ function Section({ id, eyebrow, title, sub, children, dark, className }: { id?: 
 
 function Cta({ children = "Começar grátis", testId }: { children?: ReactNode; testId?: string }) {
   return (
-    <Link href="/register" data-testid={testId} className="group inline-flex items-center gap-2 rounded-full bg-indigo-600 px-7 py-3.5 text-base font-semibold text-white shadow-xl shadow-indigo-600/30 transition hover:bg-indigo-500">
+    <Link href="/register" data-testid={testId} className="group inline-flex items-center gap-2 rounded-full bg-highlight px-7 py-3.5 text-base font-bold text-ink shadow-xl shadow-highlight/20 transition hover:bg-[#ffe066]">
       {children} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden />
     </Link>
   );
@@ -192,19 +192,19 @@ function Cta({ children = "Começar grátis", testId }: { children?: ReactNode; 
 
 export default function Landing() {
   return (
-    <div className={`site ${body.variable} bg-white font-[family-name:var(--site-body)] text-zinc-900 antialiased`}>
+    <div className={`site ${body.variable} bg-white font-[family-name:var(--site-body)] text-ink antialiased`}>
       <SiteHeader />
       <main id="main">
         {/* ------------------------------------------------------------------ topo */}
-        <section className="site-hero relative overflow-hidden bg-zinc-950 px-5 pb-20 pt-32 text-white sm:pb-28 sm:pt-40">
+        <section className="site-hero relative overflow-hidden bg-ink px-5 pb-20 pt-32 text-white sm:pb-28 sm:pt-40">
           <div aria-hidden className="site-hero-glow pointer-events-none absolute inset-0" />
           <div className="relative mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1fr_1.15fr]">
             <div>
-              <a href="#recursos" className="inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-500/10 px-3.5 py-1.5 text-sm font-medium text-indigo-200 transition hover:bg-indigo-500/20">
+              <a href="#recursos" className="inline-flex items-center gap-2 rounded-full border border-brand-bright/30 bg-brand/10 px-3.5 py-1.5 text-sm font-medium text-brand-bright transition hover:bg-brand/20">
                 <Sparkles className="h-4 w-4" aria-hidden /> Novo: a IA encontra os campos por você
               </a>
               <h1 className="mt-6 font-display text-[2.6rem] font-extrabold leading-[1.06] tracking-tight sm:text-6xl xl:text-[4.25rem]">
-                Seus documentos se <span className="site-chip">preenchem sozinhos.</span>
+                Documento feito. <span className="site-chip">Sem copiar e colar.</span>
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-300 sm:text-xl">
                 Envie o contrato, a procuração ou o recibo que você já usa, em Word ou PDF. A IA marca nome, CPF, valores e datas. Você preenche um formulário e baixa{" "}
@@ -219,13 +219,13 @@ export default function Landing() {
               <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-400">
                 {["Grátis para começar", "Sem cartão de crédito", "Word e PDF"].map((t) => (
                   <li key={t} className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-hidden /> {t}
+                    <CheckCircle2 className="h-4 w-4 text-brand-bright" aria-hidden /> {t}
                   </li>
                 ))}
               </ul>
             </div>
             <div className="relative">
-              <div aria-hidden className="absolute -inset-6 rounded-[2rem] bg-indigo-500/20 blur-3xl" />
+              <div aria-hidden className="absolute -inset-6 rounded-[2rem] bg-brand/20 blur-3xl" />
               <div className="relative">
                 <LiveDemo mode="auto" compact />
               </div>
@@ -239,14 +239,14 @@ export default function Landing() {
             <p className="w-full text-center text-sm font-semibold text-zinc-500 lg:w-auto">Feito para quem vive de documentos:</p>
             {SEGMENTS.map((s) => (
               <span key={s.label} className="flex items-center gap-2 text-sm font-semibold text-zinc-700">
-                <s.icon className="h-5 w-5 text-indigo-600" aria-hidden /> {s.label}
+                <s.icon className="h-5 w-5 text-primary" aria-hidden /> {s.label}
               </span>
             ))}
           </div>
         </section>
 
         {/* ------------------------------------------------------------------ antes x depois */}
-        <Section eyebrow="O problema" title="Chega de caçar nome e CPF no Word." sub="Todo documento repetido é tempo perdido e uma chance de errar. O Minuta faz a parte chata.">
+        <Section eyebrow="O problema" title="Chega de caçar nome e CPF no Word." sub="Todo documento repetido é tempo perdido e uma chance de errar. O DocFeito faz a parte chata.">
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-8">
               <p className="mb-6 font-display text-lg font-bold text-zinc-500">No Word · documento por documento</p>
@@ -258,12 +258,12 @@ export default function Landing() {
                 ))}
               </ul>
             </div>
-            <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-8 shadow-xl shadow-indigo-500/10">
-              <p className="mb-6 font-display text-lg font-bold text-indigo-700">Com o Minuta · em menos de 1 minuto</p>
+            <div className="rounded-2xl border border-brand/30 bg-gradient-to-br from-primary-soft to-white p-8 shadow-xl shadow-brand/10">
+              <p className="mb-6 font-display text-lg font-bold text-primary">Com o DocFeito · em menos de 1 minuto</p>
               <ul className="space-y-4">
                 {AFTER.map((t) => (
                   <li key={t} className="flex gap-3 font-medium text-zinc-800">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden /> {t}
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden /> {t}
                   </li>
                 ))}
               </ul>
@@ -277,7 +277,7 @@ export default function Landing() {
           eyebrow="Teste agora, sem cadastro"
           title={<>Veja a IA marcar os campos. Depois, mude o que quiser.</>}
           sub="Escolha um documento de exemplo, clique em “Encontrar os campos com IA” e preencha o formulário: o documento muda na hora, com o valor por extenso e o CPF conferido."
-          className="bg-gradient-to-b from-zinc-50 to-white"
+          className="bg-gradient-to-b from-paper to-white"
         >
           <div className="mx-auto max-w-6xl">
             <LiveDemo mode="interactive" />
@@ -296,8 +296,8 @@ export default function Landing() {
                 )}
                 <div className="p-7">
                   <span className="flex items-center gap-3">
-                    <span className="grid h-10 w-10 place-items-center rounded-full bg-indigo-600 font-display text-base font-extrabold text-white">{i + 1}</span>
-                    <s.icon className="h-6 w-6 text-indigo-600" aria-hidden />
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-highlight font-display text-base font-extrabold text-ink">{i + 1}</span>
+                    <s.icon className="h-6 w-6 text-primary" aria-hidden />
                   </span>
                   <h3 className="mt-5 font-display text-xl font-bold">{s.title}</h3>
                   <p className="mt-2 text-zinc-600">{s.text}</p>
@@ -309,8 +309,8 @@ export default function Landing() {
 
         {/* ------------------------------------------------------------------ vídeo */}
         {demoVideo && (
-          <Section dark eyebrow="O app de verdade" title="Veja o Minuta em ação." sub="Do upload do contrato ao PDF pronto, sem cortes de mentira: esta é a tela que você vai usar.">
-            <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl ring-1 ring-white/10 shadow-2xl shadow-indigo-500/20">
+          <Section dark eyebrow="O app de verdade" title="Veja o DocFeito em ação." sub="Do upload do contrato ao PDF pronto, sem cortes de mentira: esta é a tela que você vai usar.">
+            <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl ring-1 ring-white/10 shadow-2xl shadow-brand/20">
               <DemoVideo />
             </div>
           </Section>
@@ -322,20 +322,20 @@ export default function Landing() {
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className={`relative rounded-2xl border p-7 ${f.big ? "border-transparent bg-zinc-950 text-white md:col-span-2 lg:col-span-1 lg:row-span-2" : "border-zinc-200 bg-white"}`}
+                className={`relative rounded-2xl border p-7 ${f.big ? "border-transparent bg-ink text-white md:col-span-2 lg:col-span-1 lg:row-span-2" : "border-zinc-200 bg-white"}`}
               >
                 {f.tag && (
-                  <span className={`absolute right-5 top-5 rounded-full px-2.5 py-0.5 text-xs font-bold ${f.big ? "bg-indigo-500 text-white" : "bg-indigo-50 text-indigo-700"}`}>{f.tag}</span>
+                  <span className={`absolute right-5 top-5 rounded-full px-2.5 py-0.5 text-xs font-bold ${f.big ? "bg-highlight text-ink" : "bg-highlight-soft text-ink"}`}>{f.tag}</span>
                 )}
-                <f.icon className={`h-8 w-8 ${f.big ? "text-indigo-300" : "text-indigo-600"}`} aria-hidden />
+                <f.icon className={`h-8 w-8 ${f.big ? "text-brand-bright" : "text-primary"}`} aria-hidden />
                 <h3 className={`mt-5 font-display font-bold ${f.big ? "text-2xl" : "text-lg"}`}>{f.title}</h3>
                 <p className={`mt-2 ${f.big ? "text-zinc-300" : "text-zinc-600"}`}>{f.text}</p>
                 {f.big && (
                   <div aria-hidden className="mt-8 space-y-2 font-serif text-sm leading-relaxed text-zinc-300">
                     <p>
-                      Pelo presente instrumento, <span className="rounded bg-indigo-500/25 px-1 text-indigo-100 ring-1 ring-indigo-400/40">Maria Aparecida Souza</span>, CPF{" "}
-                      <span className="rounded bg-indigo-500/25 px-1 text-indigo-100 ring-1 ring-indigo-400/40">529.982.247-25</span>, contrata os serviços pelo valor de{" "}
-                      <span className="rounded bg-indigo-500/25 px-1 text-indigo-100 ring-1 ring-indigo-400/40">R$ 4.500,00</span>…
+                      Pelo presente instrumento, <span className="rounded bg-highlight px-1 font-sans font-semibold text-ink">Maria Aparecida Souza</span>, CPF{" "}
+                      <span className="rounded bg-highlight px-1 font-sans font-semibold text-ink">529.982.247-25</span>, contrata os serviços pelo valor de{" "}
+                      <span className="rounded bg-highlight px-1 font-sans font-semibold text-ink">R$ 4.500,00</span>…
                     </p>
                     <p className="flex flex-wrap gap-2 pt-3 font-sans text-xs">
                       {["Nome do cliente", "CPF", "Valor", "Data", "Endereço"].map((t) => (
@@ -351,7 +351,7 @@ export default function Landing() {
 
         {/* ------------------------------------------------------------------ casos de uso (com imagens geradas) */}
         {(hasImage("seg-advocacia") || hasImage("seg-contabilidade")) && (
-          <Section eyebrow="Na prática" title="Do escritório de advocacia à imobiliária." className="bg-zinc-50">
+          <Section eyebrow="Na prática" title="Do escritório de advocacia à imobiliária." className="bg-paper">
             <div className="grid gap-6 md:grid-cols-2">
               {[
                 { name: "seg-advocacia", title: "Advocacia", text: "Procurações, contratos de honorários e substabelecimentos com a qualificação do cliente preenchida em segundos." },
@@ -381,11 +381,11 @@ export default function Landing() {
         </Section>
 
         {/* ------------------------------------------------------------------ segurança */}
-        <Section dark eyebrow="Segurança" title="Seus documentos ficam com você." sub="Documento de cliente é coisa séria. O Minuta foi construído com isso em mente desde o primeiro dia.">
+        <Section dark eyebrow="Segurança" title="Seus documentos ficam com você." sub="Documento de cliente é coisa séria. O DocFeito foi construído com isso em mente desde o primeiro dia.">
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {SECURITY.map((s) => (
               <div key={s.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-                <s.icon className="h-7 w-7 text-indigo-300" aria-hidden />
+                <s.icon className="h-7 w-7 text-brand-bright" aria-hidden />
                 <h3 className="mt-4 font-display text-lg font-bold">{s.title}</h3>
                 <p className="mt-2 text-sm text-zinc-400">{s.text}</p>
               </div>
@@ -399,7 +399,7 @@ export default function Landing() {
         </Section>
 
         {/* ------------------------------------------------------------------ perguntas */}
-        <Section id="perguntas" eyebrow="Dúvidas" title="Perguntas frequentes" className="bg-zinc-50">
+        <Section id="perguntas" eyebrow="Dúvidas" title="Perguntas frequentes" className="bg-paper">
           <div className="mx-auto max-w-3xl divide-y divide-zinc-200 rounded-2xl border border-zinc-200 bg-white">
             {FAQ.map((f) => (
               <details key={f.q} className="group px-6 py-5 [&_summary::-webkit-details-marker]:hidden">
@@ -414,7 +414,7 @@ export default function Landing() {
         </Section>
 
         {/* ------------------------------------------------------------------ chamada final */}
-        <section className="site-hero relative overflow-hidden bg-zinc-950 px-5 py-24 text-center text-white sm:py-32">
+        <section className="site-hero relative overflow-hidden bg-ink px-5 py-24 text-center text-white sm:py-32">
           <div aria-hidden className="site-hero-glow pointer-events-none absolute inset-0" />
           <div className="relative mx-auto max-w-3xl">
             <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-6xl">Seu próximo documento pode levar 30 segundos.</h2>
@@ -430,7 +430,7 @@ export default function Landing() {
       <footer className="border-t border-zinc-200 px-5 py-10">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-6 text-sm text-zinc-500">
           <Logo />
-          <span>Documentos que se preenchem sozinhos.</span>
+          <span>Documento feito, sem copiar e colar.</span>
           <nav aria-label="Rodapé" className="ml-auto flex flex-wrap gap-5">
             <a href="#precos" className="hover:text-zinc-900">Preços</a>
             <Link href="/termos" className="hover:text-zinc-900">Termos de uso</Link>

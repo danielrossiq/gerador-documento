@@ -203,7 +203,7 @@ def create_checkout(ctx: Ctx, plan_id: str, cycle: str, method: str) -> str:
                     "price_data": {
                         "currency": "brl",
                         "unit_amount": price_cents(plan_id, cycle),
-                        "product_data": {"name": f"Minuta {plan_name} — {'12 meses' if cycle == 'anual' else '1 mês'} (Pix)"},
+                        "product_data": {"name": f"DocFeito {plan_name} — {'12 meses' if cycle == 'anual' else '1 mês'} (Pix)"},
                     },
                 }
             ],

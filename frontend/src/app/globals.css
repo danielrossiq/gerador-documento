@@ -23,6 +23,13 @@
   --color-warning-soft: var(--warning-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  /* marca DocFeito (docs/MARCA.md): tinta, verde da marca e amarelo marca-texto dos campos */
+  --color-ink: var(--ink);
+  --color-brand: var(--brand);
+  --color-brand-bright: var(--brand-bright);
+  --color-highlight: var(--highlight);
+  --color-highlight-soft: var(--highlight-soft);
+  --color-paper: var(--paper);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -35,17 +42,24 @@
 }
 
 :root {
-  --bg: #f3f4f7;
+  /* DocFeito: papel quente, texto em tinta, ação em verde (o verde escuro garante contraste AA com branco) */
+  --bg: #f4f2ec;
   --surface: #ffffff;
-  --surface-2: #f8f9fb;
-  --border: #e1e4ea;
-  --border-strong: #c3c9d4;
-  --fg: #171a21;
-  --muted: #566070; /* 6.1:1 sobre branco */
-  --primary: #4338ca; /* 6.3:1 com texto branco */
-  --primary-hover: #3730a3;
-  --primary-soft: #eceefe;
+  --surface-2: #faf8f3;
+  --border: #e4e1d8;
+  --border-strong: #c9c4b7;
+  --fg: #0e1a2b;
+  --muted: #4f5b6b; /* 6.9:1 sobre branco */
+  --primary: #0b7a5a; /* 5.3:1 com texto branco */
+  --primary-hover: #08664b;
+  --primary-soft: #e7f8f1;
   --primary-fg: #ffffff;
+  --ink: #0e1a2b;
+  --brand: #12b886;
+  --brand-bright: #3ddc97;
+  --highlight: #ffd43b;
+  --highlight-soft: #fff3bf;
+  --paper: #faf8f3;
   --success: #166534;
   --success-soft: #e6f5ec;
   --warning: #92400e;
@@ -56,17 +70,23 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #0f1218;
-  --surface: #171b24;
-  --surface-2: #1d222d;
-  --border: #2a303d;
-  --border-strong: #3c4454;
-  --fg: #eef0f5;
-  --muted: #a3acbb;
-  --primary: #8b8ff5;
-  --primary-hover: #a3a6f8;
-  --primary-soft: #23264a;
-  --primary-fg: #0f1218;
+  --bg: #0a1220;
+  --surface: #111b2d;
+  --surface-2: #162236;
+  --border: #243249;
+  --border-strong: #34445f;
+  --fg: #eef2f6;
+  --muted: #a6b1c2;
+  --primary: #3ddc97;
+  --primary-hover: #6ae6b0;
+  --primary-soft: #0f3a2e;
+  --primary-fg: #0e1a2b;
+  --ink: #0e1a2b;
+  --brand: #3ddc97;
+  --brand-bright: #3ddc97;
+  --highlight: #ffd43b;
+  --highlight-soft: #4a3f12;
+  --paper: #162236;
   --success: #6ed394;
   --success-soft: #14301f;
   --warning: #f2b45a;
@@ -382,8 +402,8 @@ html:has([data-sticky-actions]) {
 }
 .site-hero-glow {
   background:
-    radial-gradient(60rem 30rem at 85% -10%, rgb(99 102 241 / 0.35), transparent 60%),
-    radial-gradient(40rem 25rem at -10% 110%, rgb(16 185 129 / 0.12), transparent 60%),
+    radial-gradient(60rem 30rem at 85% -10%, rgb(18 184 134 / 0.30), transparent 60%),
+    radial-gradient(40rem 25rem at -10% 110%, rgb(255 212 59 / 0.10), transparent 60%),
     linear-gradient(to bottom, transparent, rgb(9 9 11 / 0.6));
 }
 .site-hero::before {
@@ -399,16 +419,17 @@ html:has([data-sticky-actions]) {
 }
 /* "preenchem sozinhos" com cara de campo marcado no documento */
 .site-chip {
-  background: linear-gradient(transparent 12%, rgb(99 102 241 / 0.35) 12%, rgb(99 102 241 / 0.35) 92%, transparent 92%);
-  box-shadow: inset 0 -3px 0 rgb(129 140 248);
+  /* traço de marca-texto (é assim que o produto destaca os campos) */
+  background: linear-gradient(transparent 14%, rgb(255 212 59 / 0.92) 14%, rgb(255 212 59 / 0.92) 90%, transparent 90%);
+  color: #0e1a2b;
   padding-inline: 0.12em;
   border-radius: 0.12em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
 .site-scan {
-  background: linear-gradient(to bottom, transparent, rgb(99 102 241 / 0.16) 70%, rgb(99 102 241 / 0.55));
-  border-bottom: 2px solid rgb(99 102 241);
+  background: linear-gradient(to bottom, transparent, rgb(18 184 134 / 0.14) 70%, rgb(18 184 134 / 0.5));
+  border-bottom: 2px solid rgb(18 184 134);
   animation: site-scan 1.3s ease-in-out forwards;
 }
 @keyframes site-scan {
@@ -419,11 +440,11 @@ html:has([data-sticky-actions]) {
   animation: site-pulse 2.2s ease-in-out infinite;
 }
 @keyframes site-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(79 70 229 / 0.45); }
-  50% { box-shadow: 0 0 0 14px rgb(79 70 229 / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgb(18 184 134 / 0.5); }
+  50% { box-shadow: 0 0 0 14px rgb(18 184 134 / 0); }
 }
 .site-range {
-  accent-color: #4f46e5;
+  accent-color: #0b7a5a;
   height: 6px;
 }
 @media (prefers-reduced-motion: reduce) {

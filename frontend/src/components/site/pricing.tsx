@@ -40,11 +40,11 @@ export function Pricing() {
               data-plan={p.id}
               className={cn(
                 "relative flex flex-col rounded-2xl border bg-white p-7",
-                p.highlight ? "border-indigo-500 shadow-2xl shadow-indigo-500/20 ring-1 ring-indigo-500 lg:-my-4 lg:py-11" : "border-zinc-200 shadow-sm",
+                p.highlight ? "border-brand shadow-2xl shadow-brand/20 ring-2 ring-brand lg:-my-4 lg:py-11" : "border-zinc-200 shadow-sm",
               )}
             >
               {p.highlight && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">Mais escolhido</span>
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-highlight px-3 py-1 text-xs font-bold uppercase tracking-wide text-ink">Mais escolhido</span>
               )}
               <h3 className="font-display text-xl font-bold text-zinc-900">{p.name}</h3>
               <p className="mt-1 text-sm text-zinc-500">{p.tagline}</p>
@@ -59,7 +59,7 @@ export function Pricing() {
                 href={`/register?plano=${p.id}${price ? (annual ? "&ciclo=anual" : "&ciclo=mensal") : ""}`}
                 className={cn(
                   "mt-6 rounded-full py-3 text-center text-sm font-semibold transition",
-                  p.highlight ? "bg-indigo-600 text-white hover:bg-indigo-500" : "bg-zinc-900 text-white hover:bg-zinc-700",
+                  p.highlight ? "bg-highlight text-ink shadow-lg shadow-highlight/25 hover:bg-[#ffe066]" : "bg-ink text-white hover:bg-[#1c2a40]",
                 )}
                 data-testid={`plan-cta-${p.id}`}
               >
@@ -68,7 +68,7 @@ export function Pricing() {
               <ul className="mt-7 space-y-3 text-sm text-zinc-700">
                 {p.features.map((f) => (
                   <li key={f} className="flex gap-2.5">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" aria-hidden />
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                     {f}
                   </li>
                 ))}

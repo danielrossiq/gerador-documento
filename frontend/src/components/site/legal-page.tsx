@@ -8,7 +8,7 @@ export function LegalPage({ title, updated, children }: { title: string; updated
     <div className="min-h-screen bg-white text-zinc-800">
       <header className="border-b border-zinc-200">
         <div className="mx-auto flex h-16 max-w-3xl items-center px-5">
-          <Link href="/" aria-label="Minuta — início">
+          <Link href="/" aria-label="DocFeito — início">
             <Logo />
           </Link>
         </div>

@@ -22,8 +22,8 @@ from app.modules.generation import service as generation
 from app.modules.generators import service as generators
 from app.modules.samples import service as samples
 
-DEMO_EMAIL = "demo@minuta.app"
-OTHER_EMAIL = "outra@minuta.app"
+DEMO_EMAIL = "demo@docfeito.com.br"
+OTHER_EMAIL = "outra@docfeito.com.br"
 
 SAMPLE_ROWS = [
     {

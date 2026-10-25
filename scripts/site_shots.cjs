@@ -6,7 +6,7 @@ const { chromium } = require(path.join(__dirname, "..", "frontend", "node_module
 
 const BASE = process.env.SHOTS_BASE || "http://localhost:3210";
 const OUT = path.join(__dirname, ".media-originals", "shots");
-const EMAIL = process.env.SHOTS_EMAIL || "demo@minuta.app";
+const EMAIL = process.env.SHOTS_EMAIL || "demo@docfeito.com.br";
 const PASSWORD = process.env.SHOTS_PASSWORD || "demo12345"; // conta de demonstração do seed (dados fictícios)
 const CONTRACT = process.env.SHOTS_CONTRACT;
 const RECEIPT = process.env.SHOTS_RECEIPT;

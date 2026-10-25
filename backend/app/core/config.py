@@ -38,7 +38,7 @@ def _secret(value: str | None, path: str | None) -> str | None:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
-    app_name: str = "Minuta"
+    app_name: str = "DocFeito"
     app_env: Literal["development", "test", "production"] = "development"
     secret_key: str = Field(default="dev-only-change-me-please-32-bytes-min")
     public_web_url: str = "http://localhost:3000"

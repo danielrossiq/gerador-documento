@@ -65,7 +65,7 @@ class OpenRouterChat:
         base_url: str = "https://openrouter.ai/api/v1",
         timeout: float = 45.0,
         max_retries: int = 3,
-        referer: str = "https://minuta.app",
+        referer: str = "https://docfeito.com.br",
         sleep: Any = time.sleep,
         client: httpx.Client | None = None,
     ) -> None:
@@ -101,7 +101,7 @@ class OpenRouterChat:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": self.referer,
-            "X-Title": "Minuta",
+            "X-Title": "DocFeito",
         }
         started = time.monotonic()
         last = "AI_UNAVAILABLE"

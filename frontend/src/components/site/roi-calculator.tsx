@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId, useState } from "react";
 import { brl, PLANS } from "@/content/plans";
 
-/** Quanto tempo (e dinheiro) sai do copiar-e-colar. Premissa explícita: ~1 min por documento no Minuta. */
+/** Quanto tempo (e dinheiro) sai do copiar-e-colar. Premissa explícita: ~1 min por documento no DocFeito. */
 export function RoiCalculator() {
   const id = useId();
   const [docs, setDocs] = useState(60);
@@ -34,9 +34,9 @@ export function RoiCalculator() {
         {slider("Documentos por mês", docs, setDocs, 5, 1500, 5, (n) => n.toLocaleString("pt-BR"), "docs")}
         {slider("Minutos por documento hoje", minutes, setMinutes, 3, 60, 1, (n) => String(n), "min")}
         {slider("Quanto vale sua hora", hourly, setHourly, 30, 600, 10, (n) => brl(n).replace(",00", ""), "/h")}
-        <p className="text-xs text-zinc-500">Estimativa: considera cerca de 1 minuto por documento no Minuta (revisar e baixar). Em lote, é menos ainda.</p>
+        <p className="text-xs text-zinc-500">Estimativa: considera cerca de 1 minuto por documento no DocFeito (revisar e baixar). Em lote, é menos ainda.</p>
       </div>
-      <div className="flex flex-col justify-center gap-4 bg-zinc-950 p-6 text-white sm:p-8">
+      <div className="flex flex-col justify-center gap-4 bg-ink p-6 text-white sm:p-8">
         <p className="text-sm text-zinc-400">Todo mês você recupera</p>
         <p className="font-display text-5xl font-extrabold tracking-tight tabular-nums sm:text-6xl" aria-live="polite">
           {hours >= 10 ? Math.round(hours).toLocaleString("pt-BR") : hours.toFixed(1).replace(".", ",")} horas
@@ -46,10 +46,10 @@ export function RoiCalculator() {
         </p>
         {ratio >= 1 && (
           <p className="rounded-lg bg-white/5 px-4 py-3 text-sm text-zinc-300 ring-1 ring-white/10">
-            O plano {plan.name} custa {brl(plan.monthly)}/mês: <strong className="text-emerald-400">retorno de {Math.round(ratio).toLocaleString("pt-BR")}×</strong> o valor.
+            O plano {plan.name} custa {brl(plan.monthly)}/mês: <strong className="text-brand-bright">retorno de {Math.round(ratio).toLocaleString("pt-BR")}×</strong> o valor.
           </p>
         )}
-        <Link href="/register" className="mt-2 inline-flex w-fit items-center rounded-full bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400">
+        <Link href="/register" className="mt-2 inline-flex w-fit items-center rounded-full bg-highlight px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-[#ffe066]">
           Quero essas horas de volta
         </Link>
       </div>

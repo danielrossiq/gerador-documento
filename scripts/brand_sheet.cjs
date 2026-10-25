@@ -14,7 +14,8 @@ const out = process.argv[3] || path.join(DIR, `_sheet-${prefix || "all"}.png`);
     .map((f) => {
       const mime = f.endsWith(".svg") ? "image/svg+xml" : f.endsWith(".png") ? "image/png" : f.endsWith(".webp") ? "image/webp" : "image/jpeg";
       const data = fs.readFileSync(path.join(DIR, f)).toString("base64");
-      return `<figure><div class="img"><img src="data:${mime};base64,${data}"></div><figcaption>${f}</figcaption></figure>`;
+      const dark = /negativo|branco/.test(f) ? ' style="background:#0E1A2B;border-radius:8px"' : "";
+      return `<figure><div class="img"${dark}><img src="data:${mime};base64,${data}"></div><figcaption>${f}</figcaption></figure>`;
     })
     .join("");
   const html = `<!doctype html><meta charset="utf-8"><style>

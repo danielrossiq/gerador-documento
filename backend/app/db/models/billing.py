@@ -2,7 +2,7 @@
 
 Cartão: assinatura recorrente da Stripe (renova sozinha; o cliente gerencia no portal da Stripe).
 Pix: pagamento avulso do período (mês ou ano); a renovação é um novo Pix (a Stripe não oferece Pix recorrente
-para empresas no Brasil). Dados de cartão nunca passam pelo Minuta: ficam na Stripe.
+para empresas no Brasil). Dados de cartão nunca passam pelo DocFeito: ficam na Stripe.
 """
 
 from __future__ import annotations

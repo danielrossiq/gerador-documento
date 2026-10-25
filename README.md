@@ -31,8 +31,8 @@ Na primeira subida o serviço `migrate` aplica as migrations do Alembic e cria o
 | Aplicação | http://localhost:3000 |
 | API + OpenAPI | http://localhost:8100/api/docs |
 | Console do MinIO | http://localhost:9101 (`minuta` / `minuta-secret-123`) |
-| **Login de demonstração** | `demo@minuta.app` / `demo12345` |
-| Outro workspace (isolamento) | `outra@minuta.app` / `demo12345` |
+| **Login de demonstração** | `demo@docfeito.com.br` / `demo12345` |
+| Outro workspace (isolamento) | `outra@docfeito.com.br` / `demo12345` |
 
 Portas do host configuráveis em `.env` (copie `.env.example`): `WEB_PORT`, `API_PORT`, `MINIO_CONSOLE_PORT`. Postgres e Redis **não** são publicados no host. As portas padrão evitam 80/5432/8000 de propósito.
 

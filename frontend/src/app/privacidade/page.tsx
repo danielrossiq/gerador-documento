@@ -11,7 +11,7 @@ export default function PrivacidadePage() {
         <li>Dados da conta: nome, e-mail e nome do espaço de trabalho.</li>
         <li>Documentos e modelos que você envia e os valores que preenche para gerar documentos.</li>
         <li>Registros técnicos de uso e segurança (por exemplo, data de acesso e endereço IP), sem o conteúdo dos documentos.</li>
-        <li>Dados de pagamento são tratados pelo processador de pagamentos; o Minuta não armazena número de cartão.</li>
+        <li>Dados de pagamento são tratados pelo processador de pagamentos; o DocFeito não armazena número de cartão.</li>
       </ul>
       <h2>2. Para que usamos</h2>
       <p>Para prestar o serviço que você contratou: criar modelos, gerar documentos, manter a segurança da conta e cobrar o plano.</p>

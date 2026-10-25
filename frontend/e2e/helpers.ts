@@ -2,7 +2,7 @@ import { expect, type Download, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
-export const DEMO = { email: "demo@minuta.app", password: "demo12345" };
+export const DEMO = { email: "demo@docfeito.com.br", password: "demo12345" };
 export const DEMO_DIR = path.resolve(__dirname, "..", "..", "demo");
 export const DOCX = path.join(DEMO_DIR, "contrato_prestacao_servicos.docx");
 export const XLSX = path.join(DEMO_DIR, "lote_exemplo.xlsx");

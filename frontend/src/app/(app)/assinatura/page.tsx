@@ -116,7 +116,7 @@ function Billing() {
               {sub.method === "pix" && <p>Para continuar, pague um novo Pix antes dessa data: o período novo soma ao atual.</p>}
             </div>
           ) : (
-            <p className="text-sm text-muted">Para conhecer o Minuta. Quando precisar de mais documentos, modelos ou IA, escolha um plano ao lado.</p>
+            <p className="text-sm text-muted">Para conhecer o DocFeito. Quando precisar de mais documentos, modelos ou IA, escolha um plano ao lado.</p>
           )}
           {sub?.can_manage && owner && (
             <Button onClick={() => go("/billing/portal")} loading={going === "/billing/portal"} data-testid="manage-subscription">
@@ -218,7 +218,7 @@ function Billing() {
         </div>
         <p className="flex items-center gap-1.5 text-xs text-muted">
           <Sparkles className="h-3.5 w-3.5" aria-hidden /> “Usos de IA”: cada análise de documento, preenchimento a partir de texto colado ou revisão conta um uso.
-          Pagamento processado pela Stripe; o Minuta não vê nem guarda os dados do seu cartão.
+          Pagamento processado pela Stripe; o DocFeito não vê nem guarda os dados do seu cartão.
         </p>
       </section>
     </div>

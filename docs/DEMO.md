@@ -16,7 +16,7 @@ Todo modelo tem as mesmas **4 etapas**, visíveis no topo de cada tela: **Docume
 
 ## Parte A — Criar um modelo (≈ 4 min)
 
-1. **Criar conta** em http://localhost:3000/register (ou entre com `demo@minuta.app` / `demo12345` para ver um gerador já pronto). No primeiro acesso, o **Início** explica as 4 etapas: envie o documento ali mesmo, ou clique em **Novo modelo** em **Modelos** (ou **Experimentar com um exemplo**).
+1. **Criar conta** em http://localhost:3000/register (ou entre com `demo@docfeito.com.br` / `demo12345` para ver um gerador já pronto). No primeiro acesso, o **Início** explica as 4 etapas: envie o documento ali mesmo, ou clique em **Novo modelo** em **Modelos** (ou **Experimentar com um exemplo**).
 2. **Etapa Documento**: dê um nome (opcional; sem nome, usamos o do arquivo) e escolha `demo/contrato_prestacao_servicos.docx`. A tela acompanha a análise e leva à etapa Campos.
    - **PDF digitado**: `demo/contrato_prestacao_servicos.pdf` (exportado do Word/LibreOffice) é convertido em Word editável e aparece com o selo "convertido de PDF para Word".
    - **PDF digitalizado**: `demo/contrato_digitalizado.pdf` (imagem de papel) é recusado com a explicação e o modelo não fica criado.
@@ -70,7 +70,7 @@ Use dois geradores prontos que compartilham variáveis — por exemplo, duplique
 ## Parte D — Histórico e isolamento
 
 1. **Histórico**: gerador, versão, tipo, usuário, data/hora, quantidade, status, erros por linha, prazo de expiração dos links; **Repetir** refaz com os mesmos dados (membro só repete o que ele gerou).
-2. Entre com `outra@minuta.app` / `demo12345` (outro workspace): não vê nada do primeiro. Testes automatizados verificam isso em 28 chamadas e no download assinado.
+2. Entre com `outra@docfeito.com.br` / `demo12345` (outro workspace): não vê nada do primeiro. Testes automatizados verificam isso em 28 chamadas e no download assinado.
 
 ## Verificações de robustez (opcional)
 

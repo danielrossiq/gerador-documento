@@ -9,7 +9,7 @@ Stack Docker separada da stack `minuta` original. Volumes próprios; a stack `mi
 | Aplicação | http://localhost:3210 (landing pública em `/`; ver `docs/SITE.md`) |
 | API (OpenAPI) | http://localhost:8110/api/docs · saúde: http://localhost:8110/health e /ready |
 | Console do MinIO | http://localhost:9111 (usuário e senha: `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` do `.env`) |
-| Login de demonstração | `demo@minuta.app` / `demo12345` (dados fictícios, criados pelo seed) |
+| Login de demonstração | `demo@docfeito.com.br` / `demo12345` (dados fictícios, criados pelo seed) |
 
 Trava do piloto ativa: `EXTERNAL_AI_ENABLED=false` (nenhuma IA externa; ligue com `docker-compose.ai.yml`, D33). PDF digitado é aceito: a conversão roda no serviço isolado `pdfconv` (D35).
 
@@ -29,7 +29,7 @@ Trava do piloto ativa: `EXTERNAL_AI_ENABLED=false` (nenhuma IA externa; ligue co
 2. `docker compose -p minuta-fase0 ps` (com as portas exportadas): api e postgres devem estar `healthy`. Se estiverem parados, `… up -d`, **sem** `--build` se o código não mudou.
 3. Só se houver commits novos desde a última subida, depois da revisão: `… up -d --build`. O serviço `migrate` aplica as migrations; o seed não duplica dados.
 4. `curl http://localhost:8110/health` deve devolver `{"status":"ok"}`, e `/ready` deve devolver `database` e `pdf_converter` ok.
-5. Abrir http://localhost:3210 e entrar com `demo@minuta.app` / `demo12345`.
+5. Abrir http://localhost:3210 e entrar com `demo@docfeito.com.br` / `demo12345`.
 6. Seguir o roteiro abaixo. Usar só dados fictícios: este não é o piloto com dados reais.
 7. Ao terminar: `docker compose -p minuta-fase0 stop`. Nunca `down -v`. A stack `minuta` não deve ser usada nem alterada.
 

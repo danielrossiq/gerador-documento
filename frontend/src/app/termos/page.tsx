@@ -6,10 +6,10 @@ export const metadata: Metadata = { title: "Termos de uso" };
 export default function TermosPage() {
   return (
     <LegalPage title="Termos de uso" updated="21 de outubro de 2026">
-      <h2>1. O que é o Minuta</h2>
+      <h2>1. O que é o DocFeito</h2>
       <p>
-        O Minuta transforma documentos que você já usa (Word ou PDF digitado) em modelos com campos variáveis e gera documentos
-        preenchidos a partir de formulários, planilhas ou kits. O conteúdo dos modelos é seu: o Minuta não redige, não revisa
+        O DocFeito transforma documentos que você já usa (Word ou PDF digitado) em modelos com campos variáveis e gera documentos
+        preenchidos a partir de formulários, planilhas ou kits. O conteúdo dos modelos é seu: o DocFeito não redige, não revisa
         juridicamente e não presta orientação jurídica.
       </p>
       <h2>2. Sua conta</h2>

@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-export const APP_NAME = "Minuta";
+export const APP_NAME = "DocFeito";
 
 // twMerge: sem ele, um `className="w-44"` passado a Input/Select perdia para o `w-full` do componente
 export function cn(...inputs: ClassValue[]) {

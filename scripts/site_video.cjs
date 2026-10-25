@@ -91,7 +91,7 @@ async function click(page, locator) {
 
   // 1) conta nova, fora do vídeo
   const setup = await browser.newContext({ baseURL: BASE });
-  const email = `video-${Date.now()}@minuta.app`;
+  const email = `video-${Date.now()}@docfeito.com.br`;
   const reg = await setup.request.post("/api/v1/auth/register", {
     data: { name: "Carolina Mendes", email, password: "video-demo-123", workspace_name: "Mendes Assessoria" },
   });

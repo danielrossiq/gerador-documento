@@ -96,9 +96,9 @@ function DocPage({ doc, values, phase, revealed, focused, compact }: {
         className={cn(
           "rounded-[3px] transition-all duration-300",
           show && "px-0.5 ring-1",
-          show && !edited && "bg-indigo-100 text-indigo-950 ring-indigo-300",
-          show && edited && "bg-emerald-100 text-emerald-950 ring-emerald-400",
-          show && focused === s.f && "ring-2 ring-indigo-500 shadow-[0_0_0_4px_rgb(99_102_241_/_0.15)]",
+          show && !edited && "bg-highlight-soft text-ink ring-highlight",
+          show && edited && "bg-primary-soft text-ink ring-brand",
+          show && focused === s.f && "ring-2 ring-primary shadow-[0_0_0_4px_rgb(18_184_134_/_0.18)]",
         )}
       >
         {display(field, value, s.as === "words")}
@@ -243,16 +243,16 @@ export function LiveDemo({ mode, compact }: { mode: "auto" | "interactive"; comp
                 role="tab"
                 aria-selected={i === docIdx}
                 onClick={() => reset(i)}
-                className={cn("whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition", i === docIdx ? "bg-indigo-600 text-white" : "text-zinc-600 hover:bg-zinc-100")}
+                className={cn("whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition", i === docIdx ? "bg-ink text-white" : "text-zinc-600 hover:bg-zinc-100")}
               >
                 {d.tab}
               </button>
             ))}
           </div>
         ) : (
-          <span className="ml-2 truncate text-xs font-medium text-zinc-500">Minuta · {doc.tab}</span>
+          <span className="ml-2 truncate text-xs font-medium text-zinc-500">DocFeito · {doc.tab}</span>
         )}
-        <span className="ml-auto hidden items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 sm:flex">
+        <span className="ml-auto hidden items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-semibold text-primary sm:flex">
           <Sparkles className="h-3 w-3" aria-hidden /> IA
         </span>
       </div>
@@ -265,7 +265,7 @@ export function LiveDemo({ mode, compact }: { mode: "auto" | "interactive"; comp
             <div className="absolute inset-0 grid place-items-center bg-zinc-900/10 backdrop-blur-[1px]">
               <button
                 onClick={() => analyse()}
-                className="site-pulse flex items-center gap-2 rounded-full bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 transition hover:bg-indigo-500"
+                className="site-pulse flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand/20 transition hover:bg-primary-hover"
                 data-testid="demo-analyse"
               >
                 <Wand2 className="h-4 w-4" aria-hidden /> Encontrar os campos com IA
@@ -289,19 +289,19 @@ export function LiveDemo({ mode, compact }: { mode: "auto" | "interactive"; comp
               )}
               {(phase === "scan" || phase === "marked") && (
                 <div className="space-y-2" aria-hidden>
-                  <p className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-primary">
                     <Loader2 className="h-4 w-4 animate-spin" /> A IA está lendo o documento…
                   </p>
                   <p className="text-xs">{revealed > 0 ? `${revealed} de ${total} campos encontrados` : "Procurando nomes, CPFs, valores e datas"}</p>
                   <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
-                    <div className="h-full rounded-full bg-indigo-500 transition-all duration-300" style={{ width: `${(revealed / total) * 100}%` }} />
+                    <div className="h-full rounded-full bg-brand transition-all duration-300" style={{ width: `${(revealed / total) * 100}%` }} />
                   </div>
                 </div>
               )}
             </div>
           ) : (
             <div className="flex h-full flex-col">
-              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-primary">
                 <Check className="h-3.5 w-3.5" aria-hidden /> {total} campos encontrados · formulário pronto
               </p>
               <div className={cn("grid gap-2", compact ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2")}>
@@ -321,7 +321,7 @@ export function LiveDemo({ mode, compact }: { mode: "auto" | "interactive"; comp
                         aria-invalid={!!err}
                         className={cn(
                           "h-8 w-full rounded-md border bg-white px-2 text-[13px] text-zinc-900 outline-none transition",
-                          focused === f.key ? "border-indigo-500 ring-2 ring-indigo-500/20" : "border-zinc-300",
+                          focused === f.key ? "border-primary ring-2 ring-primary/20" : "border-zinc-300",
                           err && "border-red-500",
                         )}
                       />
@@ -332,14 +332,14 @@ export function LiveDemo({ mode, compact }: { mode: "auto" | "interactive"; comp
               </div>
               <div className="mt-auto pt-3">
                 {phase === "done" ? (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3" data-testid="demo-done">
-                    <p className="flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                  <div className="rounded-lg border border-brand/30 bg-primary-soft p-3" data-testid="demo-done">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-primary">
                       <FileDown className="h-4 w-4" aria-hidden /> {doc.file(shownValues)}
                     </p>
-                    <p className="mt-0.5 text-xs text-emerald-800/80">Pronto em {String(elapsed ?? 0.8).replace(".", ",")} s. Agora imagine 500 de uma vez, a partir de uma planilha.</p>
+                    <p className="mt-0.5 text-xs text-primary/80">Pronto em {String(elapsed ?? 0.8).replace(".", ",")} s. Agora imagine 500 de uma vez, a partir de uma planilha.</p>
                     {mode === "interactive" && (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Link href="/register" className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500">
+                        <Link href="/register" className="rounded-md bg-highlight px-3 py-1.5 text-xs font-semibold text-ink hover:bg-[#ffe066]">
                           Fazer isso com os meus documentos
                         </Link>
                         <button onClick={() => reset(docIdx)} className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100">
@@ -354,7 +354,7 @@ export function LiveDemo({ mode, compact }: { mode: "auto" | "interactive"; comp
                     tabIndex={mode === "auto" ? -1 : undefined}
                     disabled={phase === "generating" || errors > 0}
                     className={cn(
-                      "flex w-full items-center justify-center gap-2 rounded-md bg-indigo-600 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60",
+                      "flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2 text-sm font-semibold text-white transition hover:bg-primary-hover disabled:opacity-60",
                       phase === "generating" && "scale-[0.98]",
                     )}
                     data-testid="demo-generate"

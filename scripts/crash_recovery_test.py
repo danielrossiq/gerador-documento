@@ -62,7 +62,7 @@ def psql(sql: str) -> str:
 
 
 def main() -> int:
-    st, me = call("POST", "/auth/login", {"email": "demo@minuta.app", "password": "demo12345"})
+    st, me = call("POST", "/auth/login", {"email": "demo@docfeito.com.br", "password": "demo12345"})
     assert st == 200, me
     csrf["v"] = me["csrf_token"]
     st, gens = call("GET", "/generators")
