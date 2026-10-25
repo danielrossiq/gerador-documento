@@ -43,10 +43,20 @@
       "width": 1600,
       "height": 1060,
       "alt": "Analista de RH no notebook usando um kit do Minuta: vários documentos do colaborador preenchidos de uma vez."
+    },
+    "og": {
+      "base": "/site/og",
+      "widths": [
+        1200
+      ],
+      "width": 1200,
+      "height": 630,
+      "alt": "DocFeito: documento feito, sem copiar e colar"
     }
   },
   "video": {
     "mp4": "/site/demo.mp4",
+    "webm": "/site/demo.webm",
     "poster": "/site/demo-poster.jpg",
     "width": 1440,
     "height": 900,

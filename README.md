@@ -1,4 +1,4 @@
-# Minuta — geração inteligente de documentos
+# DocFeito — geração inteligente de documentos
 
 Transforme documentos repetitivos (contratos, declarações, propostas, procurações, termos, recibos, formulários de RH) em **modelos reutilizáveis**.
 

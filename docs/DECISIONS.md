@@ -293,3 +293,27 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
   - **fonte ausente no worker** (Consolas) caía em DejaVu Serif no PDF → `/etc/fonts/local.conf` com substitutas do mesmo tipo e vínculo forte (Consolas → Liberation Mono, Segoe UI → Liberation Sans, Georgia → Liberation Serif…). Com o vínculo fraco, o LibreOffice ignorava o apelido;
   - **data por extenso** sugerida pela IA perdia o formato e saía "15/03/2027" → a sugestão escolhida herda a configuração da regra no mesmo trecho, e datas por extenso da IA nascem `date_format: long`.
   - Teste com PDF fictício de mesma estrutura: `test_paragraph_background_is_not_a_table_and_signature_line_survives`. Antes da correção ele gerava 1 tabela.
+
+## D36 — Rebranding: Minuta vira DocFeito
+- **Pedido (Daniel)**: minuta.com.br não estava disponível. Ele escolheu **DocFeito** (docfeito.com.br livre) e pediu o rebranding inteiro: logo, identidade visual em PDF, landing e interface. Sem aprovação criativa; só de custo (US$ 5 aprovados para imagens).
+- **Processo**:
+  - 6 estudos de símbolo no Recraft v4.1 Vector (US$ 0,48 no total; US$ 0,08 cada, em SVG).
+  - Escolhido o conceito "folha com o canto que vira check". Refinado à mão em geometria de 64 unidades: dobra verde e check subindo para a dobra, com máscara para funcionar sobre qualquer fundo.
+  - Comparado com a variante "check atravessando a folha", que lembrava um ícone genérico de checkbox.
+  - Kit gerado em código (`scripts/brand_build.py`, nome em contornos da Plus Jakarta), PNGs transparentes renderizados do vetor, sem "tirar fundo", e manual em PDF de 11 páginas (`scripts/brand_book.cjs`).
+- **Identidade**:
+  - Cores: tinta `#0E1A2B`, verde `#12B886` e verde de ação `#0B7A5A` (AA com branco).
+  - Marca-texto amarelo `#FFD43B`: é o gesto de destacar o que muda no documento. Vira a assinatura visual e a cor das chamadas principais.
+  - Fundo papel quente. Tipografia Plus Jakarta Sans + Inter.
+- **Produto**:
+  - Tokens de tema trocados (claro e escuro). Chips de campo do editor em verde ("feito"); a sugestão a conferir continua amarela.
+  - Landing com o título "Documento feito. Sem copiar e colar.", botões em marca-texto e campos destacados em amarelo.
+  - Login e cadastro, favicon, ícone de app e imagem de compartilhamento novos.
+  - Cenas da landing recompostas com o app novo e vídeo regravado do app real.
+- **Nome**:
+  - "DocFeito" em tudo o que o usuário vê: site, app, termos, privacidade, nome da API, produtos na Stripe, título da tela de pagamento e do portal, X-Title da OpenRouter.
+  - Contas demo `@docfeito.com.br`, com limites de demonstração no seed para não caírem no plano Grátis quando a cobrança está ligada.
+- **Mantido de propósito**:
+  - Identificadores técnicos invisíveis: cookie `minuta_csrf`, chaves `minuta:` do navegador, projeto e banco `minuta` do Docker, `~/.minuta`, pacote `minuta_backend`, metadata `minuta_plan` na Stripe. Renomear deslogaria todo mundo e apagaria rascunhos.
+  - O histórico destas decisões (D01–D35) continua dizendo "Minuta".
+- Detalhes e arquivos: [MARCA.md](MARCA.md).

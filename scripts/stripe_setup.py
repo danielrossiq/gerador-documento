@@ -1,4 +1,4 @@
-"""Configura a Stripe para o Minuta: 2 produtos, 4 preços recorrentes (valores de plans.json) e o portal do cliente.
+"""Configura a Stripe para o DocFeito: 2 produtos, 4 preços recorrentes (valores de plans.json) e o portal do cliente.
 
 Idempotente: os preços são achados pelo `lookup_key` e o portal pela metadata `minuta=1`; rodar de novo não duplica.
 Grava os IDs (não são segredos) no .env da raiz, que o docker compose lê. A chave secreta só é lida do arquivo.
@@ -56,10 +56,14 @@ class Stripe:
 
 
 def ensure_product(s: Stripe, plan: dict) -> str:
+    # a metadata minuta_plan é só o identificador (fica igual depois do rebranding); o nome visível é DocFeito
+    name = f"DocFeito {plan['name']}"
     for p in s.get("/products", {"limit": 100, "active": True})["data"]:
         if p.get("metadata", {}).get("minuta_plan") == plan["id"]:
+            if p.get("name") != name or p.get("description") != plan["tagline"]:
+                s.post(f"/products/{p['id']}", {"name": name, "description": plan["tagline"]})
             return p["id"]
-    return s.post("/products", {"name": f"Minuta {plan['name']}", "description": plan["tagline"], "metadata": {"minuta_plan": plan["id"]}})["id"]
+    return s.post("/products", {"name": name, "description": plan["tagline"], "metadata": {"minuta_plan": plan["id"]}})["id"]
 
 
 def ensure_price(s: Stripe, product: str, plan: dict, cycle: str) -> str:
@@ -86,7 +90,7 @@ def ensure_price(s: Stripe, product: str, plan: dict, cycle: str) -> str:
 def ensure_portal(s: Stripe, products: dict[str, list[str]], site: str) -> str:
     data = {
         "business_profile": {
-            "headline": "Minuta: gerencie sua assinatura",
+            "headline": "DocFeito: gerencie sua assinatura",
             "privacy_policy_url": f"{site}/privacidade",
             "terms_of_service_url": f"{site}/termos",
         },

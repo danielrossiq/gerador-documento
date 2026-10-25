@@ -35,7 +35,10 @@ async function main() {
   const shot = async (name, url, size, prep) => {
     await page.setViewportSize(size);
     await page.goto(`${BASE}${url}`, { waitUntil: "networkidle" });
-    if (prep) await prep();
+    if (prep) {
+      await prep();
+      await page.waitForTimeout(6500); // o aviso "campos preenchidos com exemplo" some sozinho; não entra na foto
+    }
     await page.waitForTimeout(900);
     await page.screenshot({ path: path.join(OUT, name) });
     console.log("ok", name);

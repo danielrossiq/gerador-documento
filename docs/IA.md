@@ -1,4 +1,4 @@
-# IA no Minuta
+# IA no DocFeito
 
 A IA cuida da parte manual do trabalho com documentos. A pessoa continua no controle: a IA **sugere**, a pessoa
 **confere**. Sem a chave, ou com `EXTERNAL_AI_ENABLED=false`, tudo funciona só com as regras locais e nada sai

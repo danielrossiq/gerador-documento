@@ -31,7 +31,7 @@ Enquanto `BILLING_ENABLED=false`, ninguém é cobrado e todos usam os limites pa
 - Na Stripe, a mesma conta faz assinatura recorrente no cartão, Pix avulso, portal do cliente (trocar plano,
   cancelar, atualizar cartão, baixar recibos) e webhooks assinados. Não tem mensalidade.
 - **Limite da Stripe no Brasil:** contas brasileiras só têm **Pix de pagamento único**. O Pix Automático
-  (recorrente) não está disponível para empresas domiciliadas no Brasil. Por isso o Minuta trata o Pix como
+  (recorrente) não está disponível para empresas domiciliadas no Brasil. Por isso o DocFeito trata o Pix como
   **período pré-pago** (1 mês ou 12 meses). Pagar um novo Pix antes do fim soma ao período atual. Esse é o mesmo
   modelo do realoficial.
 
@@ -63,10 +63,10 @@ Em **Catálogo de produtos › Adicionar produto**:
 
 | Produto | Preço | Tipo | Variável |
 |---|---|---|---|
-| Minuta Profissional | R$ 49,90 | recorrente, **mensal** | `STRIPE_PRICE_PROFISSIONAL_MENSAL` |
-| Minuta Profissional | R$ 478,80 | recorrente, **anual** (R$ 39,90/mês) | `STRIPE_PRICE_PROFISSIONAL_ANUAL` |
-| Minuta Escritório | R$ 99,90 | recorrente, **mensal** | `STRIPE_PRICE_ESCRITORIO_MENSAL` |
-| Minuta Escritório | R$ 958,80 | recorrente, **anual** (R$ 79,90/mês) | `STRIPE_PRICE_ESCRITORIO_ANUAL` |
+| DocFeito Profissional | R$ 49,90 | recorrente, **mensal** | `STRIPE_PRICE_PROFISSIONAL_MENSAL` |
+| DocFeito Profissional | R$ 478,80 | recorrente, **anual** (R$ 39,90/mês) | `STRIPE_PRICE_PROFISSIONAL_ANUAL` |
+| DocFeito Escritório | R$ 99,90 | recorrente, **mensal** | `STRIPE_PRICE_ESCRITORIO_MENSAL` |
+| DocFeito Escritório | R$ 958,80 | recorrente, **anual** (R$ 79,90/mês) | `STRIPE_PRICE_ESCRITORIO_ANUAL` |
 
 Copie o ID de cada preço (`price_…`). O Pix não usa esses IDs: o valor sai de `plans.json`, o mesmo arquivo que
 alimenta a landing. Se mudar um preço, mude nos dois lugares, `frontend/src/content/plans.json` e

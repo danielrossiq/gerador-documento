@@ -24,6 +24,7 @@ from app.modules.samples import service as samples
 
 DEMO_EMAIL = "demo@docfeito.com.br"
 OTHER_EMAIL = "outra@docfeito.com.br"
+DEMO_LIMITS = {"max_docs_per_month": 20000, "max_generators": 200, "max_batch_rows": 1000, "max_ai_actions_per_month": 200}
 
 SAMPLE_ROWS = [
     {
@@ -89,6 +90,10 @@ def run_seed() -> int:
             db, DEMO_EMAIL, "Usuária Demonstração", "Empresa Demonstração Ltda.", password
         )
         _ensure_user(db, OTHER_EMAIL, "Outra Empresa", "Outra Empresa (isolamento)", password)
+        # conta de demonstração com limites próprios: com a cobrança ligada ela não cai nos limites do plano Grátis
+        if not ws.limits:
+            ws.limits = dict(DEMO_LIMITS)
+            db.commit()
         ctx = _ctx(db, user, ws)
 
         existing = list(

@@ -289,10 +289,10 @@ function UseForm({ data }: { data: FormPayload }) {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" loading={busy === "docx"} disabled={!!busy} onClick={() => generate("docx")} data-testid="generate-docx">
             {/* no celular o rótulo encurta: a barra fixa fica em 2 linhas mesmo com "Revisar com IA" */}
-            <FileText className="h-4 w-4" aria-hidden /> Gerar <span className="hidden sm:inline">documento</span> Word
+            <FileText className="h-4 w-4" aria-hidden /> <span>Gerar<span className="hidden sm:inline"> documento</span> Word</span>
           </Button>
           <Button loading={busy === "pdf"} disabled={!!busy || !data.pdf_available} onClick={() => generate("pdf")} title={data.pdf_available ? undefined : "A conversão para PDF não está disponível neste servidor"} data-testid="generate-pdf">
-            <FileText className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Gerar</span> PDF
+            <FileText className="h-4 w-4" aria-hidden /> <span><span className="hidden sm:inline">Gerar </span>PDF</span>
           </Button>
           <AiReview generatorId={id} getValues={() => form.getValues()} onGoToField={goToField} disabled={!!busy} />
           <Button variant="ghost" onClick={() => setConfirmClear(true)} className="ml-auto text-muted" title="Limpar o formulário">

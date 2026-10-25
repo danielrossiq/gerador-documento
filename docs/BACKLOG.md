@@ -1,6 +1,6 @@
 # Backlog técnico — Fases 3/5 (estratégia provisória)
 
-Estratégia provisória ([ESTRATEGIA_COMERCIAL.md](ESTRATEGIA_COMERCIAL.md), D29): **escritórios pequenos de advocacia (1–5 pessoas)**, **self-service** (a pessoa se cadastra e usa sozinha), "Minuta" como nome de trabalho; sem gastos, cobrança ou publicação. Meta do piloto: primeiro documento em até 5 min (ativação) e retorno em D7. Este backlog traduz isso no que o código precisa ter, ordenado por valor ÷ (risco × esforço).
+Estratégia provisória ([ESTRATEGIA_COMERCIAL.md](ESTRATEGIA_COMERCIAL.md), D29): **escritórios pequenos de advocacia (1–5 pessoas)**, **self-service** (a pessoa se cadastra e usa sozinha), "DocFeito" como nome de trabalho; sem gastos, cobrança ou publicação. Meta do piloto: primeiro documento em até 5 min (ativação) e retorno em D7. Este backlog traduz isso no que o código precisa ter, ordenado por valor ÷ (risco × esforço).
 
 Baseline (15/10/2026, branch `claude/blissful-pasteur-hvkev9`, ver README "Resultados verificados — Fase 0"):
 - pytest 305 passed (273 da Fase 0 + 12 do item 1 + 8 do item 2 + 8 do item 4 + 4 do item 3);

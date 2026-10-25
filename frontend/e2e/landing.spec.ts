@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 test.describe("landing", () => {
   test("topo vende e leva ao cadastro", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("preenchem sozinhos");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Documento feito");
     await expect(page.getByTestId("hero-demo")).toBeVisible();
     await expect(page.getByTestId("hero-cta")).toHaveAttribute("href", "/register");
     await expect(page.getByTestId("header-cta")).toHaveAttribute("href", "/register");
@@ -52,6 +52,18 @@ test.describe("landing", () => {
     const r = await page.request.get(mp4!);
     expect(r.ok()).toBe(true);
     expect(r.headers()["content-type"]).toContain("video/mp4");
+  });
+
+  test("marca DocFeito: logo, título da aba, favicon e imagem de compartilhamento", async ({ page }) => {
+    await page.goto("/");
+    await expect(page).toHaveTitle(/DocFeito/);
+    await expect(page.getByRole("banner").getByText("Feito", { exact: true })).toBeVisible();
+    expect(await page.locator("body").innerText()).not.toContain("Minuta");
+    const og = await page.locator('meta[property="og:image"]').getAttribute("content");
+    expect(og).toContain("/site/og-1200.webp");
+    for (const asset of ["/favicon.svg", "/favicon.ico", "/apple-touch-icon.png", "/brand/docfeito-logo.svg", "/brand/png/docfeito-icone-app-512.png"]) {
+      expect((await page.request.get(asset)).ok(), asset).toBe(true);
+    }
   });
 
   test("páginas legais existem", async ({ page }) => {

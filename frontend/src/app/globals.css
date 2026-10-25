@@ -265,8 +265,8 @@ body {
 }
 /* trecho que está virando campo enquanto o painel "Novo campo" está aberto (a seleção nativa some ao focar o painel) */
 .pending-hl {
-  background: #c7d2fe;
-  outline: 2px solid #4338ca;
+  background: #c9f0e0;
+  outline: 2px solid #0b7a5a;
   border-radius: 2px;
 }
 .search-hl {
@@ -277,7 +277,7 @@ body {
   background: #ffd08a;
 }
 
-/* Chip de campo */
+/* Chip de campo: verde = campo pronto ("feito"); a sugestão ainda não aceita é o marca-texto amarelo acima */
 .field-chip {
   display: inline-flex;
   align-items: center;
@@ -286,9 +286,9 @@ body {
   padding: 0 8px 0 6px;
   margin: 0 1px;
   border-radius: 999px;
-  border: 1px solid #a5abf0;
-  background: #eceefe;
-  color: #2e2a9c;
+  border: 1px solid #8fdcc0;
+  background: #e7f8f1;
+  color: #0b5e45;
   font: 600 12.5px/1.65 var(--font-sans);
   cursor: pointer;
   vertical-align: baseline;
@@ -296,13 +296,13 @@ body {
   white-space: nowrap;
 }
 .field-chip:hover {
-  background: #dfe2fd;
+  background: #d3f2e6;
 }
 .field-chip[data-selected="true"] {
-  background: #4338ca;
-  border-color: #4338ca;
+  background: #0b7a5a;
+  border-color: #0b7a5a;
   color: #fff;
-  box-shadow: 0 0 0 3px #c7cafb;
+  box-shadow: 0 0 0 3px #bfeedd;
 }
 .field-chip[data-missing="true"] {
   border-style: dashed;
@@ -317,7 +317,7 @@ body {
 .field-chip:focus-visible,
 .ProseMirror-selectednode > .field-chip,
 .ProseMirror-selectednode.field-chip {
-  outline: 2px solid #4338ca;
+  outline: 2px solid #0b7a5a;
   outline-offset: 1px;
 }
 .field-chip .chip-label {
@@ -333,7 +333,7 @@ body {
   left: 0;
   z-index: 40;
   white-space: pre;
-  background: #171a21;
+  background: #0e1a2b;
   color: #fff;
   font: 500 12px/1.4 var(--font-sans);
   padding: 6px 9px;
