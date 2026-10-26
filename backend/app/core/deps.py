@@ -96,6 +96,24 @@ def check_origin(request: Request) -> None:
         raise Forbidden("Origem não permitida.")
 
 
+async def read_body_capped(request: Request, max_bytes: int) -> bytes:
+    """Corpo da requisição com teto, para rotas públicas: o Content-Length é conferido antes e a leitura para no
+    limite (corpo sem Content-Length ou maior que o declarado não passa)."""
+    from app.core.errors import AppError
+
+    length = request.headers.get("content-length", "")
+    if not length.isdigit():
+        raise AppError("Envie pelo formulário da página.", code="LENGTH_REQUIRED", status_code=411)
+    if int(length) > max_bytes:
+        raise AppError("O envio passa do tamanho permitido.", code="FILE_TOO_LARGE", status_code=413)
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > max_bytes:
+            raise AppError("O envio passa do tamanho permitido.", code="FILE_TOO_LARGE", status_code=413)
+    return bytes(body)
+
+
 def require_same_origin(request: Request) -> None:
     check_origin(request)
 

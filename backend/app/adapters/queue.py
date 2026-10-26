@@ -32,6 +32,10 @@ def resolve_task(name: str) -> Callable[..., Any]:
         from app.modules.trials.service import run_trial_job
 
         return lambda trial_id: run_trial_job(trial_id)
+    if name == "signature_sync":
+        from app.modules.signatures.service import sync_request
+
+        return lambda request_id: sync_request(request_id)
     raise ValueError(f"Tarefa desconhecida: {name}")
 
 

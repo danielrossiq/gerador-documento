@@ -357,3 +357,266 @@ def test_download_nao_segue_redirecionamento_e_tem_teto(provider_net) -> None:  
     with pytest.raises(ProviderError) as exc:
         http.fetch("https://zapsign.s3.amazonaws.com/grande.pdf", DOWNLOAD_HOSTS, 1024)
     assert exc.value.code == "SIGNATURE_FILE_TOO_LARGE"
+
+
+# ---------------------------------------------------------------- fluxo pela API (provedor simulado)
+
+
+def _pdf_job(api, demo_docx):  # type: ignore[no-untyped-def]
+    """Gera um documento em PDF (conversor de teste) e devolve o arquivo PDF da geração."""
+    from tests.flows import build_generator
+    from tests.test_api_flow import SAMPLE_VALUES
+
+    gid = build_generator(api, demo_docx)["id"]
+    job = api.post(f"/generators/{gid}/generate", json={"values": SAMPLE_VALUES, "format": "pdf"}).json()
+    assert job["status"] == "succeeded", job
+    return job, next(f for f in job["files"] if f["kind"] == "pdf")
+
+
+ZAP = "sandbox.api.zapsign.com.br"
+
+
+def _zap_routes(status: str = "pending") -> dict:  # type: ignore[type-arg]
+    return {
+        ("POST", ZAP + "/api/v1/docs/"): {
+            "token": "doc-1",
+            "status": "pending",
+            "signers": [{"email": "ana@exemplo.test", "sign_url": "https://app.zapsign.com.br/verificar/s1"}],
+        },
+        ("GET", ZAP + "/api/v1/docs/doc-1/"): lambda req: httpx.Response(
+            200,
+            json={
+                "token": "doc-1",
+                "status": status,
+                "signed_file": "https://zapsign.s3.amazonaws.com/doc-1/assinado.pdf" if status == "signed" else None,
+                "signers": [{"email": "ana@exemplo.test", "status": "signed" if status == "signed" else "new"}],
+            },
+        ),
+        ("GET", "zapsign.s3.amazonaws.com/doc-1/assinado.pdf"): SIGNED,
+        ("DELETE", ZAP + "/api/v1/docs/doc-1/"): httpx.Response(200, json={}),
+    }
+
+
+def _setup_zapsign(api) -> dict:  # type: ignore[no-untyped-def]
+    r = api.put("/signatures/providers/zapsign", json={"environment": "sandbox", "api_token": "tok-zap-segredo-1"})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _send(api, file_id: str, provider: str = "zapsign", **extra):  # type: ignore[no-untyped-def]
+    body = {
+        "file_id": file_id,
+        "provider": provider,
+        "signers": [{"name": "Ana Lima", "email": "ana@exemplo.test", "cpf": "529.982.247-25"}],
+        **extra,
+    }
+    return api.post("/signatures", json=body)
+
+
+def _webhook(api, provider: str, url: str, body: bytes, headers: dict[str, str]):  # type: ignore[no-untyped-def]
+    path = url.split("/api/v1", 1)[1]
+    return api.tc.post(f"/api/v1{path}", content=body, headers={"Content-Type": "application/json", **headers})
+
+
+def test_configurar_provedor_cifra_o_token_e_mostra_o_webhook_uma_vez(api, fernet_key) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import select
+
+    from app.db.models import AuditEvent, SignatureProviderConfig
+    from app.db.session import get_factory
+
+    api.register()
+    out = _setup_zapsign(api)
+    assert out["credential_hint"] == "…do-1" and out["webhook_url"].startswith("http")
+    assert out["webhook_header"]["name"] == "X-DocFeito-Webhook" and len(out["webhook_header"]["value"]) >= 30
+    key = out["webhook_url"].rsplit("/", 1)[1]
+    listed = api.get("/signatures/providers").text
+    assert "tok-zap-segredo-1" not in listed and key not in listed and out["webhook_header"]["value"] not in listed
+    with get_factory()() as db:
+        row = db.scalar(select(SignatureProviderConfig))
+        stored = str({c.name: getattr(row, c.name) for c in row.__table__.columns})
+        audits = str([e.meta for e in db.scalars(select(AuditEvent)).all()])
+    for secret in ("tok-zap-segredo-1", key, out["webhook_header"]["value"]):
+        assert secret not in stored and secret not in audits
+    # atualizar o token não troca a URL do webhook (o provedor já está configurado com ela)
+    again = api.put("/signatures/providers/zapsign", json={"environment": "production", "api_token": "tok-novo-2222"})
+    assert "webhook_url" not in again.json() and again.json()["environment"] == "production"
+
+
+def test_so_o_proprietario_configura(api, fernet_key) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import update
+
+    from app.db.models import WorkspaceMember
+    from app.db.session import get_factory
+
+    api.register()
+    with get_factory()() as db:
+        db.execute(update(WorkspaceMember).values(role="member"))
+        db.commit()
+    r = api.put("/signatures/providers/zapsign", json={"api_token": "tok-zap-segredo-1"})
+    assert r.status_code == 403
+
+
+def test_sem_chave_de_criptografia_nao_configura(api, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("ENCRYPTION_KEY", raising=False)
+    reset_settings_cache()
+    api.register()
+    r = api.put("/signatures/providers/zapsign", json={"api_token": "tok-zap-segredo-1"})
+    assert r.status_code == 503 and r.json()["error"]["code"] == "ENCRYPTION_KEY_MISSING"
+    assert api.get("/signatures/providers").json()["encryption_ready"] is False
+
+
+def test_testar_conexao_nao_ecoa_a_credencial(api, fernet_key, provider_net) -> None:  # type: ignore[no-untyped-def]
+    api.register()
+    _setup_zapsign(api)
+    provider_net({("GET", ZAP + "/api/v1/docs/"): {"results": []}})
+    assert api.post("/signatures/providers/zapsign/test").json() == {
+        "ok": True, "code": None, "message": "Conexão funcionando."
+    }
+    provider_net({("GET", ZAP + "/api/v1/docs/"): httpx.Response(401, json={"detail": "tok-zap-segredo-1"})})
+    r = api.post("/signatures/providers/zapsign/test")
+    assert r.json()["ok"] is False and r.json()["code"] == "SIGNATURE_PROVIDER_AUTH"
+    assert "tok-zap-segredo-1" not in r.text
+    assert api.get("/signatures/providers").json()["configured"][0]["last_test_ok"] is False
+
+
+def test_zapsign_envio_webhook_e_pdf_assinado_no_historico(api, demo_docx, fake_pdf, fernet_key, provider_net) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import func, select
+
+    from app.db.models import SignatureEvent
+    from app.db.session import get_factory
+    from app.modules.signatures.zapsign import WEBHOOK_HEADER
+
+    api.register()
+    job, pdf = _pdf_job(api, demo_docx)
+    cfg = _setup_zapsign(api)
+    routes = _zap_routes("pending")
+    fake = provider_net(routes)
+    r = _send(api, pdf["id"], message="Assine, por favor")
+    assert r.status_code == 201, r.text
+    sig = r.json()
+    assert sig["status"] == "sent" and sig["signers"][0]["sign_url"] == "https://app.zapsign.com.br/verificar/s1"
+    assert sig["signers"][0]["cpf"] == "***.982.247-**"  # o CPF inteiro só vai ao provedor
+    sent = json.loads(fake.calls[0].content)
+    assert sent["external_id"] == sig["id"] and sent["signers"][0]["custom_message"] == "Assine, por favor"
+
+    body = json.dumps({"event_type": "doc_signed", "token": "doc-1"}).encode()
+    header = {WEBHOOK_HEADER: cfg["webhook_header"]["value"]}
+    # sem o cabeçalho secreto: 401 e nada gravado
+    assert _webhook(api, "zapsign", cfg["webhook_url"], body, {WEBHOOK_HEADER: "errado"}).status_code == 401
+    with get_factory()() as db:
+        assert db.scalar(select(func.count(SignatureEvent.id))) == 0
+    # chave errada na URL: 404 igual ao de rota inexistente
+    wrong = cfg["webhook_url"].rsplit("/", 1)[0] + "/" + "x" * 43
+    assert _webhook(api, "zapsign", wrong, body, header).status_code == 404
+
+    # o webhook diz "assinado", mas quem manda é a API do provedor: ainda pendente → nada muda
+    assert _webhook(api, "zapsign", cfg["webhook_url"], body, header).json() == {"status": "ok"}
+    assert api.get(f"/signatures/{sig['id']}").json()["status"] == "sent"
+    # repetido: sem efeito
+    assert _webhook(api, "zapsign", cfg["webhook_url"], body, header).json() == {"status": "duplicate"}
+
+    routes.update(_zap_routes("signed"))
+    body2 = json.dumps({"event_type": "doc_signed", "token": "doc-1", "n": 2}).encode()
+    assert _webhook(api, "zapsign", cfg["webhook_url"], body2, header).json() == {"status": "ok"}
+    done = api.get(f"/signatures/{sig['id']}").json()
+    assert done["status"] == "signed" and done["signed_file"]["kind"] == "signed"
+    assert done["signers"][0]["signed"] is True
+    link = api.post(f"/files/{done['signed_file']['id']}/link").json()["url"]
+    assert api.tc.get(link).content == SIGNED
+    files = api.get(f"/jobs/{job['id']}").json()["files"]
+    assert any(f["kind"] == "signed" and f["filename"].endswith("-assinado.pdf") for f in files)
+
+    # evento fora de ordem depois de concluído: não regride nem baixa de novo
+    calls = len(fake.calls)
+    late = json.dumps({"event_type": "doc_refused", "token": "doc-1"}).encode()
+    assert _webhook(api, "zapsign", cfg["webhook_url"], late, header).json() == {"status": "ok"}
+    assert api.get(f"/signatures/{sig['id']}").json()["status"] == "signed" and len(fake.calls) == calls
+
+
+def test_clicksign_webhook_sem_segredo_e_recusado_e_com_hmac_conclui(api, demo_docx, fake_pdf, fernet_key, provider_net) -> None:  # type: ignore[no-untyped-def]
+    api.register()
+    _, pdf = _pdf_job(api, demo_docx)
+    cfg = api.put("/signatures/providers/clicksign", json={"api_token": "tok-click-segredo"}).json()
+    assert "webhook_header" not in cfg and cfg["webhook_ready"] is False
+    routes = _clicksign_routes("env-7")
+    status = {"value": "running"}
+    routes[("GET", "sandbox.clicksign.com/api/v3/envelopes/env-7")] = lambda req: httpx.Response(
+        200, json={"data": {"id": "env-7", "attributes": {"status": status["value"]}}}
+    )
+    routes[("GET", "sandbox.clicksign.com/api/v3/envelopes/env-7/documents")] = {
+        "data": [{"id": "doc-9", "links": {"files": {"signed": "https://cdn.clicksign.com/env-7.pdf"}}}]
+    }
+    routes[("GET", "cdn.clicksign.com/env-7.pdf")] = SIGNED
+    provider_net(routes)
+    sig = _send(api, pdf["id"], provider="clicksign").json()
+    assert sig["status"] == "sent"
+    body = json.dumps({"event": {"name": "auto_close"}, "envelope": {"id": "env-7"}}).encode()
+    good = "sha256=" + hmac.new(b"segredo-da-clicksign", body, hashlib.sha256).hexdigest()
+    assert _webhook(api, "clicksign", cfg["webhook_url"], body, {"Content-Hmac": good}).status_code == 401
+    api.put("/signatures/providers/clicksign", json={"webhook_secret": "segredo-da-clicksign"})
+    status["value"] = "closed"
+    assert _webhook(api, "clicksign", cfg["webhook_url"], body, {"Content-Hmac": good}).json() == {"status": "ok"}
+    assert api.get(f"/signatures/{sig['id']}").json()["status"] == "signed"
+
+
+def test_consulta_periodica_cobre_webhook_perdido(api, demo_docx, fake_pdf, fernet_key, provider_net) -> None:  # type: ignore[no-untyped-def]
+    from app.modules.signatures.service import poll_signatures
+
+    api.register()
+    _, pdf = _pdf_job(api, demo_docx)
+    _setup_zapsign(api)
+    routes = _zap_routes("pending")
+    provider_net(routes)
+    sig = _send(api, pdf["id"]).json()
+    routes.update(_zap_routes("signed"))
+    assert poll_signatures() == 1  # nunca consultado → entra na hora
+    assert api.get(f"/signatures/{sig['id']}").json()["status"] == "signed"
+    assert poll_signatures() == 0  # concluído sai da consulta
+
+
+def test_falha_no_provedor_nao_conta_na_cota_e_cota_mensal(api, demo_docx, fake_pdf, fernet_key, provider_net) -> None:  # type: ignore[no-untyped-def]
+    import uuid
+
+    from app.db.models import Workspace
+    from app.db.session import get_factory
+
+    me = api.register()
+    _, pdf = _pdf_job(api, demo_docx)
+    _setup_zapsign(api)
+    with get_factory()() as db:
+        db.get(Workspace, uuid.UUID(me["workspace"]["id"])).limits = {"max_signatures_per_month": 1}
+        db.commit()
+    routes = _zap_routes()
+    routes[("POST", ZAP + "/api/v1/docs/")] = httpx.Response(500, json={"erro": "dados do signatário"})
+    provider_net(routes)
+    r = _send(api, pdf["id"])
+    assert r.status_code == 502 and r.json()["error"]["code"] == "SIGNATURE_PROVIDER_CREATE_FAILED"
+    assert "signatário" not in r.text
+    provider_net(_zap_routes())
+    assert _send(api, pdf["id"]).status_code == 201
+    r = _send(api, pdf["id"])
+    assert r.status_code == 429 and r.json()["error"]["code"] == "SIGNATURE_LIMIT"
+
+
+def test_pedido_de_outro_espaco_nao_aparece(api, api2, demo_docx, fake_pdf, fernet_key, provider_net) -> None:  # type: ignore[no-untyped-def]
+    api.register()
+    _, pdf = _pdf_job(api, demo_docx)
+    _setup_zapsign(api)
+    provider_net(_zap_routes())
+    sig = _send(api, pdf["id"]).json()
+    api2.register()
+    assert api2.get(f"/signatures/{sig['id']}").status_code == 404
+    assert api2.post(f"/signatures/{sig['id']}/cancel").status_code == 404
+    assert api2.get("/signatures").json()["total"] == 0
+    assert _send(api2, pdf["id"], provider="govbr").status_code == 404  # arquivo de outro espaço
+
+
+def test_cancelar_avisa_o_provedor(api, demo_docx, fake_pdf, fernet_key, provider_net) -> None:  # type: ignore[no-untyped-def]
+    api.register()
+    _, pdf = _pdf_job(api, demo_docx)
+    _setup_zapsign(api)
+    fake = provider_net(_zap_routes())
+    sig = _send(api, pdf["id"]).json()
+    assert api.post(f"/signatures/{sig['id']}/cancel").json()["status"] == "cancelled"
+    assert fake.calls[-1].method == "DELETE"
+    assert api.post(f"/signatures/{sig['id']}/cancel").status_code == 409

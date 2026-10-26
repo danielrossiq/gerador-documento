@@ -293,6 +293,12 @@ def start_watchdog(interval: float | None = None) -> threading.Event:
                 purge_requests_throttled()
             except Exception:
                 log.warning("limpeza_de_respostas_falhou", exc_info=True)
+            try:  # assinatura eletrônica (D40): consulta de reserva dos pedidos sem notícia do webhook
+                from app.modules.signatures.service import poll_signatures_throttled
+
+                poll_signatures_throttled()
+            except Exception:
+                log.warning("consulta_de_assinaturas_falhou", exc_info=True)
 
     threading.Thread(target=loop, daemon=True, name="job-watchdog").start()
     return stop

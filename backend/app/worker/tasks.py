@@ -110,4 +110,18 @@ def trial_task(trial_id: str) -> None:
     run_trial_job(trial_id)
 
 
-ACTORS = {"generation": generation_task, "analysis": analysis_task, "trial": trial_task}
+# Assinatura eletrônica (D40): consulta ao provedor disparada pelo webhook ou pela consulta periódica. Idempotente
+# (pedido concluído não muda mais); poucas tentativas, porque a consulta periódica cobre o que falhar.
+@dramatiq.actor(queue_name="signatures", max_retries=3, min_backoff=30_000, time_limit=2 * 60 * 1000)
+def signature_sync_task(request_id: str) -> None:
+    from app.modules.signatures.service import sync_request
+
+    sync_request(request_id)
+
+
+ACTORS = {
+    "generation": generation_task,
+    "analysis": analysis_task,
+    "trial": trial_task,
+    "signature_sync": signature_sync_task,
+}

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile as StarletteUpload
 from starlette.exceptions import HTTPException
 
-from app.core.deps import Ctx, client_ip, get_ctx, require_same_origin
+from app.core.deps import Ctx, client_ip, get_ctx, read_body_capped, require_same_origin
 from app.core.errors import AppError, ValidationFailed
 from app.db.session import get_db, get_factory
 from app.modules.assist import service as assist_service
@@ -77,27 +77,11 @@ def view(token: str, request: Request, db: Session = Depends(get_db)) -> dict[st
     return service.public_view(db, token, client_ip(request))
 
 
-async def _read_capped(request: Request, max_bytes: int) -> bytes:
-    """Corpo da requisição com teto: o Content-Length é conferido antes e a leitura para no limite (corpo
-    sem Content-Length ou maior que o declarado não passa)."""
-    length = request.headers.get("content-length", "")
-    if not length.isdigit():
-        raise AppError("Envie pelo formulário da página.", code="LENGTH_REQUIRED", status_code=411)
-    if int(length) > max_bytes:
-        raise AppError("O envio passa do tamanho permitido.", code="FILE_TOO_LARGE", status_code=413)
-    body = bytearray()
-    async for chunk in request.stream():
-        body += chunk
-        if len(body) > max_bytes:
-            raise AppError("O envio passa do tamanho permitido.", code="FILE_TOO_LARGE", status_code=413)
-    return bytes(body)
-
-
 @public.post("/{token}", dependencies=[Depends(require_same_origin)])
 async def submit(token: str, request: Request) -> dict[str, Any]:
     """Resposta do cliente. Rota pública: o corpo é lido com teto (SUBMIT_MAX_BYTES) antes de virar JSON, para
     um corpo enorme não ocupar a memória da API mesmo com token inválido."""
-    raw = await _read_capped(request, service.SUBMIT_MAX_BYTES)
+    raw = await read_body_capped(request, service.SUBMIT_MAX_BYTES)
     try:
         body = service.SubmitIn.model_validate_json(raw)
     except ValueError as exc:  # JSON quebrado ou fora do formato (ValidationError é ValueError)
