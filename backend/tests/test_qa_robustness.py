@@ -10,8 +10,6 @@ import io
 import time
 import zipfile
 
-import pytest
-
 from app.modules.suggestions.rules import Hit, resolve_overlaps
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -51,7 +49,6 @@ def _gen(api) -> str:  # type: ignore[no-untyped-def]
     return api.post("/generators", json={"name": "Robustez"}).json()["id"]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG QA-1: zlib.error de parte corrompida vira 500 (validate_docx/parse_docx)")
 def test_docx_with_corrupt_compressed_part_is_rejected_with_422(api):
     gid = _gen(api)
     bad = _corrupt_member(_docx(["Contrato de teste."]), "[Content_Types].xml")
@@ -59,7 +56,6 @@ def test_docx_with_corrupt_compressed_part_is_rejected_with_422(api):
     assert r.status_code == 422, r.text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG QA-1: zlib.error de parte corrompida vira 500 (validate_docx/parse_docx)")
 def test_docx_with_corrupt_document_xml_is_rejected_with_422(api):
     gid = _gen(api)
     bad = _corrupt_member(_docx(["Contrato de teste. " * 50]), "word/document.xml")
@@ -67,7 +63,6 @@ def test_docx_with_corrupt_document_xml_is_rejected_with_422(api):
     assert r.status_code == 422, r.text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG QA-2: resolve_overlaps é quadrático no documento inteiro (4 mil parágrafos = 4 min)")
 def test_resolve_overlaps_scales_with_document_size():
     # 1.500 parágrafos com 4 trechos cada (CPF, valor, data, nome) — um contrato longo, ~15 KB de .docx
     hits = [

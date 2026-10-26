@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import zipfile
+import zlib
 from dataclasses import dataclass
 
 MAX_ENTRIES = 3000
@@ -103,7 +104,7 @@ def validate_docx(
 
     try:
         ct = zf.read("[Content_Types].xml")
-    except (zipfile.BadZipFile, RuntimeError) as exc:
+    except (zipfile.BadZipFile, RuntimeError, zlib.error, EOFError) as exc:  # parte comprimida corrompida (QA-1)
         raise DocxRejected("CORRUPT_ZIP", "O arquivo está corrompido.") from exc
     lowered = ct.lower()
     if b"macroenabled" in lowered or b"vbaproject" in lowered:

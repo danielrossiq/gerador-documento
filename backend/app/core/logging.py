@@ -72,7 +72,10 @@ SAFE_EXTRA_KEYS = frozenset(
         "error_type", "error", "code", "task", "template", "provider",
     }
 )  # fmt: skip
-_DOWNLOAD_TOKEN = re.compile(r"(/downloads/)[^/?#]+")
+# segredos que vão no caminho: link de download, teste grátis (D38), link do cliente (D39), webhook de assinatura (D40)
+_DOWNLOAD_TOKEN = re.compile(
+    r"(/downloads/|/public/trials/|/trials/|/public/requests/|/signatures/webhook/[^/?#]+/)[^/?#]+"
+)
 
 
 def _safe_extra(key: str, value: Any) -> Any:

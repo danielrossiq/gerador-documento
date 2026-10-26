@@ -17,7 +17,7 @@ from typing import Any
 
 from pydantic import BaseModel
 from pydantic import Field as PField
-from sqlalchemy import delete, select
+from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
 
 from app.adapters.ai import PROMPT_VERSION, get_ai_provider
@@ -55,6 +55,10 @@ from app.modules.suggestions.rules import (
 from app.modules.templates import core
 
 log = get_logger(__name__)
+
+# Defesa contra documento enorme (achado QA-2): acima disto, analisa só os primeiros parágrafos e avisa.
+MAX_ANALYZED_BLOCKS = 5000
+PARTIAL_WARNING = "O documento é muito longo: procuramos campos só nos primeiros 5.000 parágrafos."
 
 
 # ------------------------------------------------------------------ análise
@@ -99,6 +103,10 @@ def analyze_version(db: Session, version: TemplateVersion, *, force: bool) -> AI
     db.commit()
 
     blocks = _readable_blocks(db, version)
+    partial = len(blocks) > MAX_ANALYZED_BLOCKS
+    if partial:
+        blocks = blocks[:MAX_ANALYZED_BLOCKS]
+        log.warning("analise_parcial", extra={"version_id": str(version.id), "blocos": MAX_ANALYZED_BLOCKS})
     by_key = {b.key: b for b in blocks}
     provider = get_ai_provider()
     provider_name = provider.name if provider else "none"
@@ -142,7 +150,7 @@ def analyze_version(db: Session, version: TemplateVersion, *, force: bool) -> AI
         result = cached.result
         log.info("analise_reutilizada", extra={"version_id": str(version.id)})
     else:
-        result = {"hits": [], "warnings": []}
+        result = {"hits": [], "warnings": [PARTIAL_WARNING] if partial else []}
         rule_hits = detect_rules([(b.key, b.text) for b in blocks])
         hits: list[Hit] = list(rule_hits)
         if provider is not None:
@@ -182,6 +190,8 @@ def analyze_version(db: Session, version: TemplateVersion, *, force: bool) -> AI
 
     materialize(db, version, [Hit(**h) for h in result["hits"]], blocks)
     version.analysis_status = "done"
+    if partial and not version.analysis_error:
+        version.analysis_error = PARTIAL_WARNING  # a etapa Campos mostra o aviso
     db.commit()
     return run
 
@@ -288,34 +298,37 @@ def materialize(db: Session, version: TemplateVersion, hits: list[Hit], blocks: 
         if (h.block_key, h.start, h.end, h.text) not in ignored
         and not any(s < h.end and h.start < e for s, e in covered.get(h.block_key, []))
     ]
-    n = 0
+    rows = []
     for h in _number_duplicate_hits(surviving):
         text = text_of.get(h.block_key, "")
-        db.add(
-            FieldSuggestion(
-                workspace_id=version.workspace_id,
-                version_id=version.id,
-                analysis_run_id=latest_run,
-                block_key=h.block_key,
-                start_offset=h.start,
-                end_offset=h.end,
-                text=h.text,
-                context_before=text[max(0, h.start - 40) : h.start],
-                context_after=text[h.end : h.end + 40],
-                suggested_name=h.name[:64],
-                suggested_label=h.label[:200],
-                suggested_type=h.type,
-                suggested_config=h.config,
-                confidence=h.confidence,
-                source=h.source,
-                reason=(h.reason or "")[:300],
-                location=describe_location(h.block_key),
-                status="pending",
-            )
+        rows.append(
+            {
+                "id": uuid.uuid4(),
+                "workspace_id": version.workspace_id,
+                "version_id": version.id,
+                "analysis_run_id": latest_run,
+                "block_key": h.block_key,
+                "start_offset": h.start,
+                "end_offset": h.end,
+                "text": h.text,
+                "context_before": text[max(0, h.start - 40) : h.start],
+                "context_after": text[h.end : h.end + 40],
+                "suggested_name": h.name[:64],
+                "suggested_label": h.label[:200],
+                "suggested_type": h.type,
+                "suggested_config": h.config,
+                "confidence": h.confidence,
+                "source": h.source,
+                "reason": (h.reason or "")[:300],
+                "location": describe_location(h.block_key),
+                "status": "pending",
+            }
         )
-        n += 1
     db.flush()
-    return n
+    # inserção em lote (sem um objeto ORM por sugestão): documento longo gera dezenas de milhares (achado QA-2)
+    for i in range(0, len(rows), 1000):
+        db.execute(insert(FieldSuggestion), rows[i : i + 1000])
+    return len(rows)
 
 
 # ------------------------------------------------------------------ leitura

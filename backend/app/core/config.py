@@ -146,15 +146,24 @@ class Settings(BaseSettings):
     trial_max_pages: int = 10
     trial_ttl_minutes: int = 60  # depois disso, arquivo e resultado são apagados
     trial_max_concurrent: int = 3  # testes em processamento ao mesmo tempo, no sistema todo
+    trial_busy_wait_seconds: float = 5.0  # com as vagas ocupadas, espera isto por uma vaga antes de recusar
     trial_ai_daily_budget_usd: float = 0.50  # só dos testes anônimos; esgotou → só regras locais (sem custo)
     trial_ai_max_chars: int = 6000  # a IA do teste lê só o começo do documento
     trial_limit_ip_hour: int = 3
+    trial_limit_ip_hour_verified: int = 6  # com o Turnstile aprovado (CGNAT de celular: muita gente no mesmo IP)
     trial_limit_ip_day: int = 10
     trial_limit_net_day: int = 30  # por /24 (IPv4) ou /64 (IPv6)
     # Cloudflare Turnstile (opcional). Com a chave secreta, o teste exige o desafio validado no servidor.
     turnstile_site_key: str | None = None
     turnstile_secret_key: str | None = None
     turnstile_secret_key_file: str | None = None
+
+    # Link para o cliente preencher (D39)
+    request_default_days: int = 7
+    request_max_days: int = 30
+    request_retention_days: int = 30  # a resposta é apagada este tanto depois de respondida (se não for usada antes)
+    request_photo_reads: int = 3  # leituras de foto/PDF por IA em cada link (contam na cota do espaço)
+    request_max_open: int = 300  # links em aberto por espaço de trabalho
 
     # Sessão / segurança
     cookie_secure: bool = False

@@ -6,6 +6,7 @@ hardBreak → 1 char (\\n).
 
 from __future__ import annotations
 
+import bisect
 import copy
 import itertools
 from collections.abc import Iterator
@@ -117,6 +118,74 @@ def replace_range_with_field(
     return normalize_nodes(out), sample
 
 
+def apply_fields(
+    content: list[dict[str, Any]], spans: list[tuple[int, int, str]]
+) -> tuple[list[dict[str, Any]], list[tuple[int, int, str]]]:
+    """Troca vários trechos por nós de campo numa passada só (a prévia do teste grátis, D38).
+
+    `replace_range_with_field` em laço refaz o bloco inteiro a cada trecho e fica quadrático num parágrafo com
+    milhares de achados (achado QA-4: 112 s). Aqui: corta o texto uma vez em todos os limites e monta a saída.
+    Trechos sobrepostos ou que cruzam algo que não é texto (quebra, imagem, outro campo) ficam de fora, como no
+    caminho de um por um. Devolve (conteúdo novo, trechos aplicados)."""
+    clean: list[tuple[int, int, str]] = []
+    last_end = -1
+    for s, e, fid in sorted(spans):
+        if s < e and s >= last_end:
+            clean.append((s, e, fid))
+            last_end = e
+    if not clean:
+        return content, []
+    cuts = sorted({o for s, e, _ in clean for o in (s, e)})
+    pieces: list[dict[str, Any]] = []
+    starts: list[int] = []
+    pos = 0
+    for n in content:
+        length = node_len(n)
+        if n.get("type") == "text" and length:
+            inner = cuts[bisect.bisect_right(cuts, pos) : bisect.bisect_left(cuts, pos + length)]
+            if inner:
+                bounds = [0, *(c - pos for c in inner), length]
+                for a, b in itertools.pairwise(bounds):
+                    piece = copy.deepcopy(n)
+                    piece["text"] = n["text"][a:b]
+                    pieces.append(piece)
+                    starts.append(pos + a)
+                pos += length
+                continue
+        pieces.append(n)
+        starts.append(pos)
+        pos += length
+    out: list[dict[str, Any]] = []
+    applied: list[tuple[int, int, str]] = []
+    i = 0
+    for s, e, fid in clean:
+        while i < len(pieces) and (starts[i] < s or (starts[i] == s and node_len(pieces[i]) == 0)):
+            out.append(pieces[i])
+            i += 1
+        j = i
+        covered: list[dict[str, Any]] = []
+        while j < len(pieces) and starts[j] < e:
+            covered.append(pieces[j])
+            j += 1
+        span_ok = (
+            covered
+            and starts[i] == s
+            and all(c.get("type") == "text" for c in covered)
+            and sum(node_len(c) for c in covered) == e - s
+        )
+        if not span_ok:
+            continue  # fica como texto; os nós são copiados na próxima volta
+        sample = "".join(c["text"] for c in covered)
+        field: dict[str, Any] = {"type": "field", "attrs": {"fieldId": fid, "sample": sample}}
+        if covered[0].get("marks"):
+            field["marks"] = copy.deepcopy(covered[0]["marks"])
+        out.append(field)
+        applied.append((s, e, fid))
+        i = j
+    out.extend(pieces[i:])
+    return normalize_nodes(out), applied
+
+
 def unwrap_field(
     content: list[dict[str, Any]], field_id: str, keep_text: bool
 ) -> tuple[list[dict[str, Any]], int]:
@@ -144,6 +213,7 @@ def has_atoms_or_fields(content: list[dict[str, Any]]) -> bool:
 __all__ = [
     "ATOM_CHAR",
     "RangeError",
+    "apply_fields",
     "context_around",
     "inline_text",
     "iter_field_spans",

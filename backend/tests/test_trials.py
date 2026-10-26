@@ -103,11 +103,60 @@ def test_disabled_by_default_in_production(monkeypatch):
     assert Settings().trials_on is True
 
 
-def test_honeypot_looks_like_success_but_stores_nothing(api, demo_docx):
+def test_honeypot_looks_like_a_real_trial_that_failed(api, demo_docx, env):
+    """Armadilha (F2-5): mesmo formato da resposta real; fica "processando" uns segundos e depois falha com a
+    mensagem genérica. Nenhum arquivo é guardado nem processado."""
+    from app.db.base import utcnow
+    from app.db.models import Trial
+    from app.db.session import get_factory
+
     r = send(api, demo_docx, website="http://spam.example")
     assert r.status_code == 202 and r.json()["status"] == "processing"
-    assert _trial_rows() == []
-    assert status(api, r.json()["token"]).status_code == 404
+    assert set(r.json()) == set(send(api, demo_docx).json())  # mesmo formato da resposta real
+    token = r.json()["token"]
+    assert status(api, token).json()["status"] == "processing"
+    with get_factory()() as db:
+        decoy = db.query(Trial).filter(Trial.storage_key.is_(None)).one()
+        decoy.finished_at = utcnow() - timedelta(seconds=1)
+        db.commit()
+    out = status(api, token).json()
+    assert out["status"] == "failed" and out["error"]["code"] == "TRIAL_FAILED" and out["result"] is None
+    assert len([t for t in _trial_rows() if t.storage_key]) == 1  # só o envio de verdade tem arquivo
+    assert len([p for p in (env / "storage").rglob("*") if p.is_file()]) == 1
+
+
+def test_malformed_multipart_is_a_typed_400(api):
+    body = b"--XYZ\r\nisto nao e um cabecalho\r\n\r\nabc\r\n--XYZ--\r\n"
+    r = api.post(
+        "/public/trials",
+        content=body,
+        headers={"Content-Type": "multipart/form-data; boundary=XYZ", "Content-Length": str(len(body))},
+    )
+    assert r.status_code == 400 and r.json()["error"]["code"] == "TRIAL_FORM_INVALID"
+
+
+def test_corrupt_docx_on_the_public_route_is_422(api):
+    from tests.test_qa_robustness import _corrupt_member, _docx
+
+    bad = _corrupt_member(_docx(["Contrato de teste."]), "[Content_Types].xml")
+    r = send(api, bad)
+    assert r.status_code == 422 and r.json()["error"]["code"] == "CORRUPT_ZIP"
+
+
+def test_paragraph_full_of_patterns_does_not_hold_the_worker(api):
+    """QA-4: um parágrafo de ~38 mil caracteres com ~3.600 achados prendia o worker por 112 s."""
+    import time
+
+    doc = Document()
+    doc.add_paragraph("01/10/2026 529.982.247-25 R$ 1,00 29101-000 " * 860)
+    buf = io.BytesIO()
+    doc.save(buf)
+    t = time.perf_counter()
+    out = status(api, send(api, buf.getvalue()).json()["token"]).json()
+    assert time.perf_counter() - t < 15
+    assert out["status"] == "done"
+    total = sum(f["count"] for f in out["result"]["fields"])
+    assert 0 < total <= 30  # um parágrafo: no máximo 30 achados viram campo na prévia
 
 
 @pytest.mark.parametrize(
@@ -208,11 +257,15 @@ def test_spoofed_forwarded_for_does_not_reset_the_limit(app, demo_docx):
 
 
 def test_max_concurrent_trials(api, monkeypatch, demo_docx):
-    _env(monkeypatch, TRIAL_MAX_CONCURRENT="1")
+    import time
+
+    _env(monkeypatch, TRIAL_MAX_CONCURRENT="1", TRIAL_BUSY_WAIT_SECONDS="1")
     monkeypatch.setattr("app.modules.trials.service.enqueue", lambda *a, **k: None)  # fica na fila
     assert send(api, demo_docx).status_code == 202
+    started = time.monotonic()
     r = send(api, demo_docx)
     assert r.status_code == 429 and r.json()["error"]["code"] == "TRIAL_BUSY"
+    assert time.monotonic() - started >= 1  # esperou por uma vaga antes de recusar (fila curta)
     assert len(_trial_rows()) == 1  # o arquivo recusado não ficou guardado
 
 
@@ -221,7 +274,7 @@ def test_stale_trial_does_not_hold_a_slot(api, monkeypatch, demo_docx):
     from app.db.models import Trial
     from app.db.session import get_factory
 
-    _env(monkeypatch, TRIAL_MAX_CONCURRENT="1")
+    _env(monkeypatch, TRIAL_MAX_CONCURRENT="1", TRIAL_BUSY_WAIT_SECONDS="0")
     monkeypatch.setattr("app.modules.trials.service.enqueue", lambda *a, **k: None)
     token = send(api, demo_docx).json()["token"]
     with get_factory()() as db:
@@ -463,3 +516,22 @@ def test_docx_that_expands_too_much_is_refused(api, demo_docx):
     r = send(api, data)
     assert r.status_code == 422 and r.json()["error"]["code"] == "ZIP_BOMB"
     assert _trial_rows() == []
+
+
+def test_turnstile_approved_gets_a_higher_hourly_limit(app, monkeypatch, demo_docx):
+    """CGNAT de celular (F2-3): com o desafio aprovado, 6 por hora por IP; sem ele, 3. O /24 continua valendo."""
+    from fastapi.testclient import TestClient
+
+    _env(monkeypatch, TURNSTILE_SECRET_KEY="segredo", TRIAL_MAX_CONCURRENT="50")
+    monkeypatch.setattr("app.modules.trials.turnstile.verify", lambda token, ip, *, secret: token == "bom")
+    monkeypatch.setattr("app.modules.trials.service.enqueue", lambda *a, **k: None)
+    with TestClient(app, client=("198.51.100.20", 4000)) as tc:
+        codes = [
+            tc.post(
+                "/api/v1/public/trials",
+                files={"file": ("c.docx", demo_docx)},
+                data={"turnstile_token": "bom"},
+            ).status_code
+            for _ in range(7)
+        ]
+    assert codes == [202] * 6 + [429]
