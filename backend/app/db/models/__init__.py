@@ -25,6 +25,7 @@ from app.db.models.kits import (
 )
 from app.db.models.metrics import ActivationMetric
 from app.db.models.requests import ClientRequest
+from app.db.models.signatures import SignatureEvent, SignatureProviderConfig, SignatureRequest
 from app.db.models.templates import (
     AIAnalysisRun,
     DocumentGenerator,
@@ -62,6 +63,9 @@ __all__ = [
     "KitFieldOption",
     "KitRun",
     "PasswordResetToken",
+    "SignatureEvent",
+    "SignatureProviderConfig",
+    "SignatureRequest",
     "Subscription",
     "TemplateBlock",
     "TemplateFile",

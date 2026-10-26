@@ -15,7 +15,7 @@ JOB_KINDS = ("single", "batch")
 JOB_STATUS = ("queued", "processing", "succeeded", "partial", "failed", "cancelled")
 ITEM_STATUS = ("pending", "processing", "succeeded", "failed", "skipped")
 OUTPUT_FORMATS = ("docx", "pdf", "both")
-FILE_KINDS = ("docx", "pdf", "zip", "report")
+FILE_KINDS = ("docx", "pdf", "zip", "report", "signed")  # signed: PDF assinado que voltou (D40)
 
 
 class GenerationJob(IdMixin, Base):

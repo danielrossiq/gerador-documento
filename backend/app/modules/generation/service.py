@@ -476,7 +476,7 @@ def job_out(ctx: Ctx, job: GenerationJob, *, with_files: bool = False) -> dict[s
     exp = [f.expires_at for f in files]
     out["files_expire_at"] = min(exp).isoformat() if exp else None
     if with_files:
-        visible = [f for f in files if job.kind == "single" or f.kind in ("zip", "report")]
+        visible = [f for f in files if job.kind == "single" or f.kind in ("zip", "report", "signed")]
         out["files"] = [file_out(f) for f in visible]
     return out
 

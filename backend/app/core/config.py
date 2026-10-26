@@ -20,6 +20,8 @@ DEFAULT_LIMITS: dict[str, int] = {
     "max_kit_fields": 100,
     # ações com IA externa por mês (marcar campos, preencher por texto, revisar). Com cobrança ligada vem do plano.
     "max_ai_actions_per_month": 200,
+    # envios para assinatura eletrônica por mês (D40). Com cobrança ligada vem do plano.
+    "max_signatures_per_month": 500,
 }
 
 
@@ -166,6 +168,14 @@ class Settings(BaseSettings):
     request_photo_reads: int = Field(default=3, ge=0, le=10)
     request_max_open: int = 300  # links em aberto por espaço de trabalho
 
+    # Assinatura eletrônica (D40). Credenciais dos provedores ficam no banco cifradas com Fernet; a chave vem daqui
+    # (variável ou arquivo de secret), nunca do repositório. Várias chaves separadas por vírgula: a primeira cifra,
+    # todas decifram (troca de chave sem perder o que já está guardado).
+    encryption_key: str | None = None
+    encryption_key_file: str | None = None
+    signature_max_pdf_mb: int = Field(default=25, ge=1, le=100)  # PDF assinado baixado do provedor ou enviado
+    signature_poll_minutes: int = Field(default=30, ge=5)  # consulta de reserva, caso o webhook não chegue
+
     # Sessão / segurança
     cookie_secure: bool = False
     cookie_domain: str | None = None
@@ -232,6 +242,11 @@ class Settings(BaseSettings):
     @property
     def turnstile_secret(self) -> str | None:
         return _secret(self.turnstile_secret_key, self.turnstile_secret_key_file)
+
+    @property
+    def encryption_keys(self) -> list[str]:
+        raw = _secret(self.encryption_key, self.encryption_key_file) or ""
+        return [k.strip() for k in raw.split(",") if k.strip()]
 
     @property
     def pdf_import_mode(self) -> Literal["service", "process", "off"]:

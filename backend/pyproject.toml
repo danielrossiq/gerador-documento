@@ -24,6 +24,8 @@ dependencies = [
   # PDF digitado → .docx (MIT / Apache-BSD; evitamos PyMuPDF/pdf2docx por serem AGPL)
   "pdfplumber>=0.11",
   "pypdfium2>=4.30",
+  # credenciais dos provedores de assinatura cifradas com Fernet (D40)
+  "cryptography>=42",
 ]
 
 [project.optional-dependencies]
