@@ -148,6 +148,13 @@ class Settings(BaseSettings):
     file_retention_days: int = 7
     max_upload_mb: int = 15
     login_rate_limit_per_minute: int = 20
+    # Proxies cujo X-Forwarded-For a API aceita (IP ou rede CIDR, separados por vírgula). Padrão: loopback e as redes
+    # internas do Docker (o Next do compose fala com a API por elas). Quem não está aqui é o próprio cliente, e o
+    # cabeçalho que ele mandar é ignorado (app.core.net). Atrás de um balanceador, inclua o endereço dele.
+    trusted_proxies: Annotated[list[str], NoDecode] = ["127.0.0.0/8", "::1/128", "172.16.0.0/12"]
+    # Quantos proxies acrescentam ao X-Forwarded-For antes da API: 1 = só o Next (padrão); 2 = um balanceador ou
+    # Caddy/nginx na frente do Next (com o endereço dele em TRUSTED_PROXIES). 0 ignora o cabeçalho.
+    trusted_proxy_hops: int = Field(default=1, ge=0, le=5)
 
     # Limites padrão por workspace (sobrescritos por workspaces.limits)
     default_limits: dict[str, int] = Field(default_factory=lambda: dict(DEFAULT_LIMITS))
@@ -156,11 +163,20 @@ class Settings(BaseSettings):
     log_json: bool = True
     seed_demo_password: str = "demo12345"
 
-    @field_validator("allowed_origins", mode="before")
+    @field_validator("allowed_origins", "trusted_proxies", mode="before")
     @classmethod
     def _split_origins(cls, v: object) -> object:
         if isinstance(v, str):
             return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+    @field_validator("trusted_proxies")
+    @classmethod
+    def _valid_networks(cls, v: list[str]) -> list[str]:
+        import ipaddress
+
+        for item in v:
+            ipaddress.ip_network(item, strict=False)  # erro claro na subida, não na primeira requisição
         return v
 
     @property

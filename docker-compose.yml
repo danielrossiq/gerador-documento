@@ -101,7 +101,9 @@ services:
     build: { context: ./backend, target: api }
     restart: unless-stopped
     environment: *app-env
-    ports: ["${API_PORT:-8100}:8000"]
+    # só no próprio host: quem chega direto na API (sem passar pelo Next) aparece com o IP do gateway do Docker, que
+    # é um proxy confiável (TRUSTED_PROXIES). Em produção, não publique a API: o tráfego entra só pelo web.
+    ports: ["127.0.0.1:${API_PORT:-8100}:8000"]
     networks: [default, pdfnet]
     depends_on:
       migrate: { condition: service_completed_successfully }
