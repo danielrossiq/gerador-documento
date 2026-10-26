@@ -16,7 +16,7 @@ Produto: **DocFeito** (antes "Minuta"; rebranding em D36). Dono: Daniel. Interfa
 | PDF como modelo, com conversão isolada no contêiner `pdfconv` | pronto | D35 |
 | Fidelidade PDF→DOCX (bancada `app/eval/fidelity.py`, modo fluxo e "layout exato") | bom, com pendências (§4) | D35 e código |
 | **Sprint A**: teste grátis na landing, sem cadastro | **pronto, revisado por QA e segurança** | D38, spec abaixo |
-| **Sprint B**: link para o cliente preencher | **quase pronta** (commit WIP `e11aa36`): backend, telas e E2E prontos | D39, spec |
+| **Sprint B**: link para o cliente preencher | **pronta para revisão** (`e11aa36` + `03db4ed`), falta QA e segurança | D39, spec |
 | **Sprint C**: assinatura eletrônica (ZapSign, Clicksign, D4Sign, Autentique, DocuSign, Adobe Sign, gov.br) | **não começada** | D40, spec |
 
 A especificação completa da sprint, com as regras para todos, requisitos de segurança e o que cada agente entrega, está em
@@ -69,8 +69,15 @@ Já corrigidas no `e11aa36`:
 - **Esperas:** no máximo 10 simultâneas antes de `TRIAL_BUSY`.
 - **Teste intermitente do pdfconv:** o servidor agora drena o corpo ao recusar.
 
-Ainda pendente:
-- **UX (baixa):** `/register?trial=` e `/login?trial=` com link vencido ou já guardado devem avisar que o documento expirou.
+No `03db4ed` entrou também o aviso de teste vencido ou já guardado em `/register?trial=` e `/login?trial=`, com E2E.
+
+Verificação feita pelo engenheiro na sessão local:
+- **Testes do backend:** a suíte completa passou pela última vez antes de QA-5, QA-6 e do aviso. Depois disso rodaram
+  só os testes das partes tocadas, todos verdes. **Rode a suíte completa primeiro.**
+- **Migrations:** `0009` e `0010` conferidas no Postgres 17 (upgrade, check, downgrade, upgrade).
+- **E2E:** trial, client-request e landing verdes. `individual.spec` só falha sem LibreOffice (sem PDF), não por causa
+  da sprint.
+- **IA real:** custo da sprint US$ 0,00; tudo rodou com IA falsa.
 
 ### B — Link para o cliente preencher (D39): em andamento
 
@@ -111,8 +118,19 @@ Está tudo no spec, seção C:
   verificação PAdES no pdfconv + link para `validar.iti.gov.br`).
 
 Requisitos de segurança já definidos para a C (OBR-10 a OBR-13 em `docs/SEGURANCA_SPRINT.md`): webhook verificado e
-idempotente, credenciais criptografadas, anti-SSRF nas URLs dos provedores. O Daniel precisa criar as contas sandbox
-dos provedores; liste o que for necessário no relatório.
+idempotente, credenciais criptografadas, anti-SSRF nas URLs dos provedores.
+
+Documentação já levantada (confira de novo antes de codificar):
+- **ZapSign:** `POST /api/v1/docs` com Bearer. O webhook **não tem HMAC**, só um cabeçalho próprio configurável:
+  use o segredo nesse cabeçalho mais a chave aleatória na URL e confirme o status consultando a API.
+- **Clicksign v3:** `sandbox.clicksign.com/api/v3`, formato JSON:API. O webhook vem com `Content-Hmac: sha256=<hex>`
+  (HMAC-SHA256 do corpo).
+
+O Daniel precisa criar contas sandbox e tokens: ZapSign, Clicksign, D4Sign, Autentique, DocuSign (integration key e
+conta demo) e Adobe Acrobat Sign.
+
+Também ficou de fora: o "aceitar todas as sugestões" ainda insere campo por campo. Dá para usar o caminho em lote
+`nodes.apply_fields`, como já faz a prévia do teste.
 
 ## 3. Depois da sprint (combinado com o Daniel)
 
