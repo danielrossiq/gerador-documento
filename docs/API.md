@@ -138,8 +138,28 @@ Públicas (o cliente, sem sessão). Token errado, cancelado ou de outro espaço:
 | Método | Rota | |
 |---|---|---|
 | GET | `/public/requests/{token}` | `{state: open\|answered, workspace, document, message, fields, prefill_mode, prefill, values, photos: {allowed, reads_left}, expires_at}` ou `{state: expired\|closed}` |
-| POST | `/public/requests/{token}` | `{values}` → `{state: "answered", submissions}`; `422 REQUEST_INVALID_VALUES` com `details.field_errors`; `409 REQUEST_CLOSED` (vencido ou já aberto pelo profissional) |
-| POST | `/public/requests/{token}/fill-files` | multipart `files` (até 3; JPG/PNG/WEBP ou PDF até 10 páginas; 8 MB cada) → `{values, invalid, evidence, missing, documents, reads_left}`. `409 REQUEST_PHOTOS_DISABLED`, `429 REQUEST_READS_USED` (3 por link), `400 FORM_INVALID` |
+| POST | `/public/requests/{token}` | `{values}` (corpo até 1 MB, `413 FILE_TOO_LARGE`; JSON quebrado `400 FORM_INVALID`) → `{state: "answered", submissions}`; `422 REQUEST_INVALID_VALUES` com `details.field_errors`; `409 REQUEST_CLOSED` (vencido ou já aberto pelo profissional) |
+| POST | `/public/requests/{token}/fill-files` | multipart `files` (até 3; JPG/PNG/WEBP ou PDF até 10 páginas; 8 MB cada) → `{values, invalid, evidence, missing, documents, reads_left}`. Limites, link e permissão de fotos conferidos **antes** de ler o corpo. `409 REQUEST_PHOTOS_DISABLED`, `429 REQUEST_READS_USED` (3 por link), `429` (10 tentativas por hora por link), `400 FORM_INVALID` |
+
+## Assinatura eletrônica (D40)
+Com sessão. Configurar provedor: só o proprietário.
+
+| Método | Rota | |
+|---|---|---|
+| GET | `/signatures/providers` | `{configured: [{provider, label, environment, credential_hint, webhook_ready, last_test_ok, …}], available, encryption_ready}`; nunca o token nem segredos |
+| PUT | `/signatures/providers/{zapsign\|clicksign}` | `{environment: sandbox\|production, api_token?, webhook_secret? (Clicksign), rotate_webhook?}`. Na criação (ou com `rotate_webhook`) devolve **uma vez** `webhook_url` e, na ZapSign, `webhook_header: {name, value}` para configurar no painel do provedor. `503 ENCRYPTION_KEY_MISSING` sem `ENCRYPTION_KEY` |
+| POST | `/signatures/providers/{provider}/test` | `{ok, code, message}` sem ecoar a credencial |
+| DELETE | `/signatures/providers/{provider}` | remove a configuração (pedidos em andamento deixam de ser consultados) |
+| POST | `/signatures` | `{file_id (PDF gerado), provider: zapsign\|clicksign\|govbr, signers: [{name, email, phone?, cpf?, order, auth: email\|sms\|whatsapp}], message?, sequential}` → `201` pedido (`status: sent` com `signers[].sign_url` quando o provedor dá o link; gov.br: `awaiting_upload` com `instructions`). `SIGNATURE_NEEDS_PDF`, `SIGNATURE_PROVIDER_NOT_CONFIGURED`, `SIGNATURE_INVALID_SIGNER`, `429 SIGNATURE_LIMIT` (cota mensal do plano), `502 SIGNATURE_PROVIDER_*` |
+| GET | `/signatures` · `/signatures/{id}` | lista (`job_id`, paginação) e detalhe; `signed_file` quando concluído; CPF sempre mascarado |
+| POST | `/signatures/{id}/cancel` · `/refresh` | cancela no provedor · consulta a situação agora |
+| POST | `/signatures/{id}/upload` | gov.br/ICP-Brasil: multipart `file` com o PDF assinado (até `SIGNATURE_MAX_PDF_MB`). Verificado no `pdfconv` (PAdES): `SIGNATURE_NOT_FOUND`, `SIGNATURE_INVALID`; concluído traz `verification: {signatures: [{signer, cpf (mascarado), issuer, signed_at, intact, valid, trusted, covers_whole_file}], matches_original, chain_checked}` |
+
+Webhook (público, sem sessão): `POST /signatures/webhook/{provider}/{chave}`. Corpo até 1 MB; chave errada `404`;
+sem a verificação do provedor (ZapSign: cabeçalho `X-DocFeito-Webhook`; Clicksign: `Content-Hmac: sha256=…`) `401`
+sem gravar nada; evento repetido `{"status": "duplicate"}`. O evento só dispara a consulta à API do provedor (fila
+`signatures`); pedido concluído não regride. Assinado → o PDF vira arquivo `signed` da geração (aparece em
+`/jobs/{id}`).
 
 ## Operação
 `GET /health` (liveness) · `GET /ready` (banco + conversor) · `GET /metrics` (Prometheus).

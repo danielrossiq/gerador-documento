@@ -360,3 +360,43 @@ Avaliadas: **AG Grid Community**, **Glide Data Grid**, **TanStack Table + Virtua
 - **Leitura de fotos e PDF (D37) endurecida para a entrada anônima**: JPEG decodificado já reduzido (`Image.draft`), PNG/WEBP até 16 Mpx (um PNG de 49 Mpx usava ~500 MB), um arquivo por vez; PDF com as páginas contadas fora da API — rota `POST /info` do `pdfconv` (processo filho com PDFium) ou processo filho local no desenvolvimento — e recusado acima de 10 páginas; a reserva de custo usa a contagem real (antes, estimativa pelo tamanho, até 46× menor num PDF de 1.000 páginas). Sem conversor isolado (`PDF_IMPORT_ENABLED=false`), a leitura aceita só fotos (`AI_PDF_DISABLED`).
 - Achado ao testar no navegador: no formulário do cliente, o `trigger()` manual mantinha a validação "no blur" depois da 1ª tentativa; ao clicar em Enviar, o blur do último campo tirava uma mensagem de erro, o botão subia e o clique caía fora dele. Agora é `handleSubmit` (revalida enquanto a pessoa corrige).
 - Migration `0010` (`client_requests`). Testes: `test_client_requests.py`, `test_assist_ai.py` (imagens pesadas, PDF longo, PDF sem conversor), `test_pdfconv.py` (`/info`), `test_trial_security.py` (OBR-8) e `e2e/client-request.spec.ts` (celular 390 px, axe, CSP).
+
+## D40 — Assinatura eletrônica: ZapSign, Clicksign e gov.br assistido (começo)
+- **Pedido (Daniel, sprint)**: fechar o ciclo dentro do app. Gerou, mandou assinar, voltou assinado para o histórico.
+- **Interface comum** (`app/modules/signatures/base.py`): `create_envelope`, `status`, `download_signed`, `cancel`,
+  `test_connection` e `parse_webhook`. Cada adaptador recebe a credencial decifrada e um `httpx.Client` com base URL
+  fixa por ambiente. Erro do provedor vira código nosso (`SIGNATURE_PROVIDER_*`): a resposta do provedor nunca é
+  repassada nem vai para o log. Primeiros adaptadores: **ZapSign** (Bearer, `POST /api/v1/docs/`) e **Clicksign v3**
+  (JSON:API, envelope em passos e ativação; envelope pela metade é cancelado). D4Sign, Autentique, DocuSign e Adobe
+  Sign entram depois pela mesma interface.
+- **Credenciais por espaço** (`signature_providers`): token e segredo de webhook cifrados com Fernet. A chave vem de
+  `ENCRYPTION_KEY`/`ENCRYPTION_KEY_FILE` (várias chaves para troca). Sem chave, configurar dá `503`, nunca texto puro.
+  Só o proprietário configura; "Testar conexão" não ecoa a credencial; a tela mostra só os 4 últimos caracteres.
+- **Webhook** `POST /api/v1/signatures/webhook/{provedor}/{chave}`: chave aleatória por espaço, guardada como SHA-256
+  e mostrada uma vez (mascarada no log). Corpo até 1 MB, limite por IP. **Verificação por provedor, sem "aceitar se
+  não der para verificar"**: Clicksign por `Content-Hmac` (HMAC-SHA256 do corpo); a ZapSign não assina o corpo, então
+  o segredo vai num cabeçalho próprio (`X-DocFeito-Webhook`). Em ambos, o corpo **só dispara a consulta**: a situação
+  vem da API do provedor. Isso cobre a falta de carimbo de tempo dos dois (replay não muda nada) e a ordem dos
+  eventos. Idempotência por `signature_events` (id do evento ou SHA-256 do corpo); pedido concluído nunca regride.
+- **Consulta de reserva** no watchdog: pedidos `sent` sem notícia há `SIGNATURE_POLL_MINUTES` (30), até 90 dias, 50
+  por volta, pela fila `signatures` do worker.
+- **PDF assinado**: baixado só de host da lista do provedor, por https, com IP público, sem redirecionamento e com
+  teto (`SIGNATURE_MAX_PDF_MB`). Guardado como arquivo `signed` da geração (migration `0011` amplia o
+  `ck_generated_files_kind`) e aparece no job, inclusive em lote.
+- **gov.br**: pelo levantamento anterior, a API de assinatura gov.br do ITI é para órgãos públicos, por adesão, e não
+  atende empresas privadas (a documentação não pôde ser reconferida nesta sessão: a rede bloqueia os sites). Por isso o
+  **fluxo é assistido**. O pedido fica "aguardando o PDF assinado", com os links do Assinador
+  (`assinador.iti.br`) e do validador (`validar.iti.gov.br`). O profissional envia o PDF assinado; o `pdfconv` verifica
+  as assinaturas PAdES com pyHanko, em processo filho e sem rede, e devolve quem assinou (CPF mascarado), quando e se
+  está íntegra e cobre o arquivo. O mesmo vale para certificado ICP-Brasil A1/A3 usado fora do app. Só entra no
+  histórico se todas as assinaturas estiverem íntegras. Também dizemos se o original ficou intacto (o assinador
+  acrescenta ao fim do arquivo). A cadeia de confiança só é conferida com `SIGNATURE_TRUST_ROOTS_DIR` no `pdfconv`;
+  sem as raízes, a conferência oficial é o link do ITI. A API nunca abre o PDF (D35).
+- **Cota**: `signatures_per_month` nos planos (Grátis 3, Profissional 50, Escritório 300; números a confirmar com o
+  Daniel), `max_signatures_per_month` = 500 com a cobrança desligada; envio recusado pelo provedor não conta.
+- Migration `0011`. Testes: `test_signatures.py` (adaptadores com `httpx.MockTransport`, anti-SSRF, webhook,
+  idempotência, consulta, cota, isolamento, gov.br com PDF assinado na hora) e `test_signatures_sandbox.py` (real,
+  pulado sem `ZAPSIGN_SANDBOX_TOKEN`/`CLICKSIGN_SANDBOX_TOKEN`).
+- **Falta**: telas (Configurações → Assinatura eletrônica; "Enviar para assinatura" no job e no Histórico),
+  upload pelo próprio signatário no gov.br (link público), os demais provedores e a conferência dos adaptadores no
+  sandbox (pontos marcados no código).

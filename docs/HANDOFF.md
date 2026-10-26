@@ -16,8 +16,8 @@ Produto: **DocFeito** (antes "Minuta"; rebranding em D36). Dono: Daniel. Interfa
 | PDF como modelo, com conversão isolada no contêiner `pdfconv` | pronto | D35 |
 | Fidelidade PDF→DOCX (bancada `app/eval/fidelity.py`, modo fluxo e "layout exato") | bom, com pendências (§4) | D35 e código |
 | **Sprint A**: teste grátis na landing, sem cadastro | **pronto, revisado por QA e segurança** | D38, spec abaixo |
-| **Sprint B**: link para o cliente preencher | **pronta para revisão** (`e11aa36` + `03db4ed`), falta QA e segurança | D39, spec |
-| **Sprint C**: assinatura eletrônica (ZapSign, Clicksign, D4Sign, Autentique, DocuSign, Adobe Sign, gov.br) | **não começada** | D40, spec |
+| **Sprint B**: link para o cliente preencher | **pronta; revisão de segurança feita** (fase 3 em `docs/SEGURANCA_SPRINT.md`), falta só estresse do QA | D39, spec |
+| **Sprint C**: assinatura eletrônica (ZapSign, Clicksign, D4Sign, Autentique, DocuSign, Adobe Sign, gov.br) | **backend começado**: ZapSign, Clicksign e gov.br assistido; faltam telas e os outros provedores | D40, spec |
 
 A especificação completa da sprint, com as regras para todos, requisitos de segurança e o que cada agente entrega, está em
 `docs/specs/SPRINT_TESTE_LINK_ASSINATURA.md`. **Leia antes de mexer em A, B ou C.**
@@ -105,7 +105,22 @@ Requisitos de segurança combinados para a B (conferir na revisão):
 - Multipart lido à mão sempre capturando `MultipartParseError` (400 `FORM_INVALID`).
 - Regressão que espera a B: `test_security_phase2.py` tem um xfail placeholder para `/r/{token}`.
 
-### C — Assinatura eletrônica (D40): a fazer
+### Sessão na nuvem de 26/10/2026 (branch `claude/nifty-babbage-uhtw7v`, a partir de `claude/repaginacao-v3`)
+
+- **Suíte completa** do backend verde (SQLite, IA falsa, LibreOffice presente). Só fica pulado o teste de migration
+  que exige `MIGRATION_DATABASE_URL`. As migrations `0010` e `0011` foram conferidas no PostgreSQL 16 local.
+- **B, revisão de segurança** (`3171e3e`): teto de 1 MB no envio público; `fill-files` checa limites e link antes de
+  ler o corpo; 10 tentativas por hora por link. Testes reais de `/r/{token}` em `test_security_phase2.py`. O
+  placeholder `xfail` citado aqui já tinha virado teste parcial em `test_trial_security.py`.
+- **C, backend** (`beed6ef`, `fd0e915`, `1e72479`, `532b3ca`, `ac64c95` e a documentação): ver D40.
+  - **Telas da C ainda não existem**: Configurações → Assinatura eletrônica; "Enviar para assinatura" no job e no
+    Histórico; upload do PDF assinado (gov.br).
+  - Pontos dos adaptadores a conferir no sandbox estão no topo de `zapsign.py` e `clicksign.py`. Para rodar o teste
+    real: `ZAPSIGN_SANDBOX_TOKEN=… CLICKSIGN_SANDBOX_TOKEN=… pytest -q tests/test_signatures_sandbox.py`.
+  - Em produção, `ENCRYPTION_KEY_FILE` (secret) na API e no worker. Opcional no `pdfconv`:
+    `SIGNATURE_TRUST_ROOTS_DIR` com as raízes ICP-Brasil e gov.br.
+
+### C — Assinatura eletrônica (D40): backend começado
 
 Está tudo no spec, seção C:
 - interface comum de provedor;

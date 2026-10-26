@@ -330,3 +330,18 @@ Revisão do código de `e11aa36` + `03db4ed`, com IA simulada. As regressões es
 
 Fica para depois (fora da B): as outras rotas JSON públicas (cadastro, login) também leem o corpo sem teto. Um
 middleware com teto global de corpo, ou `client_max_body_size` no proxy de borda, resolve todas de uma vez.
+
+## 6. C (D40): estado dos requisitos no começo da implementação
+
+- **OBR-10 (webhook verificado):** Clicksign por HMAC-SHA256 do corpo (`Content-Hmac`); ZapSign por cabeçalho secreto
+  aleatório por espaço (ela não assina o corpo). Sem segredo configurado → 401. Nenhum dos dois manda carimbo de
+  tempo; em troca, o corpo só dispara a consulta à API do provedor, então um replay não muda nada.
+- **OBR-11 (idempotência e ordem):** `signature_events` com único (provedor, id do evento ou SHA-256 do corpo); a
+  situação vem da API; concluído não regride; duas consultas simultâneas gravam o PDF assinado uma vez só.
+- **OBR-12 (credenciais):** Fernet com chave fora do repositório, sem texto puro como alternativa; "Testar conexão"
+  e listagem sem a credencial; chave da URL só como hash e mascarada no log; auditoria sem segredos (teste confere).
+- **OBR-13 (anti-SSRF):** base URL fixa por provedor e ambiente; download só por https, do host da lista do provedor,
+  com IP público (DNS para 10/8, 127/8, 169.254/16 ou IPv4 mapeado em IPv6 é recusado), sem redirecionamento e com teto.
+- **DEP-1 (PAdES):** só no `pdfconv` (rota `/verify`, processo filho, sem rede); a API não abre o PDF (teste troca o
+  leitor do pyHanko no processo da API por um que falha). Nome e CPF do certificado não vão para o log (o pyHanko foi
+  silenciado), e o CPF sai mascarado também no emissor (achado pelo teste com certificado autoassinado).
