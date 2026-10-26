@@ -1,7 +1,7 @@
 """Teste grátis (D38): casos-limite achados pelo QA na rota pública anônima.
 
-Os `xfail(strict=True)` reproduzem bugs abertos (QA-1, QA-3, QA-4 e a armadilha): quando o bug for corrigido, o
-pytest acusa XPASS e é hora de tirar a marca. Os demais protegem comportamentos que já estão certos.
+Reproduzem bugs achados e corrigidos (QA-1, QA-3, QA-4 e a armadilha detectável, 0091fbc) e protegem
+comportamentos que já estavam certos (claim, contagem de páginas, dois arquivos).
 """
 
 from __future__ import annotations
@@ -9,8 +9,6 @@ from __future__ import annotations
 import io
 import time
 import zipfile
-
-import pytest
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 CT = (
@@ -47,14 +45,12 @@ def send(api, content: bytes, **form: str):  # type: ignore[no-untyped-def]
     return api.post("/public/trials", files=files, data=form)
 
 
-@pytest.mark.xfail(strict=True, reason="BUG QA-1: zlib.error de parte corrompida vira 500 na rota pública")
 def test_corrupt_compressed_part_is_refused_with_422(api):
     bad = _corrupt_member(_docx(["Contrato de teste."], ct_padding=3000), "[Content_Types].xml")
     r = send(api, bad)
     assert r.status_code == 422, r.text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG QA-3: multipart malformado vira 500 (MultipartParseError)")
 def test_malformed_multipart_is_400(api):
     r = api.post(
         "/public/trials", content=b"x" * 100, headers={"Content-Type": "multipart/form-data; boundary=zzz"}
@@ -62,7 +58,6 @@ def test_malformed_multipart_is_400(api):
     assert r.status_code == 400, r.text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG QA-4: prévia do teste é quadrática no nº de achados por parágrafo")
 def test_dense_document_is_processed_quickly(api):
     # 1 parágrafo de ~8 mil caracteres com ~800 achados (datas, CPFs, valores, CEPs): bem abaixo do teto de 10 páginas
     para = " ".join(["01/02/2027", "529.982.247-25", "R$ 1,00", "01310-100"] * 200)
@@ -74,7 +69,6 @@ def test_dense_document_is_processed_quickly(api):
     assert elapsed < 1.0, f"{elapsed:.1f}s para um .docx de {len(_docx([para]))} bytes"
 
 
-@pytest.mark.xfail(strict=True, reason="armadilha: o token falso dá 404 na hora e o robô percebe (baixo)")
 def test_honeypot_token_is_indistinguishable_from_a_real_one(api):
     r = send(api, _docx(["Contrato de teste, CPF 529.982.247-25."]), website="http://spam.example")
     assert r.status_code == 202
