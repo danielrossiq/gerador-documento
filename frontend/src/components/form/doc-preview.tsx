@@ -8,7 +8,18 @@ import type { DocNode, FieldOut } from "@/lib/types";
  * Prévia somente leitura: renderiza o mesmo JSON do editor, trocando cada campo pelo valor já formatado
  * (mesma regra do servidor — shared/field-vectors.json). É uma aproximação HTML; o arquivo final vem do DOCX/PDF.
  */
-export function DocPreview({ doc, fields, values }: { doc: DocNode; fields: FieldOut[]; values: Record<string, unknown> }) {
+export function DocPreview({
+  doc,
+  fields,
+  values,
+  found,
+}: {
+  doc: DocNode;
+  fields: FieldOut[];
+  values: Record<string, unknown>;
+  /** Modo "campos encontrados" (teste grátis da landing): mostra o trecho original destacado, com o rótulo. */
+  found?: Record<string, string>;
+}) {
   const byId = new Map(fields.map((f) => [f.id, f]));
 
   function fieldText(fieldId: string): { text: string; empty: boolean } {
@@ -55,6 +66,20 @@ export function DocPreview({ doc, fields, values }: { doc: DocNode; fields: Fiel
       case "hardBreak":
         return <br key={key} />;
       case "field": {
+        if (found) {
+          const label = found[String(n.attrs?.fieldId)] ?? "";
+          return (
+            <Fragment key={key}>
+              {marks(
+                n,
+                <mark className="pv-field" data-found="true" title={label} data-testid="pv-field">
+                  {String(n.attrs?.sample ?? "")}
+                  <span className="sr-only"> (campo: {label})</span>
+                </mark>,
+              )}
+            </Fragment>
+          );
+        }
         const { text, empty } = fieldText(String(n.attrs?.fieldId));
         return (
           <Fragment key={key}>
@@ -90,7 +115,7 @@ export function DocPreview({ doc, fields, values }: { doc: DocNode; fields: Fiel
   }
 
   return (
-    <div className="doc-page" aria-label="Prévia do documento" data-testid="doc-preview">
+    <div className={found ? "doc-page doc-compact" : "doc-page"} aria-label="Prévia do documento" data-testid="doc-preview">
       <div className="ProseMirror">{(doc.content ?? []).map((n, i) => render(n, i))}</div>
     </div>
   );

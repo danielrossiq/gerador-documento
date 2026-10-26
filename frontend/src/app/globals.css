@@ -354,6 +354,23 @@ body {
   color: #7a3d0b;
   font-style: italic;
 }
+/* campo encontrado (teste grátis): o marca-texto amarelo da marca sobre o trecho original */
+.pv-field[data-found="true"] {
+  background: var(--highlight);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px rgb(14 26 43 / 0.08);
+}
+/* prévia compacta (teste grátis da landing e link do cliente): sem altura de folha A4 */
+.doc-page.doc-compact {
+  min-height: 0;
+  padding: 32px 36px;
+}
+@media (max-width: 640px) {
+  .doc-page.doc-compact {
+    padding: 18px 14px;
+    font-size: 13px;
+  }
+}
 
 /* Grade do lote */
 .grid-cell {

@@ -139,6 +139,23 @@ class Settings(BaseSettings):
     # Pix na Stripe Brasil é liberado sob convite: ligue só depois de ver "Pix" ativo no painel da Stripe.
     billing_pix_enabled: bool = False
 
+    # Teste grátis na landing, sem cadastro (D38). Sem valor: ligado fora de produção; em produção, ligue
+    # explicitamente (TRIAL_ENABLED=true) depois de configurar o Turnstile.
+    trial_enabled: bool | None = None
+    trial_max_mb: int = 5
+    trial_max_pages: int = 10
+    trial_ttl_minutes: int = 60  # depois disso, arquivo e resultado são apagados
+    trial_max_concurrent: int = 3  # testes em processamento ao mesmo tempo, no sistema todo
+    trial_ai_daily_budget_usd: float = 0.50  # só dos testes anônimos; esgotou → só regras locais (sem custo)
+    trial_ai_max_chars: int = 6000  # a IA do teste lê só o começo do documento
+    trial_limit_ip_hour: int = 3
+    trial_limit_ip_day: int = 10
+    trial_limit_net_day: int = 30  # por /24 (IPv4) ou /64 (IPv6)
+    # Cloudflare Turnstile (opcional). Com a chave secreta, o teste exige o desafio validado no servidor.
+    turnstile_site_key: str | None = None
+    turnstile_secret_key: str | None = None
+    turnstile_secret_key_file: str | None = None
+
     # Sessão / segurança
     cookie_secure: bool = False
     cookie_domain: str | None = None
@@ -151,7 +168,12 @@ class Settings(BaseSettings):
     # Proxies cujo X-Forwarded-For a API aceita (IP ou rede CIDR, separados por vírgula). Padrão: loopback e as redes
     # internas do Docker (o Next do compose fala com a API por elas). Quem não está aqui é o próprio cliente, e o
     # cabeçalho que ele mandar é ignorado (app.core.net). Atrás de um balanceador, inclua o endereço dele.
-    trusted_proxies: Annotated[list[str], NoDecode] = ["127.0.0.0/8", "::1/128", "172.16.0.0/12"]
+    trusted_proxies: Annotated[list[str], NoDecode] = [
+        "127.0.0.0/8",
+        "::1/128",
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+    ]
     # Quantos proxies acrescentam ao X-Forwarded-For antes da API: 1 = só o Next (padrão); 2 = um balanceador ou
     # Caddy/nginx na frente do Next (com o endereço dele em TRUSTED_PROXIES). 0 ignora o cabeçalho.
     trusted_proxy_hops: int = Field(default=1, ge=0, le=5)
@@ -190,6 +212,14 @@ class Settings(BaseSettings):
     @property
     def stripe_webhook_signing_secret(self) -> str | None:
         return _secret(self.stripe_webhook_secret, self.stripe_webhook_secret_file)
+
+    @property
+    def trials_on(self) -> bool:
+        return self.trial_enabled if self.trial_enabled is not None else not self.is_production
+
+    @property
+    def turnstile_secret(self) -> str | None:
+        return _secret(self.turnstile_secret_key, self.turnstile_secret_key_file)
 
     @property
     def pdf_import_mode(self) -> Literal["service", "process", "off"]:

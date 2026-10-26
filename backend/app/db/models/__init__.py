@@ -35,6 +35,7 @@ from app.db.models.templates import (
     TemplateFile,
     TemplateVersion,
 )
+from app.db.models.trials import Trial
 
 __all__ = [
     "AIAnalysisRun",
@@ -63,6 +64,7 @@ __all__ = [
     "TemplateBlock",
     "TemplateFile",
     "TemplateVersion",
+    "Trial",
     "User",
     "UserSession",
     "Workspace",
