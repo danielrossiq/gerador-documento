@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
+from starlette.exceptions import HTTPException
 
 from app.core.config import get_settings
 from app.core.deps import Ctx, client_ip, get_ctx, require_same_origin
@@ -41,7 +42,15 @@ async def create_trial(request: Request) -> dict[str, Any]:
         raise AppError(
             f"O teste aceita arquivos de até {s.trial_max_mb} MB.", code="FILE_TOO_LARGE", status_code=413
         )
-    form = await request.form(max_files=1, max_fields=4, max_part_size=16 * 1024)
+    try:
+        form = await request.form(max_files=1, max_fields=4, max_part_size=16 * 1024)
+    except (HTTPException, ValueError) as exc:
+        # mais de um arquivo, campos demais ou multipart quebrado (MultipartParseError é ValueError; QA-3): 400 tipado
+        raise AppError(
+            "Não foi possível ler o envio. Escolha um documento por vez e tente de novo.",
+            code="TRIAL_FORM_INVALID",
+            status_code=400,
+        ) from exc
     try:
         upload = form.get("file")
         if not isinstance(upload, UploadFile):

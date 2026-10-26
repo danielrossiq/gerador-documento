@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 import re
 import zipfile
+import zlib
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
@@ -223,6 +224,13 @@ def _label(name: str, kind: str, index: int, total: int) -> str:
 
 
 def parse_docx(data: bytes) -> ParsedDocument:
+    try:
+        return _parse_docx(data)
+    except (zlib.error, EOFError) as exc:  # parte comprimida corrompida (achado QA-1): vira "arquivo inválido"
+        raise zipfile.BadZipFile("Uma parte do .docx está corrompida.") from exc
+
+
+def _parse_docx(data: bytes) -> ParsedDocument:
     zf = zipfile.ZipFile(io.BytesIO(data))
     styles = load_styles(zf)
     files = part_files(zf)

@@ -17,7 +17,6 @@ Nada do conteúdo vai para log: só formato, tamanho, códigos de erro e contage
 
 from __future__ import annotations
 
-import copy
 import dataclasses
 import hashlib
 import hmac
@@ -25,6 +24,7 @@ import re
 import time
 import uuid
 import zipfile
+import zlib
 from dataclasses import asdict
 from datetime import timedelta
 from decimal import Decimal
@@ -56,7 +56,7 @@ from app.db.base import utcnow
 from app.db.models import AIAnalysisRun, TemplateFile, Trial
 from app.db.session import get_factory
 from app.docx_engine.editor_doc import PartLike, blocks_to_doc
-from app.docx_engine.nodes import RangeError, replace_range_with_field
+from app.docx_engine.nodes import apply_fields
 from app.docx_engine.parse import ParsedBlock, parse_docx
 from app.docx_engine.pdf_import import convert_pdf, convert_pdf_remote, looks_like_pdf
 from app.docx_engine.safety import DocxRejected, validate_docx
@@ -69,6 +69,10 @@ STALE_AFTER = timedelta(
     minutes=5
 )  # teste "em andamento" há mais que isso morreu com o worker: não ocupa vaga
 CHARS_PER_PAGE = 4000  # estimativa folgada de página para .docx sem a contagem do Word (docProps/app.xml)
+ATTEMPTS_PER_HOUR = 30  # tentativas antes do Turnstile (só com ele ligado): limita chamadas à Cloudflare
+# teto de achados (QA-4): brutos por parágrafo/no total antes de resolver sobreposições; e os que viram campo
+RAW_PER_BLOCK, RAW_TOTAL = 100, 1500
+MAX_HITS_PER_BLOCK, MAX_HITS = 30, 300
 # .docx de visitante anônimo: bem menos que o upload das contas. Um .docx de 1 MB que descompacta para 78 MB levou
 # 6,7 s e +523 MB de RAM no parse (medição da segurança); 25 MB descompactados bastam para 10 páginas com imagens.
 DOCX_LIMITS = {"max_entries": 300, "max_entry_bytes": 15 * 1024 * 1024, "max_total_bytes": 25 * 1024 * 1024}
@@ -170,6 +174,59 @@ def _busy() -> LimitExceeded:
     return LimitExceeded("Muita gente testando agora. Tente de novo em alguns segundos.", code="TRIAL_BUSY")
 
 
+def _wait_for_slot(db: Session) -> None:
+    """Fila curta: com as vagas ocupadas, espera alguns segundos (TRIAL_BUSY_WAIT_SECONDS) antes de recusar."""
+    s = get_settings()
+    deadline = time.monotonic() + max(0.0, s.trial_busy_wait_seconds)
+    while active_count(db) >= s.trial_max_concurrent:
+        if time.monotonic() >= deadline:
+            raise _busy()
+        db.rollback()  # libera a leitura antes de esperar
+        time.sleep(0.5)
+
+
+def _count_attempt(ipk: str, netk: str, hourly: int) -> None:
+    s = get_settings()
+    for key, limit, window in (
+        (f"trial-ip-h:{ipk}", hourly, 3600),
+        (f"trial-ip-d:{ipk}", s.trial_limit_ip_day, 86400),
+        (f"trial-net-d:{netk}", s.trial_limit_net_day, 86400),
+    ):
+        ratelimit.check(key, limit, window, message=LIMIT_MESSAGE, code="TRIAL_RATE_LIMITED")
+
+
+def _decoy(db: Session, size: int) -> dict[str, Any]:
+    """Armadilha (F2-5): grava um teste "falho" sem arquivo, que aparece como em processamento por alguns segundos e
+    depois falha com a mensagem genérica — igual a um teste real que deu errado. Não ocupa vaga nem chama nada."""
+    import secrets
+
+    token = new_token(32)
+    now = utcnow()
+    db.add(
+        Trial(
+            token_hash=token_hash(token),
+            status="failed",
+            source_format="docx",
+            filename="documento.docx",
+            size_bytes=size,
+            storage_key=None,
+            attempts=0,
+            error_code="TRIAL_FAILED",
+            error_message=FAILED_MESSAGE,
+            created_at=now,
+            finished_at=now + timedelta(seconds=6 + secrets.randbelow(9)),  # "termina" no futuro
+            expires_at=now + timedelta(minutes=get_settings().trial_ttl_minutes),
+        )
+    )
+    db.commit()
+    log.info("teste_armadilha")
+    return {
+        "token": token,
+        "status": "processing",
+        "expires_at": (now + timedelta(minutes=get_settings().trial_ttl_minutes)).isoformat(),
+    }
+
+
 def create_trial(
     db: Session,
     *,
@@ -182,28 +239,31 @@ def create_trial(
     s = get_settings()
     if not s.trials_on:
         raise ServiceUnavailable("O teste grátis está desligado no momento.", code="TRIAL_DISABLED")
-    if honeypot:  # campo escondido preenchido: robô. Parece sucesso, mas nada é guardado nem processado.
-        log.info("teste_armadilha")
-        return {"token": new_token(32), "status": "processing"}
-    # Os limites contam TENTATIVAS (requisito OBR-1 da segurança), antes do Turnstile e de abrir o arquivo: recusa,
-    # falha da IA ou arquivo quebrado também gastam a vez. A landing confere tipo e tamanho antes de enviar.
+    # Os limites contam TENTATIVAS (requisito OBR-1 da segurança), antes de abrir o arquivo: recusa, falha da IA,
+    # arquivo quebrado e até a armadilha gastam a vez. A landing confere tipo e tamanho antes de enviar.
     ipk, netk = _key(ip or "na"), _key(network_key(ip))
-    for key, limit, window in (
-        (f"trial-ip-h:{ipk}", s.trial_limit_ip_hour, 3600),
-        (f"trial-ip-d:{ipk}", s.trial_limit_ip_day, 86400),
-        (f"trial-net-d:{netk}", s.trial_limit_net_day, 86400),
-    ):
-        ratelimit.check(key, limit, window, message=LIMIT_MESSAGE, code="TRIAL_RATE_LIMITED")
+    # teto bruto por IP (inclui recusas do Turnstile e a armadilha): segura chamadas à Cloudflare e linhas falsas
+    ratelimit.check(
+        f"trial-try:{ipk}", ATTEMPTS_PER_HOUR, 3600, message=LIMIT_MESSAGE, code="TRIAL_RATE_LIMITED"
+    )
+    if honeypot:  # campo escondido preenchido: robô. Imita um teste de verdade que falhou; nada é processado.
+        _count_attempt(ipk, netk, s.trial_limit_ip_hour)
+        return _decoy(db, len(data))
     secret = s.turnstile_secret
-    if secret and not turnstile.verify(turnstile_token, ip, secret=secret):
-        raise AppError(
-            "Não conseguimos confirmar que você não é um robô. Marque a verificação e tente de novo.",
-            code="TRIAL_CHALLENGE_FAILED",
-            status_code=403,
-        )
+    verified = False
+    if secret:
+        if not turnstile.verify(turnstile_token, ip, secret=secret):
+            raise AppError(
+                "Não conseguimos confirmar que você não é um robô. Marque a verificação e tente de novo.",
+                code="TRIAL_CHALLENGE_FAILED",
+                status_code=403,
+            )
+        verified = True
+    # Com o desafio aprovado, o limite por IP por hora é maior: no Brasil muita gente sai pelo mesmo IP da operadora
+    # (CGNAT do celular). O limite por /24 e o orçamento diário da IA continuam iguais.
+    _count_attempt(ipk, netk, s.trial_limit_ip_hour_verified if verified else s.trial_limit_ip_hour)
     fmt = _check_file(data)
-    if active_count(db) >= s.trial_max_concurrent:
-        raise _busy()
+    _wait_for_slot(db)
 
     token = new_token(32)
     storage_key = f"trials/{uuid.uuid4().hex}.{fmt}"
@@ -271,6 +331,8 @@ def get_status(db: Session, token: str, ip: str | None) -> dict[str, Any]:
     if trial.status == "processing" and trial.started_at and trial.started_at <= utcnow() - STALE_AFTER:
         out["status"] = "failed"  # o worker morreu no meio: a limpeza marca de vez
         out["error"] = {"code": "TRIAL_FAILED", "message": FAILED_MESSAGE}
+    elif trial.status == "failed" and trial.finished_at and trial.finished_at > utcnow():
+        out["status"] = "processing"  # armadilha: ainda "processando" (ver _decoy)
     elif trial.status == "failed":
         out["error"] = {
             "code": trial.error_code or "TRIAL_FAILED",
@@ -343,7 +405,7 @@ def _docx_pages(data: bytes) -> int | None:
             if info.file_size > 256 * 1024:
                 return None
             xml = zf.read(info)
-    except (KeyError, zipfile.BadZipFile, OSError):
+    except (KeyError, zipfile.BadZipFile, OSError, zlib.error, EOFError):
         return None
     try:
         root = etree.fromstring(xml, parser=etree.XMLParser(resolve_entities=False, no_network=True))
@@ -401,7 +463,7 @@ def _process(db: Session, trial: Trial) -> None:
             raise _too_long(s.trial_max_pages)
     try:
         parsed = parse_docx(data)
-    except (etree.XMLSyntaxError, ValueError, KeyError, zipfile.BadZipFile) as exc:
+    except (etree.XMLSyntaxError, ValueError, KeyError, zipfile.BadZipFile, zlib.error, EOFError) as exc:
         raise DocxRejected(
             "DOCX_PARSE_FAILED",
             "Não foi possível ler o conteúdo do documento. Salve-o de novo no Word como .docx e tente outra vez.",
@@ -416,13 +478,13 @@ def _process(db: Session, trial: Trial) -> None:
     if sum(len(b.text) for b in paragraphs) > s.trial_max_pages * CHARS_PER_PAGE:
         raise _too_long(s.trial_max_pages)
 
-    hits = detect_rules([(b.key, b.text) for b in paragraphs])
+    hits = _cap(detect_rules([(b.key, b.text) for b in paragraphs]), RAW_PER_BLOCK, RAW_TOTAL)
     ai_hits, ai_mode, ai_notes = _ai_hits(paragraphs)
-    hits.extend(ai_hits)
-    raw = [
-        asdict(h) for h in hits
-    ]  # antes da numeração (que renomeia no lugar): o `claim` refaz o caminho todo
+    hits = _cap([*hits, *ai_hits], RAW_PER_BLOCK, RAW_TOTAL)
+    # antes da numeração (que renomeia no lugar): o `claim` refaz o caminho todo com estes achados
+    raw = [asdict(h) for h in hits]
     final = _number_duplicate_hits(adopt_semantic_names(resolve_overlaps(hits), hits))
+    final = _cap(final, MAX_HITS_PER_BLOCK, MAX_HITS)
     doc, fields = _preview(parsed, final)
     trial.result = {
         "doc": doc,
@@ -505,24 +567,38 @@ def _ai_hits(paragraphs: list[ParsedBlock]) -> tuple[list[Any], str, list[str]]:
     return to_hits(local, "local"), mode, notes
 
 
+def _cap(hits: list[Any], per_block: int, total: int) -> list[Any]:
+    """Teto de achados do teste (QA-4): os de maior confiança de cada parágrafo, depois em ordem do documento.
+    Um parágrafo de 38 mil caracteres cheio de datas/CPFs gerava ~3.600 achados e prendia o worker por 2 minutos."""
+    by_block: dict[str, list[Any]] = {}
+    for h in hits:
+        by_block.setdefault(h.block_key, []).append(h)
+    kept: list[Any] = []
+    for items in by_block.values():
+        kept.extend(sorted(items, key=lambda x: (-x.confidence, x.start))[:per_block])
+    kept.sort(key=lambda x: (x.block_key, x.start))
+    return kept[:total]
+
+
 def _preview(parsed: Any, hits: list[Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Documento (mesmo JSON do editor) com cada achado virando um nó de campo + a lista de campos encontrados."""
+    """Documento (mesmo JSON do editor) com cada achado virando um nó de campo + a lista de campos encontrados.
+    Uma passada por parágrafo (`apply_fields`), não um `replace_range_with_field` por achado (QA-4)."""
     ids: dict[str, str] = {}
+    meta: dict[str, Any] = {}
     fields: dict[str, dict[str, Any]] = {}
     per_block: dict[str, list[Any]] = {}
-    for h in hits:
+    for h in sorted(hits, key=lambda x: (x.block_key, x.start)):
         per_block.setdefault(h.block_key, []).append(h)
+        fid = ids.setdefault(h.name, f"t{len(ids) + 1}")
+        meta.setdefault(fid, h)
     blocks = []
     for b in parsed.blocks:
         content = b.content
         if b.kind == "paragraph" and b.key in per_block:
-            content = copy.deepcopy(b.content)
-            for h in sorted(per_block[b.key], key=lambda x: x.start, reverse=True):
-                fid = ids.setdefault(h.name, f"t{len(ids) + 1}")
-                try:
-                    content, _ = replace_range_with_field(content, h.start, h.end, fid)
-                except RangeError:
-                    continue
+            spans = [(h.start, h.end, ids[h.name]) for h in per_block[b.key]]
+            content, applied = apply_fields(b.content, spans)
+            for _, _, fid in applied:
+                h = meta[fid]
                 f = fields.setdefault(
                     fid,
                     {

@@ -63,6 +63,15 @@ Política completa e runbook: **[RETENCAO_E_ELIMINACAO.md](RETENCAO_E_ELIMINACAO
 - TLS deve ser terminado no proxy reverso (o compose de desenvolvimento é HTTP). Cabeçalhos de segurança básicos (`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`) e `Cache-Control: no-store` nas respostas de API.
 - Criptografia em repouso: `S3_SSE=true` habilita SSE-S3; para disco/banco use a criptografia do provedor de infraestrutura.
 
+## Checklist de implantação — entrada pública (D38 teste grátis, D39 link do cliente, D40 assinaturas)
+Revisão da segurança da sprint: `docs/SEGURANCA_SPRINT.md` (branch `claude/sprint-seguranca`).
+- **IP real** (`app/core/net.py`): em produção, **restrinja `TRUSTED_PROXIES`** à sub-rede do compose (ou ao IP do contêiner `web`) — o padrão (loopback, 10/8, 172.16/12) serve para desenvolvimento. Com Caddy, nginx ou balanceador na frente do Next, use `TRUSTED_PROXY_HOPS=2` e inclua o IP da borda em `TRUSTED_PROXIES`. Sem isso, todo o tráfego aparece com o IP da borda e o site inteiro divide o mesmo limite (3 testes por hora para todos). Não publique a porta da API (o compose a liga só em 127.0.0.1).
+- **Turnstile**: configure `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY_FILE` antes de ligar `TRIAL_ENABLED=true` em produção. Com o desafio aprovado, o limite por IP sobe para `TRIAL_LIMIT_IP_HOUR_VERIFIED` (6/h; CGNAT de celular), mantendo o de /24 e o orçamento diário.
+- **Orçamento de IA**: o teto diário do teste (`TRIAL_AI_DAILY_BUDGET_USD`) e o mensal dos clientes são reservados sob `pg_advisory_xact_lock` **só no PostgreSQL**. No SQLite (desenvolvimento sem Docker) a reserva não é serializada: sob concorrência, o teto pode ser ultrapassado por algumas chamadas. Use sempre PostgreSQL em produção.
+- **Tokens em URL** (teste grátis, link do cliente, webhook de assinatura): o log de acesso mascara o trecho do token (`app/core/logging.py`). Não ative log de acesso no proxy reverso com o caminho completo, ou mascare os mesmos prefixos lá (`/public/trials/`, `/trials/`, `/public/requests/`, `/signatures/webhook/`).
+- **CSP**: a landing e `/r/…` saem com CSP com nonce por requisição (`src/proxy.ts`). Teste depois de qualquer mudança de CDN, fontes ou scripts de terceiros.
+- **Retenção**: o `python -m app.cli cleanup` (agendado) também apaga testes grátis vencidos e respostas de clientes além de `REQUEST_RETENTION_DAYS`; o watchdog do worker faz o mesmo a cada 5 minutos.
+
 ## O que ainda falta (honestidade)
 - Convites e gestão de membros (UI), 2FA, política de senhas avançada e bloqueio progressivo por conta.
 - Varredura antivírus dos uploads (ClamAV) e CSP restritiva (o Next injeta scripts inline; requer nonce).
