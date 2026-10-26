@@ -35,7 +35,16 @@ class DocxInfo:
     has_headers: bool
 
 
-def validate_docx(data: bytes, *, filename: str, max_bytes: int) -> DocxInfo:
+def validate_docx(
+    data: bytes,
+    *,
+    filename: str,
+    max_bytes: int,
+    max_entries: int = MAX_ENTRIES,
+    max_entry_bytes: int = MAX_ENTRY_BYTES,
+    max_total_bytes: int = MAX_TOTAL_BYTES,
+) -> DocxInfo:
+    """Limites menores (`max_*`) para entrada anônima: o teste grátis da landing (D38) usa 25 MB descompactados."""
     if not filename.lower().endswith(".docx"):
         raise DocxRejected("INVALID_EXTENSION", "Envie um arquivo com extensão .docx.")
     if len(data) == 0:
@@ -53,7 +62,7 @@ def validate_docx(data: bytes, *, filename: str, max_bytes: int) -> DocxInfo:
         raise DocxRejected("CORRUPT_ZIP", "O arquivo está corrompido ou não é um .docx válido.") from exc
 
     infos = zf.infolist()
-    if len(infos) > MAX_ENTRIES:
+    if len(infos) > max_entries:
         raise DocxRejected(
             "TOO_MANY_ENTRIES", "O arquivo contém partes demais para ser processado com segurança."
         )
@@ -67,7 +76,7 @@ def validate_docx(data: bytes, *, filename: str, max_bytes: int) -> DocxInfo:
             raise DocxRejected("UNSAFE_PATH", "O arquivo contém caminhos internos inseguros.")
         if info.flag_bits & 0x1:
             raise DocxRejected("ENCRYPTED", "Arquivos protegidos por senha não são suportados.")
-        if info.file_size > MAX_ENTRY_BYTES:
+        if info.file_size > max_entry_bytes:
             raise DocxRejected("ENTRY_TOO_LARGE", "Uma parte do arquivo é grande demais.")
         if (
             info.compress_size > 0
@@ -76,7 +85,7 @@ def validate_docx(data: bytes, *, filename: str, max_bytes: int) -> DocxInfo:
         ):
             raise DocxRejected("ZIP_BOMB", "O arquivo tem taxa de compressão suspeita e foi recusado.")
         total += info.file_size
-        if total > MAX_TOTAL_BYTES:
+        if total > max_total_bytes:
             raise DocxRejected("ZIP_BOMB", "O conteúdo descomprimido excede o limite permitido.")
         lname = norm.lower()
         if lname.endswith("vbaproject.bin") or lname.endswith("vbadata.xml") or "/macrosheets/" in lname:

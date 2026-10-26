@@ -28,6 +28,10 @@ def resolve_task(name: str) -> Callable[..., Any]:
         from app.modules.suggestions.service import run_analysis_job
 
         return lambda version_id, force=False: run_analysis_job(version_id, force)
+    if name == "trial":
+        from app.modules.trials.service import run_trial_job
+
+        return lambda trial_id: run_trial_job(trial_id)
     raise ValueError(f"Tarefa desconhecida: {name}")
 
 

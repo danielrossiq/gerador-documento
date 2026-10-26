@@ -27,12 +27,14 @@ import {
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Link from "next/link";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { LiveDemo } from "@/components/site/live-demo";
 import { DemoVideo, demoVideo, hasImage, SiteImage } from "@/components/site/media";
 import { Pricing } from "@/components/site/pricing";
 import { RoiCalculator } from "@/components/site/roi-calculator";
 import { Logo, SiteHeader } from "@/components/site/site-header";
+import { TrialUpload } from "@/components/site/trial-upload";
 
 // Texto corrido em Inter só no site público (a fonte de títulos, Plus Jakarta, vem do layout raiz para todo o produto).
 const body = Inter({ subsets: ["latin"], variable: "--site-body", display: "swap" });
@@ -190,7 +192,9 @@ function Cta({ children = "Começar grátis", testId }: { children?: ReactNode; 
   );
 }
 
-export default function Landing() {
+export default async function Landing() {
+  // renderização por requisição: a CSP da landing usa um nonce novo a cada resposta (src/proxy.ts)
+  await connection();
   return (
     <div className={`site ${body.variable} bg-white font-[family-name:var(--site-body)] text-ink antialiased`}>
       <SiteHeader />
@@ -212,7 +216,7 @@ export default function Landing() {
               </p>
               <div className="mt-9 flex flex-wrap items-center gap-4">
                 <Cta testId="hero-cta">Começar grátis</Cta>
-                <a href="#demo" className="inline-flex items-center gap-2 rounded-full px-5 py-3.5 text-base font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/10">
+                <a href="#teste" className="inline-flex items-center gap-2 rounded-full px-5 py-3.5 text-base font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/10">
                   <Play className="h-4 w-4" aria-hidden /> Testar sem cadastro
                 </a>
               </div>
@@ -276,10 +280,11 @@ export default function Landing() {
           id="demo"
           eyebrow="Teste agora, sem cadastro"
           title={<>Veja a IA marcar os campos. Depois, mude o que quiser.</>}
-          sub="Escolha um documento de exemplo, clique em “Encontrar os campos com IA” e preencha o formulário: o documento muda na hora, com o valor por extenso e o CPF conferido."
+          sub="Envie um documento seu e veja os campos marcados em segundos. Ou use um dos exemplos abaixo e preencha o formulário: o documento muda na hora, com o valor por extenso e o CPF conferido."
           className="bg-gradient-to-b from-paper to-white"
         >
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-6xl space-y-12">
+            <TrialUpload />
             <LiveDemo mode="interactive" />
           </div>
         </Section>

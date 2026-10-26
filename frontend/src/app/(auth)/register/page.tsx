@@ -12,6 +12,7 @@ import { Field, Input } from "@/components/ui/form";
 import { Alert } from "@/components/ui/misc";
 import { PLANS } from "@/content/plans";
 import { api, errorMessage } from "@/lib/api";
+import { claimTrial, validTrialToken } from "@/lib/trial";
 
 const schema = z
   .object({
@@ -30,6 +31,9 @@ function RegisterForm() {
   // veio de um plano pago da página de preços: depois de criar a conta, segue para a assinatura com ele escolhido
   const plan = PLANS.find((p) => p.id === params.get("plano") && p.monthly > 0);
   const cycle = params.get("ciclo") === "mensal" ? "mensal" : "anual";
+  // veio do teste grátis da landing: depois do cadastro, o documento testado vira um modelo da conta (D38)
+  const trial = params.get("trial");
+  const hasTrial = validTrialToken(trial);
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<Form>({ resolver: zodResolver(schema) });
@@ -39,6 +43,14 @@ function RegisterForm() {
     try {
       await api.post("/auth/register", { name: v.name, email: v.email, password: v.password, workspace_name: v.workspace_name || null });
       qc.clear();
+      if (hasTrial) {
+        try {
+          router.replace(await claimTrial(trial));
+          return;
+        } catch {
+          // teste vencido (1 hora) ou já guardado: a conta foi criada; segue para o início
+        }
+      }
       router.replace(plan ? `/assinatura?plano=${plan.id}&ciclo=${cycle}` : "/dashboard");
     } catch (e) {
       setError(errorMessage(e));
@@ -54,6 +66,11 @@ function RegisterForm() {
       {plan && (
         <Alert tone="primary" title={`Plano ${plan.name} (${cycle})`}>
           Crie a conta e em seguida escolha cartão ou Pix. Até lá, você já usa o plano Grátis.
+        </Alert>
+      )}
+      {hasTrial && (
+        <Alert tone="primary" title="Seu documento está guardado por 1 hora">
+          Crie a conta e ele vira um modelo seu, com os campos que a IA encontrou.
         </Alert>
       )}
       {error && <Alert tone="danger">{error}</Alert>}
@@ -77,7 +94,7 @@ function RegisterForm() {
       </Button>
       <p className="text-center text-sm">
         Já tem conta?{" "}
-        <Link href="/login" className="text-primary underline underline-offset-2">
+        <Link href={hasTrial ? `/login?trial=${encodeURIComponent(trial)}` : "/login"} className="text-primary underline underline-offset-2">
           Entrar
         </Link>
       </p>

@@ -5,6 +5,8 @@
 - Gasto = custo informado pelo provedor quando existe; senão a reserva. Falhas contam (o provedor pode ter cobrado).
 - Não sai: chamada com máximo acima de AI_MAX_CALL_USD; chamada que faria o mês passar de AI_MONTHLY_BUDGET_USD;
   workspace que já usou as ações com IA do plano no mês (max_ai_actions_per_month).
+- Finalidades isoladas (ISOLATED, hoje só `trial`, o teste grátis da landing): vale só o teto DIÁRIO próprio e o
+  gasto delas fica FORA do teto mensal global. Assim um visitante anônimo nunca esgota a IA de quem paga (OBR-5).
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from app.db.base import utcnow
 from app.db.models import AISpend
 from app.db.session import get_factory
 
+ISOLATED = ("trial",)
 _LOCK_KEY = 0x6D696E7574  # "minut": chave fixa da trava consultiva do teto de IA
 
 
@@ -40,9 +43,21 @@ def _month_start():  # type: ignore[no-untyped-def]
 
 
 def spent_this_month(db: Session) -> Decimal:
+    """Gasto do mês contra AI_MONTHLY_BUDGET_USD (sem as finalidades isoladas, que têm teto próprio)."""
     total = db.scalar(
         sa.select(sa.func.coalesce(sa.func.sum(sa.func.coalesce(AISpend.cost_usd, AISpend.reserved_usd)), 0)).where(
-            AISpend.created_at >= _month_start()
+            AISpend.created_at >= _month_start(), AISpend.purpose.not_in(ISOLATED)
+        )
+    )
+    return Decimal(str(total))
+
+
+def spent_today(db: Session, purpose: str) -> Decimal:
+    """Gasto (ou reserva ainda não acertada) de uma finalidade desde 00:00 UTC — teto diário do teste grátis."""
+    day = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    total = db.scalar(
+        sa.select(sa.func.coalesce(sa.func.sum(sa.func.coalesce(AISpend.cost_usd, AISpend.reserved_usd)), 0)).where(
+            AISpend.created_at >= day, AISpend.purpose == purpose
         )
     )
     return Decimal(str(total))
@@ -62,7 +77,15 @@ def actions_this_month(db: Session, workspace_id: uuid.UUID) -> int:
     )
 
 
-def reserve(model: str, purpose: str, max_usd: Decimal, *, workspace_id: uuid.UUID | None = None, quota: int | None = None) -> uuid.UUID:
+def reserve(
+    model: str,
+    purpose: str,
+    max_usd: Decimal,
+    *,
+    workspace_id: uuid.UUID | None = None,
+    quota: int | None = None,
+    daily_cap_usd: Decimal | None = None,
+) -> uuid.UUID:
     s = get_settings()
     cap_call, cap_month = Decimal(str(s.ai_max_call_usd)), Decimal(str(s.ai_monthly_budget_usd))
     if max_usd <= 0:
@@ -76,8 +99,12 @@ def reserve(model: str, purpose: str, max_usd: Decimal, *, workspace_id: uuid.UU
                 "AI_QUOTA_EXCEEDED",
                 f"Você já usou as {quota} ações com IA do seu plano neste mês. Elas voltam no dia 1º, ou mude de plano.",
             )
-        if spent_this_month(db) + max_usd > cap_month:
+        if purpose in ISOLATED and daily_cap_usd is None:
+            raise BudgetExceeded("AI_DAILY_BUDGET_EXHAUSTED", "Finalidade isolada exige teto diário.")
+        if purpose not in ISOLATED and spent_this_month(db) + max_usd > cap_month:
             raise BudgetExceeded("AI_BUDGET_EXHAUSTED", "A IA está temporariamente indisponível. Tente mais tarde.")
+        if daily_cap_usd is not None and spent_today(db, purpose) + max_usd > daily_cap_usd:
+            raise BudgetExceeded("AI_DAILY_BUDGET_EXHAUSTED", "A IA atingiu o limite de hoje para esta operação.")
         row = AISpend(model=model, purpose=purpose, status="reserved", reserved_usd=max_usd, workspace_id=workspace_id)
         db.add(row)
         db.flush()

@@ -11,6 +11,7 @@ Cada modelo passa por 4 etapas, sempre visíveis no topo da tela — **Documento
 4. Saída em **DOCX e PDF reais** (LibreOffice), com histórico, links temporários e ZIP + relatório CSV para lotes.
 5. **Cole aqui e a gente descobre o modelo** (página inicial): cole as linhas de uma planilha com a linha de títulos; o sistema identifica qual modelo ela preenche, mostra como cada coluna vira um campo e leva as linhas para o lote. Sem linha de títulos, só o conteúdo (CPF, datas…) é usado e nada é enviado ao classificador externo.
 6. **Kit de documentos**: agrupe modelos prontos que compartilham variáveis (nome, CPF, endereço…) — preencha uma vez e gere todos juntos, com download individual ou em ZIP.
+7. **Teste grátis na landing** (D38): o visitante envia o documento dele sem cadastro, vê os campos marcados e guarda o modelo ao criar a conta. Limites por IP real, no máximo 3 testes simultâneos, Turnstile opcional, IA com orçamento diário próprio (fora do teto mensal dos clientes) e tudo apagado em 1 hora.
 
 Stack: Next.js 16 · React 19 · TipTap · TanStack Query/Virtual · FastAPI · SQLAlchemy 2 · PostgreSQL · Redis + Dramatiq · MinIO/S3 · LibreOffice headless.
 

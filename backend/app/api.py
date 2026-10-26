@@ -27,10 +27,13 @@ from app.modules.samples import service as samples_service
 from app.modules.suggestions import service as suggestions_service
 from app.modules.templates import core
 from app.modules.templates import service as templates_service
+from app.modules.trials import router as trials_router
 
 api = APIRouter(prefix="/api/v1")
 api.include_router(auth_router)
 api.include_router(billing_router)
+api.include_router(trials_router.public)
+api.include_router(trials_router.private)
 
 IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", max_length=120)]
 

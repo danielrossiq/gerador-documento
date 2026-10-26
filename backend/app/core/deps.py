@@ -72,10 +72,15 @@ def workspace_limit(db: Session, workspace: Workspace, name: str) -> int:
 
 
 def client_ip(request: Request) -> str | None:
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()[:64]
-    return request.client.host if request.client else None
+    """IP real de quem chamou: o X-Forwarded-For só vale se veio de um proxy em TRUSTED_PROXIES (ver app.core.net).
+    Única fonte do IP para limites, sessões e auditoria."""
+    from app.core.net import parse_networks, resolve_client_ip
+
+    s = get_settings()
+    peer = request.client.host if request.client else None
+    # vários cabeçalhos X-Forwarded-For valem como um só, na ordem (proxy que acrescenta uma linha em vez de anexar)
+    forwarded = ", ".join(request.headers.getlist("x-forwarded-for")) or None
+    return resolve_client_ip(peer, forwarded, parse_networks(tuple(s.trusted_proxies)), s.trusted_proxy_hops)
 
 
 def check_origin(request: Request) -> None:

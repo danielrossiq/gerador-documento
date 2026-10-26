@@ -88,6 +88,7 @@ conta.
 | `AI_MAX_CALL_USD` | 0,05 | Antes de cada chamada, o custo máximo possível (tokens de entrada + teto de saída × preço) precisa caber aqui |
 | `AI_MONTHLY_BUDGET_USD` | 20 | Teto do mês somando todos os espaços. Ao atingir, a análise volta às regras locais e "preencher/revisar" avisa |
 | Cota do plano | Grátis 5 · Profissional 100 · Escritório 500 usos/mês | Cada análise, preenchimento ou revisão conta um uso. Falhas não contam |
+| `TRIAL_AI_DAILY_BUDGET_USD` | 0,50 | Teto **diário** do teste grátis da landing (finalidade `trial`, D38), separado do mensal: o gasto do teste não entra no `AI_MONTHLY_BUDGET_USD` dos clientes. Esgotou → o teste segue só com as regras locais. A IA do teste lê só os primeiros 6.000 caracteres |
 
 A reserva do custo é feita **antes** da chamada, com trava no banco (`pg_advisory_xact_lock`), então chamadas
 simultâneas não estouram o teto. Depois, o custo real informado pela OpenRouter substitui a reserva.
