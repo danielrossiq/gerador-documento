@@ -15,13 +15,15 @@ TOKEN = "Zq3v" + "A" * 39  # formato do token do teste (43 caracteres base64url)
 # ---------------------------------------------------------------- F2-1: token do teste no log de acesso
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F2-1: o log de acesso grava o caminho com o token do teste em claro; mascarar como /downloads/[token].",
-)
 @pytest.mark.parametrize(
     "path",
-    [f"/api/v1/public/trials/{TOKEN}", f"/api/v1/trials/{TOKEN}/claim"],
+    [
+        f"/api/v1/public/trials/{TOKEN}",
+        f"/api/v1/trials/{TOKEN}/claim",
+        f"/api/v1/public/requests/{TOKEN}",
+        f"/api/v1/public/requests/{TOKEN}/fill-files",
+        f"/api/v1/signatures/webhook/zapsign/{TOKEN}",
+    ],
 )
 def test_token_do_teste_nao_vai_para_o_log(path: str) -> None:
     from app.core.logging import _safe_extra

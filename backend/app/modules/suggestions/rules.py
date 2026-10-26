@@ -240,11 +240,17 @@ def detect_rules(blocks: Sequence[tuple[str, str]]) -> list[Hit]:
 
 
 def resolve_overlaps(hits: list[Hit]) -> list[Hit]:
-    """Mantém o de maior confiança (e maior extensão) quando dois trechos se sobrepõem no mesmo bloco."""
+    """Mantém o de maior confiança (e maior extensão) quando dois trechos se sobrepõem no mesmo bloco.
+
+    Compara cada trecho só com os já escolhidos do MESMO bloco (antes: com todos do documento — quadrático; um .docx
+    de 4 mil parágrafos levava 4 minutos, achado QA-2). Mesma ordem de prioridade, mesmo resultado."""
     chosen: list[Hit] = []
+    by_block: dict[str, list[Hit]] = {}
     for h in sorted(hits, key=lambda x: (-x.confidence, -(x.end - x.start), x.start)):
-        if any(c.block_key == h.block_key and h.start < c.end and c.start < h.end for c in chosen):
+        taken = by_block.setdefault(h.block_key, [])
+        if any(h.start < c.end and c.start < h.end for c in taken):
             continue
+        taken.append(h)
         chosen.append(h)
     return sorted(chosen, key=lambda x: (x.block_key, x.start))
 
