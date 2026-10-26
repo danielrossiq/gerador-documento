@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Field, Input } from "@/components/ui/form";
 import { Alert } from "@/components/ui/misc";
 import { PLANS } from "@/content/plans";
 import { api, errorMessage } from "@/lib/api";
-import { claimTrial, validTrialToken } from "@/lib/trial";
+import { claimTrial, trialStillValid, validTrialToken } from "@/lib/trial";
 
 const schema = z
   .object({
@@ -33,7 +33,11 @@ function RegisterForm() {
   const cycle = params.get("ciclo") === "mensal" ? "mensal" : "anual";
   // veio do teste grátis da landing: depois do cadastro, o documento testado vira um modelo da conta (D38)
   const trial = params.get("trial");
-  const hasTrial = validTrialToken(trial);
+  const [trialGone, setTrialGone] = useState(false);
+  const hasTrial = validTrialToken(trial) && !trialGone;
+  useEffect(() => {
+    if (validTrialToken(trial)) void trialStillValid(trial).then((ok) => setTrialGone(!ok));
+  }, [trial]);
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<Form>({ resolver: zodResolver(schema) });
@@ -43,7 +47,7 @@ function RegisterForm() {
     try {
       await api.post("/auth/register", { name: v.name, email: v.email, password: v.password, workspace_name: v.workspace_name || null });
       qc.clear();
-      if (hasTrial) {
+      if (hasTrial && trial) {
         try {
           router.replace(await claimTrial(trial));
           return;
@@ -66,6 +70,11 @@ function RegisterForm() {
       {plan && (
         <Alert tone="primary" title={`Plano ${plan.name} (${cycle})`}>
           Crie a conta e em seguida escolha cartão ou Pix. Até lá, você já usa o plano Grátis.
+        </Alert>
+      )}
+      {trialGone && (
+        <Alert tone="warning" title="O documento do teste expirou ou já foi guardado">
+          Envie de novo para continuar: <Link href="/#teste" className="underline">testar com o seu documento</Link> ou, depois de entrar, use “Novo modelo”.
         </Alert>
       )}
       {hasTrial && (
@@ -94,7 +103,7 @@ function RegisterForm() {
       </Button>
       <p className="text-center text-sm">
         Já tem conta?{" "}
-        <Link href={hasTrial ? `/login?trial=${encodeURIComponent(trial)}` : "/login"} className="text-primary underline underline-offset-2">
+        <Link href={hasTrial && trial ? `/login?trial=${encodeURIComponent(trial)}` : "/login"} className="text-primary underline underline-offset-2">
           Entrar
         </Link>
       </p>
