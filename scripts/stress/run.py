@@ -19,6 +19,7 @@ import argparse
 import asyncio
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -32,6 +33,7 @@ from lib import (
     ai_control,
     ai_reset,
     fake_email,
+    pct,
     random_ip,
     run,
     save,
@@ -238,21 +240,45 @@ async def scen_trial(args: argparse.Namespace) -> list[Result]:
     """POST /public/trials anônimo; consulta o status até terminar. Use com limites altos na API."""
     base = args.base
     data = P.demo_docx()
+    outcomes: Counter[str] = Counter()
+    done_s: list[float] = []
 
     async def one(i: int):
+        # --spoof: cada "visitante" com um IP falso (só funciona direto na API a partir do loopback, que é proxy
+        # confiável; pelo Next o IP real é acrescentado e todos viram o mesmo visitante)
         async with Session(base, xff=random_ip() if args.spoof else None) as s:
+            t = time.perf_counter()
             r = await s.client.post("/api/v1/public/trials", files={"file": ("contrato.docx", data, DOCX_CT)}, data={"website": ""})
             if r.status_code not in (200, 201, 202):
+                outcomes[f"recusado:{(r.json().get('error') or {}).get('code')}"] += 1
                 return r
             token = r.json()["token"]
-            for _ in range(240):
+            st = r
+            while time.perf_counter() - t < 180:  # a landing desiste em 3 min
+                await asyncio.sleep(1.5)  # mesmo intervalo da landing
                 st = await s.client.get(f"/api/v1/public/trials/{token}")
-                if st.status_code != 200 or st.json().get("status") in ("done", "failed"):
+                if st.status_code == 429:
+                    outcomes["consulta:429"] += 1
+                    continue
+                if st.status_code != 200:
+                    outcomes[f"consulta:{st.status_code}"] += 1
                     return st
-                await asyncio.sleep(0.5)
+                j = st.json()
+                if j.get("status") in ("done", "failed"):
+                    outcomes[f"{j['status']}:{j.get('ai') or (j.get('error') or {}).get('code')}"] += 1
+                    done_s.append(time.perf_counter() - t)
+                    return st
+            outcomes["desistiu (3 min)"] += 1
             return st
 
-    return [await run("teste grátis (envio + espera)", one, requests=args.n, concurrency=args.c, memory=True)]
+    res = await run("teste grátis (envio + espera)", one, requests=args.n, concurrency=args.c, memory=True)
+    done_s.sort()
+    res.notes = [
+        f"desfechos: {dict(outcomes)}",
+        f"tempo até done/failed: p50={pct(done_s, 50):.1f}s p95={pct(done_s, 95):.1f}s max={(done_s or [0])[-1]:.1f}s",
+    ]
+    print("   " + "\n   ".join(res.notes))
+    return [res]
 
 
 SCENARIOS = {
