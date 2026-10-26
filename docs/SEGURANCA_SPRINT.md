@@ -291,3 +291,42 @@ Conferido no stack local, pelo Next, sem IA real. Os testes `test_security_phase
   limitar as esperas simultâneas (ex.: 10) e responder `TRIAL_BUSY` acima disso.
 - **QA-4**: teto de 300 achados e a prévia montada por `apply_fields`, que gera os mesmos nós JSON com `sample` como
   texto. O front não mudou, então a prévia continua sem HTML.
+
+## 5. Fase 3 — revisão da D39 (link do cliente, `/r/{token}`)
+
+Revisão do código de `e11aa36` + `03db4ed`, com IA simulada. As regressões estão em `test_security_phase2.py`
+(seção "B"); elas substituem o placeholder `xfail` de `/r/{token}`, que já tinha virado um teste parcial em
+`test_trial_security.py` no WIP da B.
+
+**Verificado e OK**
+- **Token (OBR-6):** 32 bytes, só o SHA-256 no banco (nenhuma coluna guarda o token), formato conferido por regex.
+  Token inexistente, malformado ou de link cancelado devolve o mesmo 404 (`REQUEST_NOT_FOUND`, mesma mensagem). Link
+  vencido devolve só `{"state": "expired"}`, sem dados. Máscara no log de acesso: `/public/requests/[token]`.
+- **Enumeração:** o limite por IP (60 por minuto na página, 20 por hora no envio, 6 por hora na leitura de foto) é
+  contado **antes** de procurar o link, então token errado também conta. Com 256 bits, adivinhar é inviável.
+- **XSS/CSP (OBR-8/9):** a API devolve nome do espaço, documento, mensagem e rótulos como texto puro, só dos campos
+  pedidos, sem exemplo nem valor padrão. A página e os componentes do formulário não usam `dangerouslySetInnerHTML`
+  nem `innerHTML`. A CSP de `/r/*` tem nonce, `strict-dynamic`, nenhum `unsafe-inline` em script, `object-src 'none'`
+  e `frame-ancestors 'none'`. `referrer: no-referrer` na página e `Cache-Control: no-store` na API.
+- **Fotos:** JPEG decodificado já reduzido (`draft`), PNG/WEBP até 16 Mpx, regravado em JPEG de até 2.000 px sem
+  metadados, um arquivo decodificado por vez.
+- **PDF:** em produção as páginas são contadas só pelo `pdfconv` (`/info`). Sem conversor configurado, produção recusa
+  PDF (`pdf_import_mode = off`). A API nunca abre o PDF: ele vai inteiro para a IA. Mais de 10 páginas é recusado e a
+  reserva de custo usa as páginas reais (1.500 tokens por página).
+- **Custo de IA por link:** no máximo `REQUEST_PHOTO_READS` leituras (padrão 3, agora com teto de 10 na configuração,
+  igual à trava do banco), cada uma com até 3 arquivos, todas na cota mensal e no orçamento do espaço do profissional.
+  A leitura só é devolvida quando o arquivo é recusado antes da IA. Pela reserva, o pior caso é de ~US$ 0,06 por
+  leitura (3 PDFs de 10 páginas e 200 campos, com `gemini-2.5-flash`) e ~US$ 0,18 por link. Uma foto com poucos campos
+  fica em ~US$ 0,002.
+
+**Achados e correções (nesta revisão)**
+
+| # | Gravidade | Achado | Correção |
+|---|---|---|---|
+| F3-1 | **Média** | O envio público `POST /public/requests/{token}` aceitava JSON de qualquer tamanho. O corpo era lido e interpretado antes de conferir o token: um corpo de centenas de MB ocupava a memória da API, mesmo com token inválido. | O corpo é lido com teto de 1 MB (`SUBMIT_MAX_BYTES`), pelo Content-Length e durante a leitura. Depois vira `SubmitIn`. JSON quebrado ou fora do formato devolve 400 `FORM_INVALID`. |
+| F3-2 | **Média** | `fill-files` lia o multipart inteiro (até 3 × 8 MB) antes de checar o limite por IP e o link. Com token errado ou link sem fotos, a API ainda recebia e guardava 24 MB por requisição. | `public_read_precheck` roda antes de ler o corpo: limite por IP, link válido e aberto, fotos permitidas. |
+| F3-3 | Baixa | Arquivo recusado antes da IA devolve a leitura do link. Reenviar imagem ruim em série, trocando de IP, gerava decodificações sem fim na API. | Novo teto de 10 **tentativas** por hora por link (`READ_TRIES_PER_HOUR_LINK`), contadas também nas recusadas. |
+| F3-4 | Info | `REQUEST_PHOTO_READS` não tinha limite na configuração, e o banco recusa mais de 10. | `Field(ge=0, le=10)`. |
+
+Fica para depois (fora da B): as outras rotas JSON públicas (cadastro, login) também leem o corpo sem teto. Um
+middleware com teto global de corpo, ou `client_max_body_size` no proxy de borda, resolve todas de uma vez.

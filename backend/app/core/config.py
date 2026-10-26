@@ -162,7 +162,8 @@ class Settings(BaseSettings):
     request_default_days: int = 7
     request_max_days: int = 30
     request_retention_days: int = 30  # a resposta é apagada este tanto depois de respondida (se não for usada antes)
-    request_photo_reads: int = 3  # leituras de foto/PDF por IA em cada link (contam na cota do espaço)
+    # leituras de foto/PDF por IA em cada link (contam na cota do espaço); o banco aceita no máximo 10
+    request_photo_reads: int = Field(default=3, ge=0, le=10)
     request_max_open: int = 300  # links em aberto por espaço de trabalho
 
     # Sessão / segurança

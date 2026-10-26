@@ -51,6 +51,8 @@ VIEWS_PER_MINUTE = 60
 SUBMITS_PER_HOUR_IP = 20
 SUBMITS_PER_HOUR_LINK = 30
 READS_PER_HOUR_IP = 6
+READ_TRIES_PER_HOUR_LINK = 10  # tentativas (também as recusadas, que não gastam leitura) por link
+SUBMIT_MAX_BYTES = 1024 * 1024  # 200 campos x 2.000 caracteres, com folga
 _PURGE_EVERY_S = 300
 _last_purge = 0.0
 
@@ -489,12 +491,26 @@ def public_submit(db: Session, token: str, ip: str | None, body: SubmitIn) -> di
     return {"state": "answered", "submissions": req.submissions}
 
 
+def public_read_precheck(db: Session, token: str, ip: str | None) -> None:
+    """Antes de receber os arquivos: limites por IP e por link e o link válido, aberto e com fotos permitidas.
+    O limite por link conta tentativas, inclusive as recusadas (que devolvem a leitura): reenviar arquivo ruim em
+    série não vira trabalho ilimitado de decodificação de imagem na API."""
+    from app.modules.assist import ai
+
+    ratelimit.check(f"request-read:{_key(ip or 'na')}", READS_PER_HOUR_IP, 3600)
+    req = _find(db, token)
+    _check_open(req)
+    if not req.allow_photos or not ai.enabled():
+        raise Conflict("Este link não aceita fotos de documentos.", code="REQUEST_PHOTOS_DISABLED")
+    ratelimit.check(f"request-read-link:{req.id}", READ_TRIES_PER_HOUR_LINK, 3600)
+
+
 def public_read_files(db: Session, token: str, ip: str | None, files: list[bytes]) -> dict[str, Any]:
-    """Foto/PDF do documento do cliente → valores (IA da D37, na cota do espaço; no máximo N leituras por link)."""
+    """Foto/PDF do documento do cliente → valores (IA da D37, na cota do espaço; no máximo N leituras por link).
+    Os limites por IP e por link já foram conferidos em `public_read_precheck`, antes de ler o corpo."""
     from app.modules.assist import ai
     from app.modules.assist import service as assist
 
-    ratelimit.check(f"request-read:{_key(ip or 'na')}", READS_PER_HOUR_IP, 3600)
     req = _find(db, token)
     _check_open(req)
     if not req.allow_photos or not ai.enabled():

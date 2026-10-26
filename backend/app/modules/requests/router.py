@@ -77,17 +77,47 @@ def view(token: str, request: Request, db: Session = Depends(get_db)) -> dict[st
     return service.public_view(db, token, client_ip(request))
 
 
+async def _read_capped(request: Request, max_bytes: int) -> bytes:
+    """Corpo da requisição com teto: o Content-Length é conferido antes e a leitura para no limite (corpo
+    sem Content-Length ou maior que o declarado não passa)."""
+    length = request.headers.get("content-length", "")
+    if not length.isdigit():
+        raise AppError("Envie pelo formulário da página.", code="LENGTH_REQUIRED", status_code=411)
+    if int(length) > max_bytes:
+        raise AppError("O envio passa do tamanho permitido.", code="FILE_TOO_LARGE", status_code=413)
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > max_bytes:
+            raise AppError("O envio passa do tamanho permitido.", code="FILE_TOO_LARGE", status_code=413)
+    return bytes(body)
+
+
 @public.post("/{token}", dependencies=[Depends(require_same_origin)])
-def submit(
-    token: str, body: service.SubmitIn, request: Request, db: Session = Depends(get_db)
-) -> dict[str, Any]:
-    return service.public_submit(db, token, client_ip(request), body)
+async def submit(token: str, request: Request) -> dict[str, Any]:
+    """Resposta do cliente. Rota pública: o corpo é lido com teto (SUBMIT_MAX_BYTES) antes de virar JSON, para
+    um corpo enorme não ocupar a memória da API mesmo com token inválido."""
+    raw = await _read_capped(request, service.SUBMIT_MAX_BYTES)
+    try:
+        body = service.SubmitIn.model_validate_json(raw)
+    except ValueError as exc:  # JSON quebrado ou fora do formato (ValidationError é ValueError)
+        raise AppError(
+            "Não foi possível ler o envio. Tente de novo.", code="FORM_INVALID", status_code=400
+        ) from exc
+    ip = client_ip(request)
+
+    def run() -> dict[str, Any]:
+        with get_factory()() as db:
+            return service.public_submit(db, token, ip, body)
+
+    return await run_in_threadpool(run)
 
 
 @public.post("/{token}/fill-files", dependencies=[Depends(require_same_origin)])
 async def fill_files(token: str, request: Request) -> dict[str, Any]:
     """Foto ou PDF do documento do cliente → valores dos campos pedidos (D37), no máximo 3 arquivos por vez.
-    multipart `files`. O tamanho é conferido pelo Content-Length ANTES de ler o corpo."""
+    multipart `files`. Antes de ler o corpo: tamanho pelo Content-Length, limites por IP e por link e o próprio
+    link (válido, aberto, com fotos permitidas) — token inválido não faz a API receber 24 MB."""
     max_file = assist_service.MAX_FILE_BYTES
     length = request.headers.get("content-length", "")
     if not length.isdigit():
@@ -96,6 +126,13 @@ async def fill_files(token: str, request: Request) -> dict[str, Any]:
         )
     if int(length) > service.PHOTO_FILES_PER_READ * max_file + 64 * 1024:
         raise AppError("Os arquivos passam do tamanho permitido.", code="FILE_TOO_LARGE", status_code=413)
+    ip = client_ip(request)
+
+    def precheck() -> None:
+        with get_factory()() as db:
+            service.public_read_precheck(db, token, ip)
+
+    await run_in_threadpool(precheck)
     try:
         form = await request.form(max_files=service.PHOTO_FILES_PER_READ, max_fields=2, max_part_size=1024)
     except (HTTPException, ValueError) as exc:  # arquivos demais ou multipart quebrado (QA-3)
@@ -118,7 +155,6 @@ async def fill_files(token: str, request: Request) -> dict[str, Any]:
             data.append(chunk)
     finally:
         await form.close()
-    ip = client_ip(request)
 
     def run() -> dict[str, Any]:
         with get_factory()() as db:
