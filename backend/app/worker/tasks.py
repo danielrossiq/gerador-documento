@@ -101,4 +101,13 @@ def analysis_task(version_id: str, force: bool = False) -> None:
     run_analysis_job(version_id, force)
 
 
-ACTORS = {"generation": generation_task, "analysis": analysis_task}
+# Teste grátis da landing (D38): sem retry (o status já impede trabalho em dobro e uma nova tentativa gastaria IA
+# de novo); fila própria para não disputar ordem com as análises das contas.
+@dramatiq.actor(queue_name="trial", max_retries=0, time_limit=3 * 60 * 1000)
+def trial_task(trial_id: str) -> None:
+    from app.modules.trials.service import run_trial_job
+
+    run_trial_job(trial_id)
+
+
+ACTORS = {"generation": generation_task, "analysis": analysis_task, "trial": trial_task}

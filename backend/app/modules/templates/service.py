@@ -100,7 +100,33 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
         ) from exc
     if not any(b.kind == "paragraph" for b in parsed.blocks):
         raise ValidationFailed("O documento não tem texto para transformar em modelo.", code="EMPTY_DOCUMENT")
+    return create_version(
+        ctx,
+        gen,
+        filename=filename,
+        data=data,
+        parsed=parsed,
+        warnings=[*(conversion.warnings if conversion else []), *parsed.warnings],
+        source_format="pdf" if conversion else "docx",
+        pdf_stats=conversion.stats if conversion else None,
+    )
 
+
+def create_version(
+    ctx: Ctx,
+    gen: DocumentGenerator,
+    *,
+    filename: str,
+    data: bytes,
+    parsed: Any,
+    warnings: list[str],
+    source_format: str,
+    pdf_stats: dict[str, int] | None = None,
+    analyze: bool = True,
+) -> TemplateVersion:
+    """Grava um .docx JÁ VALIDADO e lido como a nova versão atual do modelo. `analyze=False`: quem chama cria as
+    sugestões (o teste grátis da landing já analisou o documento, D38) e a análise não roda de novo."""
+    db = ctx.db
     prev = core.current_version_or_none(db, gen)
     src = core.store_file(
         db,
@@ -121,12 +147,12 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
         based_on_version_id=prev.id if prev else None,
         meta={
             "stats": parsed.stats,
-            "warnings": [*(conversion.warnings if conversion else []), *parsed.warnings],
+            "warnings": warnings,
             "parts": [
                 {"name": p.name, "kind": p.kind, "label": p.label, "hidden": p.hidden} for p in parsed.parts
             ],
-            "source_format": "pdf" if conversion else "docx",
-            **({"pdf": conversion.stats} if conversion else {}),
+            "source_format": source_format,
+            **({"pdf": pdf_stats} if pdf_stats is not None else {}),
         },
     )
     db.add(version)
@@ -164,10 +190,12 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
             "version": version.version_number,
             "size": len(data),
             "sha256": src.sha256,
-            "format": "pdf" if conversion else "docx",
+            "format": source_format,
         },
     )
     db.commit()
+    if not analyze:
+        return version
     try:
         enqueue("analysis", version_id=str(version.id))
     except Exception:

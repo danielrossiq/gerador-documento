@@ -19,8 +19,9 @@ from app.db.base import Base, IdMixin, UTCDateTime, check_in, utcnow
 
 SPEND_STATUS = ("reserved", "settled", "failed")
 # analysis = marcar campos no documento enviado; fill = preencher a partir de texto colado; review = revisar
-# antes de gerar; mapping = mapear colunas de planilha; eval = avaliação de modelos (sem workspace)
-SPEND_PURPOSE = ("analysis", "fill", "review", "mapping", "eval")
+# antes de gerar; mapping = mapear colunas de planilha; eval = avaliação de modelos (sem workspace);
+# trial = teste grátis da landing (sem workspace, com orçamento diário próprio: TRIAL_AI_DAILY_BUDGET_USD)
+SPEND_PURPOSE = ("analysis", "fill", "review", "mapping", "eval", "trial")
 
 
 class AISpend(IdMixin, Base):

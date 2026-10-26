@@ -11,7 +11,8 @@ def test_worker_module_imports_and_registers_actors(monkeypatch):
 
     reset_settings_cache()
     tasks = importlib.import_module("app.worker.tasks")
-    assert set(tasks.ACTORS) == {"generation", "analysis"}
+    assert set(tasks.ACTORS) == {"generation", "analysis", "trial"}
+    assert tasks.ACTORS["trial"].queue_name == "trial"
     gen = tasks.ACTORS["generation"]
     assert gen.queue_name == "generation"
     assert gen.options["on_retry_exhausted"] == "generation_exhausted"

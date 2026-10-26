@@ -112,5 +112,15 @@ Só responde com `EXTERNAL_AI_ENABLED=true` e a chave da OpenRouter configurada.
 | POST | `/billing/portal` | → `{url}` do portal do cliente (assinatura no cartão) |
 | POST | `/billing/webhook` | só para a Stripe: sem sessão, valida `Stripe-Signature` (HMAC, 300 s) e é idempotente por `event.id` |
 
+## Teste grátis na landing (D38)
+Rotas **públicas** (sem sessão) sob `/public/trials`. O token tem 32 bytes aleatórios e só o hash fica no servidor; token errado, vencido (1 hora) ou já guardado respondem igual: `404 TRIAL_NOT_FOUND`.
+
+| Método | Rota | |
+|---|---|---|
+| GET | `/public/trials/config` | `{enabled, max_mb, max_pages, accepts_pdf, turnstile_site_key, ttl_minutes}` |
+| POST | `/public/trials` | multipart `file` (.docx ou PDF digitado), `turnstile_token` (com o Turnstile ligado) e `website` (armadilha: vazio) → `202 {token, status: "processing", expires_at}`. Recusas: `411 LENGTH_REQUIRED`, `413 FILE_TOO_LARGE` (pelo `Content-Length`, antes de ler), `422` (`EMPTY_FILE`, `TRIAL_FILE_TYPE`, `PDF_IMPORT_DISABLED`, `ZIP_BOMB`…), `403 TRIAL_CHALLENGE_FAILED`, `429 TRIAL_RATE_LIMITED` (3/h e 10/dia por IP, 30/dia por /24 ou /64, contando tentativas) e `429 TRIAL_BUSY` (testes simultâneos), `503 TRIAL_DISABLED` |
+| GET | `/public/trials/{token}` | `{status: queued\|processing\|done\|failed, filename, format, expires_at, ai: ai\|local\|budget\|rules, error, result: {doc, fields: [{id, name, label, type, sample, count}], warnings, stats}}`. Consultar a cada ~1,5 s (120/min por IP). Falhas: `TRIAL_TOO_LONG`, `PDF_SCANNED`, `DOCX_PARSE_FAILED`, `EMPTY_DOCUMENT`, `TRIAL_FAILED`… |
+| POST | `/trials/{token}/claim` | **com sessão**: o documento do teste vira modelo da conta, com as sugestões → `201 {generator_id, next}` (`next` = etapa Campos). `409 TRIAL_NOT_READY`, `429 GENERATOR_LIMIT` (o teste continua disponível) |
+
 ## Operação
 `GET /health` (liveness) · `GET /ready` (banco + conversor) · `GET /metrics` (Prometheus).

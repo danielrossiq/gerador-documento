@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { Alert } from "@/components/ui/misc";
 import { api, errorMessage } from "@/lib/api";
+import { claimTrial, validTrialToken } from "@/lib/trial";
 
 const schema = z.object({
   email: z.string().min(1, "Informe seu e-mail.").email("Informe um e-mail válido."),
@@ -30,6 +31,15 @@ function LoginForm() {
     try {
       await api.post("/auth/login", v);
       qc.clear();
+      const trial = params.get("trial");
+      if (validTrialToken(trial)) {
+        try {
+          router.replace(await claimTrial(trial)); // documento do teste grátis vira modelo da conta (D38)
+          return;
+        } catch {
+          // teste vencido ou já guardado: segue o login normal
+        }
+      }
       const next = params.get("next");
       router.replace(next && next.startsWith("/") ? next : "/dashboard");
     } catch (e) {
