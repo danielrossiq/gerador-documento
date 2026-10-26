@@ -357,7 +357,7 @@ def create_signature(ctx: Ctx, body: SignatureIn) -> dict[str, Any]:
         created_by=ctx.user.id,
     )
     db.add(req)
-    db.flush()
+    db.commit()  # grava antes de falar com o provedor: nada de transação aberta durante a chamada
     if cfg is not None:
         pdf = get_storage().get(source.storage_key)
         try:
@@ -469,7 +469,8 @@ def _store_signed(db: Session, req: SignatureRequest, data: bytes) -> GeneratedF
 
 def sync_request(request_id: uuid.UUID | str) -> None:
     """Consulta a situação no provedor e aplica: nunca regride um pedido concluído; assinado → baixa e guarda o PDF.
-    Roda no worker (webhook, consulta periódica) ou na hora ("atualizar")."""
+    Roda no worker (webhook, consulta periódica) ou na hora ("atualizar"). As chamadas ao provedor acontecem sem
+    transação aberta no banco (podem levar dezenas de segundos)."""
     rid = uuid.UUID(str(request_id))
     with get_factory()() as db:
         req = db.get(SignatureRequest, rid)
@@ -478,39 +479,54 @@ def sync_request(request_id: uuid.UUID | str) -> None:
         cfg = db.get(SignatureProviderConfig, req.provider_config_id) if req.provider_config_id else None
         if cfg is None:
             return
-        req.last_synced_at = utcnow()
+        provider, external_id = req.provider, req.external_id
         try:
             adapter = _adapter(cfg)
-            st = adapter.status(req.external_id)
-            req.provider_status = st.provider_status
-            if st.signed_by:
-                req.signers = [{**s, "signed": s.get("email") in st.signed_by or s.get("signed", False)}
-                               for s in req.signers or []]
-            if st.status == "signed":
-                doc = adapter.download_signed(req.external_id)
-                if not _looks_like_pdf(doc.pdf):
-                    raise ProviderError("SIGNATURE_BAD_FILE", 200)
-                gf = _store_signed(db, req, doc.pdf)
-                # duas consultas ao mesmo tempo: só a primeira grava o arquivo no pedido
-                won = db.execute(
-                    update(SignatureRequest)
-                    .where(SignatureRequest.id == req.id, SignatureRequest.signed_file_id.is_(None))
-                    .values(signed_file_id=gf.id, status="signed", completed_at=utcnow())
-                ).rowcount
-                if not won:
-                    db.delete(gf)
-                    get_storage().delete(gf.storage_key)
-                else:
-                    audit.record(db, "signature.signed", workspace_id=req.workspace_id,
-                                 entity_type="signature_request", entity_id=req.id, meta={"provider": req.provider})
-            elif st.status in FINAL_STATUS:
-                req.status, req.completed_at = st.status, utcnow()
-                audit.record(db, f"signature.{st.status}", workspace_id=req.workspace_id,
-                             entity_type="signature_request", entity_id=req.id, meta={"provider": req.provider})
-        except ProviderError as exc:
-            log.warning("assinatura_consulta_falhou", extra={"provider": req.provider, "code": exc.code})
         except crypto.EncryptionUnavailable:
-            log.error("assinatura_sem_chave_de_criptografia", extra={"provider": req.provider})
+            log.error("assinatura_sem_chave_de_criptografia", extra={"provider": provider})
+            return
+    st = None
+    pdf: bytes | None = None
+    try:
+        st = adapter.status(external_id)
+        if st.status == "signed":
+            pdf = adapter.download_signed(external_id).pdf
+            if not _looks_like_pdf(pdf):
+                raise ProviderError("SIGNATURE_BAD_FILE", 200)
+    except ProviderError as exc:
+        log.warning("assinatura_consulta_falhou", extra={"provider": provider, "code": exc.code})
+        st = None
+    with get_factory()() as db:
+        req = db.get(SignatureRequest, rid)
+        if req is None:
+            return
+        req.last_synced_at = utcnow()
+        if st is None or req.status in FINAL_STATUS:
+            db.commit()
+            return
+        req.provider_status = st.provider_status
+        if st.signed_by:
+            req.signers = [{**s, "signed": s.get("email") in st.signed_by or s.get("signed", False)}
+                           for s in req.signers or []]
+        if st.status == "signed" and pdf is not None:
+            gf = _store_signed(db, req, pdf)
+            # duas consultas ao mesmo tempo (ou um cancelamento no meio): só uma grava o arquivo no pedido
+            won = db.execute(
+                update(SignatureRequest)
+                .where(SignatureRequest.id == rid, SignatureRequest.status == "sent",
+                       SignatureRequest.signed_file_id.is_(None))
+                .values(signed_file_id=gf.id, status="signed", completed_at=utcnow())
+            ).rowcount
+            if won:
+                audit.record(db, "signature.signed", workspace_id=req.workspace_id,
+                             entity_type="signature_request", entity_id=rid, meta={"provider": provider})
+            else:
+                db.delete(gf)
+                get_storage().delete(gf.storage_key)
+        elif st.status in FINAL_STATUS and st.status != "signed":
+            req.status, req.completed_at = st.status, utcnow()
+            audit.record(db, f"signature.{st.status}", workspace_id=req.workspace_id,
+                         entity_type="signature_request", entity_id=rid, meta={"provider": provider})
         db.commit()
 
 
@@ -526,6 +542,7 @@ def poll_signatures() -> int:
                 SignatureRequest.status == "sent",
                 SignatureRequest.provider.in_(API_PROVIDERS),
                 SignatureRequest.provider_config_id.is_not(None),
+                SignatureRequest.external_id.is_not(None),  # envio que caiu no meio não tem o que consultar
                 SignatureRequest.created_at >= now - timedelta(days=POLL_MAX_AGE_DAYS),
                 (SignatureRequest.last_synced_at.is_(None)) | (SignatureRequest.last_synced_at <= stale),
             )
