@@ -12,7 +12,10 @@ Use pelo atalho `scripts/stack_local.sh` (acha o venv da pasta principal) ou dir
 Portas (padrão: as do agente de testes na sprint), pelo ambiente: API_PORT=8150 WEB_PORT=3350 AI_PORT=8151.
 Estado e logs em backend/data/stack/ (fora do git); banco em backend/data/stack/stack.db (--fresh apaga).
 
-- A API sobe com `--proxy-headers --forwarded-allow-ips=*`, como no Dockerfile, para medir o X-Forwarded-For.
+- A API sobe com `--no-proxy-headers` (o IP real vem de app.core.net + TRUSTED_PROXIES; o Next acrescenta o
+  endereço do socket ao X-Forwarded-For).
+- Variáveis TRIAL_*, TURNSTILE_*, TRUSTED_*, AI_*, CLIENT_REQUEST_*, SIGNATURE_* e LOG_* do ambiente passam para a API
+  (ex.: TRIAL_LIMIT_IP_HOUR=1000 scripts/stack_local.sh restart-api).
 - Nunca usa a chave real da OpenRouter: OPENROUTER_KEY_FILE fica vazio e a chave é uma falsa apontando para a IA
   falsa (scripts/fake_openrouter.py).
 - Os serviços sobem destacados e sem herdar os handles do terminal: `up` volta assim que tudo responde, mesmo
@@ -45,7 +48,7 @@ FAKE_KEY = "sk-or-v1-falsa-000000000000000000000000000000"
 
 
 def api_env() -> dict[str, str]:
-    return {
+    env = {
         "DATABASE_URL": "sqlite:///./data/stack/stack.db",
         "STORAGE_BACKEND": "local",
         "LOCAL_STORAGE_DIR": "./data/stack/storage",
@@ -65,6 +68,11 @@ def api_env() -> dict[str, str]:
         "LOG_JSON": "true",
         "LOG_LEVEL": "INFO",
     }
+    env.update({k: v for k, v in os.environ.items() if k.startswith(PASSTHROUGH)})
+    return env
+
+
+PASSTHROUGH = ("TRIAL_", "TURNSTILE_", "TRUSTED_", "AI_", "CLIENT_REQUEST_", "SIGNATURE_", "LOG_", "EXTERNAL_AI_")
 
 
 def _pidfile(name: str) -> Path:
@@ -174,6 +182,29 @@ def cmd_down(_: argparse.Namespace | None = None) -> int:
     return 0
 
 
+def _spawn_api() -> None:
+    _spawn(
+        "api",
+        [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(API_PORT),
+         "--no-proxy-headers", "--timeout-keep-alive", "30"],
+        ROOT / "backend",
+        api_env(),
+    )
+
+
+def cmd_restart_api(_: argparse.Namespace) -> int:
+    """Reinicia só a API (zera o limitador em memória e relê TRIAL_* etc. do ambiente)."""
+    f = _pidfile("api")
+    if f.exists():
+        _kill_tree(json.loads(f.read_text())["pid"])
+        f.unlink()
+    while (pid := _listener_pid(API_PORT)) is not None:
+        _kill_tree(pid)
+        time.sleep(0.5)
+    _spawn_api()
+    return 0 if _wait(f"http://127.0.0.1:{API_PORT}/health", 60, "api") else 1
+
+
 def cmd_up(args: argparse.Namespace) -> int:
     STATE.mkdir(parents=True, exist_ok=True)
     if args.fresh:
@@ -184,13 +215,7 @@ def cmd_up(args: argparse.Namespace) -> int:
         print("  banco e arquivos zerados")
     print(f"Subindo: IA falsa :{AI_PORT}, API :{API_PORT}, web :{WEB_PORT} (python {sys.executable})")
     _spawn("ai", [sys.executable, "scripts/fake_openrouter.py", "--port", str(AI_PORT), *shlex.split(args.ai or "")], ROOT)
-    _spawn(
-        "api",
-        [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(API_PORT),
-         "--proxy-headers", "--forwarded-allow-ips=*", "--timeout-keep-alive", "30"],
-        ROOT / "backend",
-        api_env(),
-    )
+    _spawn_api()
     ok = _wait(f"http://127.0.0.1:{AI_PORT}/health", 20, "ai") and _wait(f"http://127.0.0.1:{API_PORT}/health", 60, "api")
     if ok and not args.no_seed:
         cmd_seed()
@@ -243,6 +268,7 @@ def main(argv: list[str] | None = None) -> int:
     up.add_argument("--ai", default="", help='argumentos da IA falsa, ex.: "--latency-ms 2000 --rate-429 0.1"')
     up.set_defaults(fn=cmd_up)
     sub.add_parser("down").set_defaults(fn=cmd_down)
+    sub.add_parser("restart-api").set_defaults(fn=cmd_restart_api)
     sub.add_parser("status").set_defaults(fn=cmd_status)
     sub.add_parser("seed").set_defaults(fn=cmd_seed)
     sub.add_parser("env").set_defaults(fn=cmd_env)
