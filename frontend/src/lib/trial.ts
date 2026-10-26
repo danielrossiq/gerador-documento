@@ -43,3 +43,13 @@ export async function claimTrial(token: string): Promise<string> {
   const r = await api.post<{ generator_id: string; next: string }>(`/trials/${encodeURIComponent(token)}/claim`);
   return r.next.startsWith("/generators/") ? r.next : `/generators/${r.generator_id}/edit`;
 }
+
+/** O teste ainda pode ser guardado? (vencido em 1 hora ou já guardado → false). Usado no cadastro e no login. */
+export async function trialStillValid(token: string): Promise<boolean> {
+  try {
+    await api.get(`/public/trials/${encodeURIComponent(token)}`);
+    return true;
+  } catch {
+    return false;
+  }
+}

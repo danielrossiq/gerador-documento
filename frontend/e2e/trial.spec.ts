@@ -46,6 +46,14 @@ test.describe("teste grátis na landing", () => {
     expect(cspErrors).toEqual([]);
   });
 
+  test("link de teste vencido no cadastro e no login explica o que fazer", async ({ page }) => {
+    const gone = "x".repeat(43);
+    await page.goto(`/register?trial=${gone}`);
+    await expect(page.getByText("O documento do teste expirou ou já foi guardado")).toBeVisible();
+    await page.goto(`/login?trial=${gone}`);
+    await expect(page.getByText("O documento do teste expirou ou já foi guardado")).toBeVisible();
+  });
+
   test("arquivo de tipo errado é recusado na hora, sem enviar", async ({ page }) => {
     await page.goto("/#teste");
     const trial = page.getByTestId("trial");
