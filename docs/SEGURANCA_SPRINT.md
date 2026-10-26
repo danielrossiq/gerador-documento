@@ -238,3 +238,33 @@ Todas contra `http://127.0.0.1:8160` (e `:3360` pelo Next), com a IA falsa `scri
 
 Os testes de regressão de segurança ficam em `backend/tests/test_trial_security.py` (marcados `xfail` enquanto o
 código das features não chega). O script da IA falsa e os de estresse ficam em `scripts/`.
+
+---
+
+## 4. Fase 2 — revisão da D38 (teste grátis) e do IP real (e1e6d5e + b1968ac)
+
+Revisado linha a linha e testado no stack local (API 8160 com `--no-proxy-headers`, Next 3360, IA falsa). Sem IA real.
+
+**Verificado e OK**
+- IP real: pelo Next, com `X-Forwarded-For` forjado de 2 saltos diferente a cada envio → 3 testes aceitos e o 4º/5º com 429.
+  O Next acrescenta o IP do socket; a API lê só `TRUSTED_PROXY_HOPS` entradas da direita.
+- Custo: o `trial` fica fora do teto mensal dos clientes (OBR-5) e falhas forçadas da IA continuam contando no teto
+  diário do teste (teste `test_falha_da_ia_conta_no_teto_diario_do_teste_e_nao_no_mensal`). Limites contam tentativas.
+  Fila `trial` sem retry. 3 testes → 3 chamadas à IA falsa.
+- Token: 32 bytes, só hash, regex, 404 igual para inexistente/expirado/guardado, 120 consultas/min por IP.
+- Claim: `UPDATE ... WHERE claimed_at IS NULL` atômico; outra conta recebe 404 (`test_teste_ja_guardado_nao_pode_ser_tomado_por_outra_conta`).
+- Uploads: `Content-Length` checado antes de ler; .docx com 300 partes / 15 MB por parte / 25 MB no total; PDF só pelo
+  `pdfconv`, 10 páginas. Pelas medições da fase 1, 25 MB descompactados custam ~1 s e ~170 MB no parse.
+- XSS/CSP: a prévia renderiza o documento como texto pelo React; CSP com nonce servida em `/` e `/r/*`.
+- Limpeza: `purge_expired_trials` roda pelo watchdog de cada worker (e da API no modo thread) → arquivo e linha somem
+  em até ~TTL + 5 min.
+
+**Achados**
+
+| # | Gravidade | Achado | Correção sugerida |
+|---|---|---|---|
+| F2-1 | **Média** | O log de acesso grava `/api/v1/public/trials/{token}` (a cada consulta) e `/trials/{token}/claim` com o token em claro. Confirmado no log local. O token dá acesso ao documento inteiro do visitante (possíveis dados de terceiros) por até 1 h, e logs costumam ir para serviços externos e durar mais. | Em `core/logging.py`, generalizar a máscara de `/downloads/` para `/public/trials/`, `/trials/`, `/public/requests/` e `/signatures/webhook/{provedor}/`. Regressão: `test_token_do_teste_nao_vai_para_o_log` (xfail estrito até corrigir). |
+| F2-2 | Baixa (implantação) | `TRUSTED_PROXIES` padrão inclui `10.0.0.0/8` e `172.16.0.0/12`: quem alcançar a API direto de dentro dessas redes escolhe o próprio IP. Com balanceador/Caddy na frente do Next e `TRUSTED_PROXY_HOPS=1`, todos os visitantes viram o IP do balanceador (3 testes/h para o site inteiro). | Em produção, restringir à sub-rede do compose (ou ao IP do Next) e, com proxy de borda, `TRUSTED_PROXY_HOPS=2` + IP da borda na lista. Pôr no checklist de implantação. |
+| F2-3 | Baixa (disponibilidade) | Muitos celulares no Brasil saem por CGNAT (um IPv4 para muita gente): 3/h por IP pode barrar visitantes legítimos. `TRIAL_MAX_CONCURRENT=3` é fácil de ocupar para negar o teste aos outros (sem custo). | Com o Turnstile validado, permitir limite maior por IP; fila curta em vez de `TRIAL_BUSY` imediato; Turnstile ligado em produção. |
+| F2-4 | Baixa | A trava da reserva só existe no PostgreSQL; no SQLite (modo sem Docker) reservas simultâneas podem passar do teto diário. | Produção é PostgreSQL: só documentar. |
+| F2-5 | Info | A resposta da armadilha (`website`) não tem `expires_at` e o token dela dá 404: um robô consegue perceber a armadilha. | Opcional: mesma forma da resposta real. |
