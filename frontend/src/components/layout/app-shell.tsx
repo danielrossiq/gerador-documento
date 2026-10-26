@@ -28,6 +28,13 @@ export function AppShell({ children, wide }: { children: ReactNode; wide?: boole
   const router = useRouter();
   const qc = useQueryClient();
   const me = useMe().data;
+  // aviso no app (D39): respostas de clientes que chegaram e ainda não foram abertas
+  const answers = useQuery({
+    queryKey: ["client-requests-summary"],
+    queryFn: () => api.get<{ new_answers: number }>("/client-requests/summary"),
+    refetchInterval: 60_000,
+    enabled: !!me,
+  }).data?.new_answers ?? 0;
 
   async function logout() {
     await api.post("/auth/logout").catch(() => undefined);
@@ -58,6 +65,12 @@ export function AppShell({ children, wide }: { children: ReactNode; wide?: boole
                   <n.icon className="h-4 w-4" aria-hidden />
                   {/* no celular só o ícone aparece; o texto continua disponível para leitores de tela */}
                   <span className="sr-only sm:not-sr-only">{n.label}</span>
+                  {n.href === "/dashboard" && answers > 0 && (
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-highlight px-1 text-xs font-bold text-ink" data-testid="answers-badge">
+                      {answers}
+                      <span className="sr-only"> {answers === 1 ? "resposta nova de cliente" : "respostas novas de clientes"}</span>
+                    </span>
+                  )}
                 </Link>
               );
             })}

@@ -8,6 +8,7 @@ import { useAssistStatus } from "@/components/assist/ai-assist";
 import { nextHref, stepHrefs } from "@/components/generators/steps";
 import { AnalysisStep, DocxDropzone, UploadErrorAlert, useNewModelUpload } from "@/components/generators/template-upload";
 import { PasteBatch } from "@/components/home/paste-batch";
+import { RequestsBox } from "@/components/requests/requests-box";
 import { AppShell, useMe } from "@/components/layout/app-shell";
 import { isReady, ModelAvatar, statusOf } from "@/components/models/model-card";
 import { HowItWorks, TrySampleButton } from "@/components/onboarding/samples";
@@ -186,6 +187,8 @@ export default function HomePage() {
           )}
         </Card>
       </div>
+
+      <RequestsBox className="mb-8" />
 
       {dash.error ? (
         <Card className="p-6 text-sm text-danger" role="alert">Não foi possível carregar o painel: {errorMessage(dash.error)}</Card>

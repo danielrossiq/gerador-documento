@@ -126,3 +126,17 @@ def test_converted_docx_is_validated_like_any_upload(api_with_service, monkeypat
     gid = api.post("/generators", json={"name": "Saída ruim"}).json()["id"]
     r = upload(api, gid, pdf_samples.typed_pdf(), "contrato.pdf")
     assert r.status_code == 422 and r.json()["error"]["code"] == "NOT_A_DOCX"  # recusado pela validação do .docx
+
+
+def test_info_counts_pages_in_the_isolated_service(pdfconv):
+    """`POST /info` (D39): a API estima o custo da leitura por IA pela contagem real de páginas, sem abrir o PDF."""
+    from app.docx_engine.pdf_import import pdf_info_remote
+
+    assert pdf_info_remote(pdf_samples.typed_pdf(), url=pdfconv) == {"pages": 2}  # o contrato de exemplo
+    assert pdf_info_remote(pdf_samples.scanned_pdf(pages=3), url=pdfconv) == {"pages": 3}
+    with pytest.raises(DocxRejected) as exc:
+        pdf_info_remote(b"%PDF-1.4 quebrado", url=pdfconv)
+    assert exc.value.code == "NOT_A_PDF"
+    with pytest.raises(DocxRejected) as exc:
+        pdf_info_remote(b"%PDF-1.7", url="http://127.0.0.1:9")  # fora do ar
+    assert exc.value.code == "PDF_CONVERTER_UNAVAILABLE"

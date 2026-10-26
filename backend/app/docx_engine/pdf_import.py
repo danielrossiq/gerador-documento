@@ -153,6 +153,89 @@ def looks_like_pdf(data: bytes) -> bool:
     return b"%PDF-" in data[:1024]
 
 
+# ---------------------------------------------------------------------------- contagem de páginas (leitura por IA)
+
+INFO_TIMEOUT_S = 15
+
+
+def pdf_info(data: bytes) -> dict[str, int]:
+    """Só abre o PDF e conta as páginas (PDFium). Roda isolado: no processo filho ou no serviço pdfconv."""
+    import pypdfium2 as pdfium
+
+    try:
+        pdoc = pdfium.PdfDocument(data)
+    except pdfium.PdfiumError as exc:
+        if "password" in str(exc).lower():
+            raise DocxRejected("ENCRYPTED", "PDFs protegidos por senha não são aceitos.") from exc
+        raise DocxRejected("NOT_A_PDF", "O arquivo está corrompido ou não é um PDF válido.") from exc
+    try:
+        return {"pages": len(pdoc)}
+    finally:
+        pdoc.close()
+
+
+def _child_info(conn: Any, data: bytes, timeout: int) -> None:  # pragma: no cover - subprocesso
+    try:
+        _limit_resources(timeout)
+        conn.send(("ok", pdf_info(data)))
+    except DocxRejected as exc:
+        conn.send(("rejected", (exc.code, exc.message)))
+    except BaseException as exc:
+        conn.send(("error", type(exc).__name__))
+    finally:
+        conn.close()
+
+
+def pdf_info_isolated(data: bytes, timeout: int = INFO_TIMEOUT_S) -> dict[str, int]:
+    """Contagem de páginas num processo filho descartável (nunca no processo da API)."""
+    mp = multiprocessing.get_context("spawn")
+    with _SLOTS:
+        recv, send = mp.Pipe(duplex=False)
+        proc = mp.Process(target=_child_info, args=(send, data, timeout), daemon=True)
+        proc.start()
+        send.close()
+        try:
+            if not recv.poll(timeout):
+                raise DocxRejected("PDF_TIMEOUT", "O PDF demorou demais para ser lido.")
+            status, payload = recv.recv()
+        except EOFError as exc:
+            raise DocxRejected("NOT_A_PDF", "Não foi possível ler este PDF.") from exc
+        finally:
+            recv.close()
+            if proc.is_alive():
+                proc.kill()
+            proc.join(timeout=5)
+    if status == "ok":
+        return {"pages": int(payload["pages"])}
+    if status == "rejected":
+        raise DocxRejected(*payload)
+    log.error("pdf_info_falhou", extra={"error_type": str(payload)[:80]})
+    raise DocxRejected("NOT_A_PDF", "Não foi possível ler este PDF.")
+
+
+def pdf_info_remote(data: bytes, *, url: str, client: Any = None) -> dict[str, int]:
+    """Contagem de páginas no serviço isolado (D35): `POST /info` com o PDF no corpo."""
+    import httpx
+
+    http = client or httpx.Client(timeout=INFO_TIMEOUT_S + 10)
+    try:
+        resp = http.post(f"{url.rstrip('/')}/info", content=data, headers={"Content-Type": "application/pdf"})
+        body = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        log.error("pdfconv_info_indisponivel", extra={"error_type": type(exc).__name__})
+        raise DocxRejected(
+            "PDF_CONVERTER_UNAVAILABLE", "A leitura de PDF está indisponível agora. Envie uma foto do documento."
+        ) from exc
+    finally:
+        if client is None:
+            http.close()
+    if resp.status_code == 200 and isinstance(body.get("pages"), int):
+        return {"pages": body["pages"]}
+    if resp.status_code in (413, 422) and isinstance(body.get("code"), str):
+        raise DocxRejected(body["code"][:64], str(body.get("message") or "")[:300])
+    raise DocxRejected("NOT_A_PDF", "Não foi possível ler este PDF.")
+
+
 def _run_isolated(
     data: bytes, max_pages: int, timeout: int = PDF_TIMEOUT_S, mode: str = "auto"
 ) -> PdfConversion:

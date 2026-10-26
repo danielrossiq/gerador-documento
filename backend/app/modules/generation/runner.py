@@ -280,12 +280,19 @@ def start_watchdog(interval: float | None = None) -> threading.Event:
                 requeue_stuck_jobs()
             except Exception:
                 log.warning("watchdog_de_jobs_falhou", exc_info=True)
-            try:  # testes grátis vencidos (D38): arquivo e resultado somem em 1 hora mesmo sem o cron do cleanup
-                from app.modules.trials.service import purge_expired_trials_throttled
+            try:  # testes grátis: órfãos (sem heartbeat) a cada volta; vencidos (1 hora) a cada 5 minutos
+                from app.modules.trials.service import fail_orphaned_trials, purge_expired_trials_throttled
 
+                fail_orphaned_trials()
                 purge_expired_trials_throttled()
             except Exception:
                 log.warning("limpeza_de_testes_falhou", exc_info=True)
+            try:  # respostas do link do cliente vencidas (D39): os dados somem na retenção
+                from app.modules.requests.service import purge_requests_throttled
+
+                purge_requests_throttled()
+            except Exception:
+                log.warning("limpeza_de_respostas_falhou", exc_info=True)
 
     threading.Thread(target=loop, daemon=True, name="job-watchdog").start()
     return stop

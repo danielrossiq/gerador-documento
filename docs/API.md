@@ -99,7 +99,7 @@ Só responde com `EXTERNAL_AI_ENABLED=true` e a chave da OpenRouter configurada.
 | GET | `/assist/status` | `{enabled, actions_used, actions_limit}`. A interface só mostra os botões de IA com `enabled: true` |
 | POST | `/generators/{id}/assist/fill` | `{text}` (até 8.000 caracteres usados) → `{values, invalid, evidence, missing, truncated}`. `values` traz só o que tem evidência no texto. `invalid` lista os valores que não passam na validação do tipo; eles vão mesmo assim, marcados |
 | POST | `/kits/{id}/assist/fill` | igual, com os campos em comum do kit |
-| POST | `/generators/{id}/assist/fill-files` | multipart `files` (1 a 4 fotos JPG/PNG/WEBP ou PDF, 8 MB cada) → `{values, invalid, evidence, missing, documents}`. Fotos regravadas sem metadados antes de sair; PDF não é aberto na API (D37). Recusas: `AI_FILE_TYPE`, `AI_FILE_INVALID`, `AI_TOO_MANY_FILES`, `FILE_TOO_LARGE` |
+| POST | `/generators/{id}/assist/fill-files` | multipart `files` (1 a 4 fotos JPG/PNG/WEBP ou PDF, 8 MB cada) → `{values, invalid, evidence, missing, documents}`. Fotos regravadas sem metadados antes de sair (JPEG decodificado já reduzido; PNG/WEBP até 16 Mpx); PDF não é aberto na API: as páginas são contadas no conversor isolado, até 10 (D37, D39). Recusas: `AI_FILE_TYPE`, `AI_FILE_INVALID`, `AI_TOO_MANY_FILES`, `FILE_TOO_LARGE`, `AI_PDF_TOO_MANY_PAGES`, `AI_PDF_DISABLED` (sem conversor isolado) |
 | POST | `/kits/{id}/assist/fill-files` | igual, com os campos em comum do kit |
 | POST | `/generators/{id}/assist/review` | `{values}` → `{issues: [{field, label, severity: alta\|media\|baixa, message}]}`, no máximo 8. Não altera nada |
 
@@ -121,6 +121,25 @@ Rotas **públicas** (sem sessão) sob `/public/trials`. O token tem 32 bytes ale
 | POST | `/public/trials` | multipart `file` (.docx ou PDF digitado), `turnstile_token` (com o Turnstile ligado) e `website` (armadilha: vazio) → `202 {token, status: "processing", expires_at}`. Recusas: `411 LENGTH_REQUIRED`, `413 FILE_TOO_LARGE` (pelo `Content-Length`, antes de ler), `422` (`EMPTY_FILE`, `TRIAL_FILE_TYPE`, `PDF_IMPORT_DISABLED`, `ZIP_BOMB`…), `403 TRIAL_CHALLENGE_FAILED`, `429 TRIAL_RATE_LIMITED` (3/h e 10/dia por IP, 30/dia por /24 ou /64, contando tentativas) e `429 TRIAL_BUSY` (testes simultâneos), `503 TRIAL_DISABLED` |
 | GET | `/public/trials/{token}` | `{status: queued\|processing\|done\|failed, filename, format, expires_at, ai: ai\|local\|budget\|rules, error, result: {doc, fields: [{id, name, label, type, sample, count}], warnings, stats}}`. Consultar a cada ~1,5 s (120/min por IP). Falhas: `TRIAL_TOO_LONG`, `PDF_SCANNED`, `DOCX_PARSE_FAILED`, `EMPTY_DOCUMENT`, `TRIAL_FAILED`… |
 | POST | `/trials/{token}/claim` | **com sessão**: o documento do teste vira modelo da conta, com as sugestões → `201 {generator_id, next}` (`next` = etapa Campos). `409 TRIAL_NOT_READY`, `429 GENERATOR_LIMIT` (o teste continua disponível) |
+
+## Link para o cliente preencher (D39)
+Com sessão (profissional):
+
+| Método | Rota | |
+|---|---|---|
+| POST | `/generators/{id}/client-requests` · `/kits/{id}/client-requests` | `{fields?, message?, expires_days (1–30, padrão 7), allow_photos, prefill?, prefill_mode: hidden\|readonly\|editable}` → `201 {id, state, url, share_text, …}`. O `url` (com o token) aparece **só aqui**. `REQUEST_UNKNOWN_FIELD`, `REQUEST_NO_FIELDS`, `REQUEST_LIMIT` |
+| GET | `/client-requests` | `generator_id`, `kit_id`, `state: open\|answered\|expired\|cancelled`, paginação → itens sem os valores |
+| GET | `/client-requests/summary` | `{new_answers}` (respostas ainda não abertas — o contador do menu) |
+| GET | `/client-requests/{id}` | detalhe **com os valores**; abrir trava a resposta (o cliente não altera mais) |
+| POST | `/client-requests/{id}/cancel` · `/used` | cancelar (apaga a resposta) · marcar como usada depois de gerar (apaga os dados do pedido) |
+
+Públicas (o cliente, sem sessão). Token errado, cancelado ou de outro espaço: `404 REQUEST_NOT_FOUND`.
+
+| Método | Rota | |
+|---|---|---|
+| GET | `/public/requests/{token}` | `{state: open\|answered, workspace, document, message, fields, prefill_mode, prefill, values, photos: {allowed, reads_left}, expires_at}` ou `{state: expired\|closed}` |
+| POST | `/public/requests/{token}` | `{values}` → `{state: "answered", submissions}`; `422 REQUEST_INVALID_VALUES` com `details.field_errors`; `409 REQUEST_CLOSED` (vencido ou já aberto pelo profissional) |
+| POST | `/public/requests/{token}/fill-files` | multipart `files` (até 3; JPG/PNG/WEBP ou PDF até 10 páginas; 8 MB cada) → `{values, invalid, evidence, missing, documents, reads_left}`. `409 REQUEST_PHOTOS_DISABLED`, `429 REQUEST_READS_USED` (3 por link), `400 FORM_INVALID` |
 
 ## Operação
 `GET /health` (liveness) · `GET /ready` (banco + conversor) · `GET /metrics` (Prometheus).

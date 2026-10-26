@@ -2,8 +2,8 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Pencil, PencilRuler, RotateCcw, Wand2 } from "lucide-react";
-import { useParams } from "next/navigation";
+import { FileText, Pencil, PencilRuler, RotateCcw, Send, Wand2 } from "lucide-react";
+import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -12,6 +12,8 @@ import { DocPreview } from "@/components/form/doc-preview";
 import { FieldInput } from "@/components/form/field-input";
 import { GenerateModeTabs, GeneratorHeader, stepHrefs } from "@/components/generators/steps";
 import { JobResult } from "@/components/jobs/job-result";
+import { RequestDialog } from "@/components/requests/request-dialog";
+import { RequestsBox } from "@/components/requests/requests-box";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
@@ -23,6 +25,7 @@ import { api, ApiError, errorMessage } from "@/lib/api";
 import { previewFilename, unknownTokens } from "@/lib/fields/filename";
 import { normalizeValue, type FieldSpec } from "@/lib/fields/normalize";
 import { exampleValues } from "@/lib/fields/samples";
+import { shortDate, type ClientRequestOpened } from "@/lib/requests";
 import type { FieldOut, FormPayload, JobOut } from "@/lib/types";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { uuid } from "@/lib/utils";
@@ -55,6 +58,9 @@ function UseForm({ data }: { data: FormPayload }) {
   const [confirmClear, setConfirmClear] = useState(false);
   const desktop = useMediaQuery("(min-width: 1024px)");
   const idem = useRef<string | null>(null);
+  const requestId = useSearchParams().get("request");
+  const [askOpen, setAskOpen] = useState(false);
+  const [answer, setAnswer] = useState<ClientRequestOpened | null>(null);
 
   const schema = useMemo(
     () =>
@@ -111,6 +117,28 @@ function UseForm({ data }: { data: FormPayload }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // resposta do cliente pelo link (D39): carrega no formulário para conferir e gerar
+  useEffect(() => {
+    if (!requestId) return;
+    let alive = true;
+    api
+      .get<ClientRequestOpened>(`/client-requests/${encodeURIComponent(requestId)}`)
+      .then((r) => {
+        if (!alive || r.target.id !== id) return;
+        setAnswer(r);
+        const incoming = { ...r.prefill, ...r.values };
+        if (Object.keys(incoming).length) {
+          form.reset({ ...form.getValues(), ...incoming });
+          void form.trigger(Object.keys(incoming));
+        }
+      })
+      .catch((e) => toast.push({ tone: "danger", title: "Não foi possível abrir a resposta", description: errorMessage(e) }));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestId]);
+
   function clearForm() {
     try {
       localStorage.removeItem(storageKey);
@@ -162,6 +190,10 @@ function UseForm({ data }: { data: FormPayload }) {
       const job = await api.post<JobOut>(`/generators/${id}/generate`, { values: form.getValues(), format, filename_pattern: pattern }, { headers: { "Idempotency-Key": key } });
       idem.current = null;
       setJobId(job.id);
+      if (answer?.state === "answered") {
+        // gerou com a resposta do cliente: os dados dele saem do pedido (ficam só no histórico da geração)
+        void api.post(`/client-requests/${answer.id}/used`).then(() => setAnswer(null), () => undefined);
+      }
     } catch (e) {
       if (e instanceof ApiError && e.code === "BATCH_INVALID_ROWS") {
         idem.current = null;
@@ -217,6 +249,14 @@ function UseForm({ data }: { data: FormPayload }) {
             <Wand2 className="h-4 w-4" aria-hidden /> Preencher com dados de exemplo
           </Button>
         </div>
+        <Button size="sm" onClick={() => setAskOpen(true)} data-testid="ask-client" className="w-full justify-center sm:w-auto">
+          <Send className="h-4 w-4" aria-hidden /> Pedir dados ao cliente
+        </Button>
+        {answer?.state === "answered" && (
+          <Alert tone="success" title={`Dados enviados pelo cliente em ${shortDate(answer.answered_at)}`}>
+            Já estão no formulário. Confira cada campo e gere o documento.
+          </Alert>
+        )}
         <AiFill endpoint={`/generators/${id}/assist/fill`} fields={fields} onApply={applyAi} />
         {requiredFields.length > 0 && (
           <div className="space-y-1">
@@ -329,6 +369,9 @@ function UseForm({ data }: { data: FormPayload }) {
           <TabPanel value="preview" className="pt-4"><div tabIndex={0} role="region" aria-label="Prévia do documento (área rolável)" className="doc-canvas overflow-x-auto rounded-lg p-2">{preview}</div></TabPanel>
         </Tabs>
       )}
+
+      <RequestsBox generatorId={id} compact className="mt-6" />
+      <RequestDialog open={askOpen} onOpenChange={setAskOpen} target="generator" targetId={id} fields={fields} currentValues={() => form.getValues()} />
 
       <Dialog open={!!jobId} onOpenChange={(o) => !o && setJobId(null)} title="Gerando seu documento" size="md">
         {jobId && <JobResult jobId={jobId} onClose={() => setJobId(null)} />}

@@ -24,6 +24,7 @@ from app.db.models.kits import (
     KitRun,
 )
 from app.db.models.metrics import ActivationMetric
+from app.db.models.requests import ClientRequest
 from app.db.models.templates import (
     AIAnalysisRun,
     DocumentGenerator,
@@ -46,6 +47,7 @@ __all__ = [
     "Base",
     "BatchImport",
     "BillingEvent",
+    "ClientRequest",
     "DocumentGenerator",
     "DocumentKit",
     "DocumentKitItem",

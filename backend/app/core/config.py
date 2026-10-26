@@ -173,6 +173,8 @@ class Settings(BaseSettings):
     download_token_ttl_seconds: int = 300
     file_retention_days: int = 7
     max_upload_mb: int = 15
+    docx_max_uncompressed_mb: int = 60  # conteúdo descompactado do .docx enviado (zip bomb de partes pequenas)
+    docx_max_parts: int = 1000
     login_rate_limit_per_minute: int = 20
     # Proxies cujo X-Forwarded-For a API aceita (IP ou rede CIDR, separados por vírgula). Padrão: loopback e as redes
     # internas do Docker (o Next do compose fala com a API por elas). Quem não está aqui é o próprio cliente, e o

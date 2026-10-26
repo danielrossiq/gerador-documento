@@ -52,14 +52,18 @@ def _gen(api) -> str:  # type: ignore[no-untyped-def]
 def test_docx_with_corrupt_compressed_part_is_rejected_with_422(api):
     gid = _gen(api)
     bad = _corrupt_member(_docx(["Contrato de teste."]), "[Content_Types].xml")
-    r = api.post(f"/generators/{gid}/template", files={"file": ("contrato.docx", bad, "application/octet-stream")})
+    r = api.post(
+        f"/generators/{gid}/template", files={"file": ("contrato.docx", bad, "application/octet-stream")}
+    )
     assert r.status_code == 422, r.text
 
 
 def test_docx_with_corrupt_document_xml_is_rejected_with_422(api):
     gid = _gen(api)
     bad = _corrupt_member(_docx(["Contrato de teste. " * 50]), "word/document.xml")
-    r = api.post(f"/generators/{gid}/template", files={"file": ("contrato.docx", bad, "application/octet-stream")})
+    r = api.post(
+        f"/generators/{gid}/template", files={"file": ("contrato.docx", bad, "application/octet-stream")}
+    )
     assert r.status_code == 422, r.text
 
 
@@ -75,3 +79,22 @@ def test_resolve_overlaps_scales_with_document_size():
     elapsed = time.perf_counter() - t
     assert len(out) == len(hits)
     assert elapsed < 0.5, f"{len(hits)} trechos levaram {elapsed:.1f}s"
+
+
+def test_many_small_zero_parts_are_refused_on_the_account_upload(api):
+    """QA-5: partes pequenas (abaixo da checagem de taxa) que somadas descompactam para muito: recusado."""
+    gid = _gen(api)
+    buf = io.BytesIO()
+    with (
+        zipfile.ZipFile(io.BytesIO(_docx(["Contrato de teste."]))) as src,
+        zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as dst,
+    ):
+        for item in src.infolist():
+            dst.writestr(item, src.read(item))
+        for i in range(70):
+            dst.writestr(f"word/media/zeros{i}.bin", b"\0" * (1024 * 1024 - 1))
+    r = api.post(
+        f"/generators/{gid}/template",
+        files={"file": ("contrato.docx", buf.getvalue(), "application/octet-stream")},
+    )
+    assert r.status_code == 422 and r.json()["error"]["code"] == "ZIP_BOMB", r.text

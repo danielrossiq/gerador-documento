@@ -2,9 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Layers } from "lucide-react";
-import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { FileText, Layers, Send } from "lucide-react";
+import { useParams, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { AiFill } from "@/components/assist/ai-assist";
@@ -12,6 +12,8 @@ import { FieldInput } from "@/components/form/field-input";
 import { KitRunResult } from "@/components/kits/kit-run-result";
 import { AppShell, PageHeader } from "@/components/layout/app-shell";
 import { KitNav } from "@/components/models/model-nav";
+import { RequestDialog } from "@/components/requests/request-dialog";
+import { RequestsBox } from "@/components/requests/requests-box";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/form";
@@ -19,6 +21,7 @@ import { Alert, Badge, Card, Skeleton } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { normalizeValue, type FieldSpec } from "@/lib/fields/normalize";
+import { shortDate, type ClientRequestOpened } from "@/lib/requests";
 import type { FieldOut, FieldType, KitFormPayload, KitItemFieldSummary, KitRunOut } from "@/lib/types";
 import { uuid } from "@/lib/utils";
 
@@ -46,6 +49,9 @@ function KitUseForm({ data }: { data: KitFormPayload }) {
   const [runId, setRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const idem = useState(() => uuid())[0];
+  const requestId = useSearchParams().get("request");
+  const [askOpen, setAskOpen] = useState(false);
+  const [answer, setAnswer] = useState<ClientRequestOpened | null>(null);
 
   // campo do kit → FieldSpec; campo de "só este documento" → FieldSpec com chave prefixada (evita colisão entre documentos)
   const allSpecs = useMemo(() => {
@@ -75,6 +81,26 @@ function KitUseForm({ data }: { data: KitFormPayload }) {
   const errors = form.formState.errors;
   const errorCount = Object.keys(errors).length;
   const sharedFields = useMemo(() => data.fields.map(toFieldOut), [data.fields]);
+
+  // resposta do cliente pelo link (D39): os campos em comum chegam preenchidos para conferir
+  useEffect(() => {
+    if (!requestId) return;
+    let alive = true;
+    api
+      .get<ClientRequestOpened>(`/client-requests/${encodeURIComponent(requestId)}`)
+      .then((r) => {
+        if (!alive || r.target.id !== kitId) return;
+        setAnswer(r);
+        const incoming = { ...r.prefill, ...r.values };
+        form.reset({ ...form.getValues(), ...incoming });
+        void form.trigger(Object.keys(incoming));
+      })
+      .catch((e) => toast.push({ tone: "danger", title: "Não foi possível abrir a resposta", description: errorMessage(e) }));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestId]);
 
   function applyAi(found: Record<string, unknown>) {
     for (const [name, v] of Object.entries(found)) form.setValue(name, v, { shouldDirty: true });
@@ -106,6 +132,7 @@ function KitUseForm({ data }: { data: KitFormPayload }) {
         { headers: { "Idempotency-Key": idem } },
       );
       setRunId(run.id);
+      if (answer?.state === "answered") void api.post(`/client-requests/${answer.id}/used`).then(() => setAnswer(null), () => undefined);
     } catch (e) {
       if (e instanceof ApiError && e.code === "KIT_INVALID_VALUES") {
         toast.push({ tone: "danger", title: "O servidor encontrou campos inválidos", description: "Corrija os valores e tente de novo." });
@@ -133,6 +160,16 @@ function KitUseForm({ data }: { data: KitFormPayload }) {
       <Card className="mx-auto max-w-2xl p-5">
         <form onSubmit={(e) => e.preventDefault()} noValidate className="space-y-6" aria-label="Formulário do kit">
           {sharedFields.length > 0 && <AiFill endpoint={`/kits/${kitId}/assist/fill`} fields={sharedFields} onApply={applyAi} />}
+          {sharedFields.length > 0 && (
+            <Button size="sm" onClick={() => setAskOpen(true)} data-testid="ask-client">
+              <Send className="h-4 w-4" aria-hidden /> Pedir dados ao cliente
+            </Button>
+          )}
+          {answer?.state === "answered" && (
+            <Alert tone="success" title={`Dados enviados pelo cliente em ${shortDate(answer.answered_at)}`}>
+              Já estão nos campos em comum. Confira e gere o kit.
+            </Alert>
+          )}
           {errorCount > 0 && (
             <Alert tone="danger" title={`${errorCount} ${errorCount === 1 ? "campo precisa" : "campos precisam"} de atenção`}>
               Veja as mensagens ao lado de cada campo.
@@ -204,6 +241,9 @@ function KitUseForm({ data }: { data: KitFormPayload }) {
         </form>
       </Card>
 
+      <RequestsBox kitId={kitId} compact className="mx-auto mt-6 max-w-2xl" />
+      <RequestDialog open={askOpen} onOpenChange={setAskOpen} target="kit" targetId={kitId} fields={sharedFields} currentValues={() => form.getValues()} />
+
       <Dialog open={!!runId} onOpenChange={(o) => !o && setRunId(null)} title="Gerando os documentos do kit" size="md">
         {runId && <KitRunResult runId={runId} onClose={() => setRunId(null)} />}
       </Dialog>
@@ -239,5 +279,9 @@ function KitUseLoader() {
 }
 
 export default function KitUsePage() {
-  return <KitUseLoader />;
+  return (
+    <Suspense>
+      <KitUseLoader />
+    </Suspense>
+  );
 }

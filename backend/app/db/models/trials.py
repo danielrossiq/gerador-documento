@@ -44,6 +44,8 @@ class Trial(IdMixin, Base):
     attempts: Mapped[int] = mapped_column(sa.Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     started_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # sinal de vida do processamento (a cada poucos segundos): sem ele, o teste órfão não ocupa vaga (QA-6)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
     claimed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

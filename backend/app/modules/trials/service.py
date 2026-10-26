@@ -21,6 +21,7 @@ import dataclasses
 import hashlib
 import hmac
 import re
+import threading
 import time
 import uuid
 import zipfile
@@ -65,10 +66,15 @@ from app.modules.trials import turnstile
 log = get_logger(__name__)
 
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{40,64}$")
-STALE_AFTER = timedelta(
-    minutes=5
-)  # teste "em andamento" há mais que isso morreu com o worker: não ocupa vaga
+# Teste em andamento renova `heartbeat_at` a cada HEARTBEAT_EVERY; sem sinal há HEARTBEAT_STALE, o processo que o
+# segurava morreu (API/worker reiniciado): não ocupa vaga e é encerrado (QA-6). Na fila há mais de QUEUED_GRACE,
+# deixa de contar como vaga; há mais de QUEUED_DEAD, a mensagem se perdeu e o teste é encerrado.
+HEARTBEAT_EVERY = 5
+HEARTBEAT_STALE = timedelta(seconds=30)
+QUEUED_GRACE = timedelta(seconds=90)
+QUEUED_DEAD = timedelta(minutes=3)
 CHARS_PER_PAGE = 4000  # estimativa folgada de página para .docx sem a contagem do Word (docProps/app.xml)
+MAX_WAITING = 10  # envios esperando vaga ao mesmo tempo (cada um ocupa uma thread do pool por até 5 s)
 ATTEMPTS_PER_HOUR = 30  # tentativas antes do Turnstile (só com ele ligado): limita chamadas à Cloudflare
 # teto de achados (QA-4): brutos por parágrafo/no total antes de resolver sobreposições; e os que viram campo
 RAW_PER_BLOCK, RAW_TOTAL = 100, 1500
@@ -160,29 +166,70 @@ def _lock(db: Session) -> None:
 
 
 def active_count(db: Session) -> int:
+    now = utcnow()
     return int(
         db.scalar(
             select(func.count(Trial.id)).where(
-                Trial.status.in_(("queued", "processing")), Trial.created_at >= utcnow() - STALE_AFTER
+                sa.or_(
+                    sa.and_(Trial.status == "processing", Trial.heartbeat_at >= now - HEARTBEAT_STALE),
+                    sa.and_(Trial.status == "queued", Trial.created_at >= now - QUEUED_GRACE),
+                )
             )
         )
         or 0
     )
 
 
+def fail_orphaned_trials(*, startup_thread_mode: bool = False) -> int:
+    """Encerra testes que nenhum processo vivo segura (sem heartbeat; ou na fila há tempo demais). Na subida da API
+    em modo `thread` (sem worker separado), tudo o que estava na fila ou em andamento morreu com o processo anterior."""
+    now = utcnow()
+    if startup_thread_mode:
+        orphan = Trial.status.in_(("queued", "processing"))
+    else:
+        orphan = sa.or_(
+            sa.and_(
+                Trial.status == "processing",
+                sa.or_(Trial.heartbeat_at.is_(None), Trial.heartbeat_at < now - HEARTBEAT_STALE),
+            ),
+            sa.and_(Trial.status == "queued", Trial.created_at < now - QUEUED_DEAD),
+        )
+    with get_factory()() as db:
+        n = db.execute(
+            update(Trial)
+            .where(orphan)
+            .values(status="failed", error_code="TRIAL_FAILED", error_message=FAILED_MESSAGE, finished_at=now)
+        ).rowcount
+        db.commit()
+    if n:
+        log.info("testes_orfaos_encerrados", extra={"n": int(n)})
+    return int(n or 0)
+
+
 def _busy() -> LimitExceeded:
     return LimitExceeded("Muita gente testando agora. Tente de novo em alguns segundos.", code="TRIAL_BUSY")
 
 
+_WAITING = threading.BoundedSemaphore(MAX_WAITING)
+
+
 def _wait_for_slot(db: Session) -> None:
-    """Fila curta: com as vagas ocupadas, espera alguns segundos (TRIAL_BUSY_WAIT_SECONDS) antes de recusar."""
+    """Fila curta: com as vagas ocupadas, espera alguns segundos (TRIAL_BUSY_WAIT_SECONDS) antes de recusar. No máximo
+    MAX_WAITING esperas ao mesmo tempo por processo: acima disso recusa na hora, sem prender threads do pool."""
     s = get_settings()
-    deadline = time.monotonic() + max(0.0, s.trial_busy_wait_seconds)
-    while active_count(db) >= s.trial_max_concurrent:
-        if time.monotonic() >= deadline:
-            raise _busy()
-        db.rollback()  # libera a leitura antes de esperar
-        time.sleep(0.5)
+    if active_count(db) < s.trial_max_concurrent:
+        return
+    if not _WAITING.acquire(blocking=False):
+        raise _busy()
+    try:
+        deadline = time.monotonic() + max(0.0, s.trial_busy_wait_seconds)
+        while active_count(db) >= s.trial_max_concurrent:
+            if time.monotonic() >= deadline:
+                raise _busy()
+            db.rollback()  # libera a leitura antes de esperar
+            time.sleep(0.5)
+    finally:
+        _WAITING.release()
 
 
 def _count_attempt(ipk: str, netk: str, hourly: int) -> None:
@@ -195,7 +242,7 @@ def _count_attempt(ipk: str, netk: str, hourly: int) -> None:
         ratelimit.check(key, limit, window, message=LIMIT_MESSAGE, code="TRIAL_RATE_LIMITED")
 
 
-def _decoy(db: Session, size: int) -> dict[str, Any]:
+def _decoy(db: Session, size: int, fmt: str, filename: str) -> dict[str, Any]:
     """Armadilha (F2-5): grava um teste "falho" sem arquivo, que aparece como em processamento por alguns segundos e
     depois falha com a mensagem genérica — igual a um teste real que deu errado. Não ocupa vaga nem chama nada."""
     import secrets
@@ -206,8 +253,8 @@ def _decoy(db: Session, size: int) -> dict[str, Any]:
         Trial(
             token_hash=token_hash(token),
             status="failed",
-            source_format="docx",
-            filename="documento.docx",
+            source_format=fmt,
+            filename=_safe_filename(filename, fmt),
             size_bytes=size,
             storage_key=None,
             attempts=0,
@@ -248,7 +295,10 @@ def create_trial(
     )
     if honeypot:  # campo escondido preenchido: robô. Imita um teste de verdade que falhou; nada é processado.
         _count_attempt(ipk, netk, s.trial_limit_ip_hour)
-        return _decoy(db, len(data))
+        fmt = _check_file(
+            data
+        )  # arquivo inválido recebe a mesma recusa de sempre (a armadilha não se denuncia)
+        return _decoy(db, len(data), fmt, filename)
     secret = s.turnstile_secret
     verified = False
     if secret:
@@ -261,9 +311,10 @@ def create_trial(
         verified = True
     # Com o desafio aprovado, o limite por IP por hora é maior: no Brasil muita gente sai pelo mesmo IP da operadora
     # (CGNAT do celular). O limite por /24 e o orçamento diário da IA continuam iguais.
+    # sem vaga (TRIAL_BUSY) não desconta do limite por hora: o visitante não tem culpa (QA-6); só do teto bruto
+    _wait_for_slot(db)
     _count_attempt(ipk, netk, s.trial_limit_ip_hour_verified if verified else s.trial_limit_ip_hour)
     fmt = _check_file(data)
-    _wait_for_slot(db)
 
     token = new_token(32)
     storage_key = f"trials/{uuid.uuid4().hex}.{fmt}"
@@ -328,7 +379,11 @@ def get_status(db: Session, token: str, ip: str | None) -> dict[str, Any]:
         "error": None,
         "result": None,
     }
-    if trial.status == "processing" and trial.started_at and trial.started_at <= utcnow() - STALE_AFTER:
+    now = utcnow()
+    dead = (
+        trial.status == "processing" and (trial.heartbeat_at or trial.created_at) < now - HEARTBEAT_STALE
+    ) or (trial.status == "queued" and trial.created_at < now - QUEUED_DEAD)
+    if dead:
         out["status"] = "failed"  # o worker morreu no meio: a limpeza marca de vez
         out["error"] = {"code": "TRIAL_FAILED", "message": FAILED_MESSAGE}
     elif trial.status == "failed" and trial.finished_at and trial.finished_at > utcnow():
@@ -362,16 +417,20 @@ def run_trial_job(trial_id: str) -> None:
         claimed = db.execute(
             update(Trial)
             .where(Trial.id == tid, Trial.status == "queued")
-            .values(status="processing", started_at=utcnow(), attempts=Trial.attempts + 1)
+            .values(
+                status="processing", started_at=utcnow(), heartbeat_at=utcnow(), attempts=Trial.attempts + 1
+            )
         ).rowcount
         db.commit()
         if not claimed:
             return
+        stop = threading.Event()
+        threading.Thread(target=_heartbeat, args=(tid, stop), daemon=True, name="teste-heartbeat").start()
         trial = db.get(Trial, tid)
         assert trial is not None
         started = time.monotonic()
         try:
-            _process(db, trial)
+            _process_with_heartbeat(db, trial, stop)
         except DocxRejected as exc:
             db.rollback()
             _fail(db, db.get(Trial, tid) or trial, exc.code, exc.message)
@@ -393,6 +452,27 @@ def run_trial_job(trial_id: str) -> None:
                     "duration_ms": int((time.monotonic() - started) * 1000),
                 },
             )
+
+
+def _heartbeat(tid: uuid.UUID, stop: threading.Event) -> None:
+    while not stop.wait(HEARTBEAT_EVERY):
+        try:
+            with get_factory()() as db:
+                db.execute(
+                    update(Trial)
+                    .where(Trial.id == tid, Trial.status == "processing")
+                    .values(heartbeat_at=utcnow())
+                )
+                db.commit()
+        except Exception:
+            log.warning("teste_heartbeat_falhou")
+
+
+def _process_with_heartbeat(db: Session, trial: Trial, stop: threading.Event) -> None:
+    try:
+        _process(db, trial)
+    finally:
+        stop.set()
 
 
 def _docx_pages(data: bytes) -> int | None:
@@ -722,13 +802,8 @@ def purge_expired_trials() -> dict[str, int]:
     storage = get_storage()
     removed = failed = 0
     now = utcnow()
+    fail_orphaned_trials()
     with get_factory()() as db:
-        db.execute(
-            update(Trial)
-            .where(Trial.status.in_(("queued", "processing")), Trial.created_at <= now - STALE_AFTER)
-            .values(status="failed", error_code="TRIAL_FAILED", error_message=FAILED_MESSAGE, finished_at=now)
-        )
-        db.commit()
         rows = db.scalars(select(Trial).where(Trial.expires_at <= now).limit(1000)).all()
         done_ids = []
         for t in rows:

@@ -71,7 +71,9 @@ async def lifespan(_: FastAPI):  # type: ignore[no-untyped-def]
     if settings.job_backend == "thread":
         # Sem worker separado, os jobs rodam em threads deste processo: após reiniciar a API, retoma os abandonados.
         from app.modules.generation.runner import start_watchdog
+        from app.modules.trials.service import fail_orphaned_trials
 
+        fail_orphaned_trials(startup_thread_mode=True)  # testes grátis que morreram com o processo anterior (QA-6)
         stop_watchdog = start_watchdog()
     yield
     if stop_watchdog is not None:

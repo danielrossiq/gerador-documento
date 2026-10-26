@@ -51,6 +51,13 @@ ATTRS_DISPLAY = ("style", "heading", "align", "list", "level")
 # ------------------------------------------------------------------ upload
 
 
+def _docx_caps() -> dict[str, int]:
+    """Teto de conteúdo descompactado e de partes do .docx da conta (achado QA-5): 240 partes de 1 MB de zeros,
+    cada uma abaixo da checagem de taxa de compressão, somavam ~240 MB e custavam ~8x por documento gerado."""
+    s = get_settings()
+    return {"max_total_bytes": s.docx_max_uncompressed_mb * 1024 * 1024, "max_entries": s.docx_max_parts}
+
+
 def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: bytes) -> TemplateVersion:
     """Recebe o documento-base: .docx direto, ou PDF digitado convertido em .docx (ver docx_engine.pdf_import).
 
@@ -77,9 +84,11 @@ def upload_template(ctx: Ctx, generator_id: uuid.UUID, filename: str, data: byte
             data = conversion.docx
             # o .docx convertido vem de um leitor de PDF exposto a arquivo de fora: passa pelas mesmas checagens de
             # qualquer .docx enviado (imagens podem deixá-lo maior que o PDF; daí a folga no tamanho)
-            validate_docx(data, filename="convertido.docx", max_bytes=max(4 * max_bytes, 64 * 1024 * 1024))
+            validate_docx(
+                data, filename="convertido.docx", max_bytes=max(4 * max_bytes, 64 * 1024 * 1024), **_docx_caps()
+            )
         else:
-            validate_docx(data, filename=filename or "", max_bytes=max_bytes)
+            validate_docx(data, filename=filename or "", max_bytes=max_bytes, **_docx_caps())
     except DocxRejected as exc:
         audit.record(
             db,

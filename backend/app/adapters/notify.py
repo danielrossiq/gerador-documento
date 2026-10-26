@@ -14,6 +14,7 @@ log = get_logger(__name__)
 
 class Notifier(Protocol):
     def send_password_reset(self, to_email: str, link: str) -> None: ...
+    def send_client_answer(self, to_email: str, document: str, link: str) -> None: ...
 
 
 class ConsoleNotifier:
@@ -25,6 +26,10 @@ class ConsoleNotifier:
         else:
             # somente em dev/teste: o link é um segredo de curta duração
             log.warning("DEV email de recuperação (não enviado): %s", link)
+
+    def send_client_answer(self, to_email: str, document: str, link: str) -> None:
+        # sem SMTP o aviso fica só no app (contador de respostas); nada de e-mail/nome do documento no log
+        log.info("email_nao_enviado_sem_smtp", extra={"template": "client_answer"})
 
 
 class SmtpNotifier:
@@ -39,6 +44,24 @@ class SmtpNotifier:
         msg.set_content(
             f"Você pediu para redefinir sua senha.\n\nAbra o link (válido por 1 hora):\n{link}\n\nSe não foi você, ignore este e-mail."
         )
+        with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
+            smtp.starttls()
+            if self.user and self.password:
+                smtp.login(self.user, self.password)
+            smtp.send_message(msg)
+
+    def send_client_answer(self, to_email: str, document: str, link: str) -> None:
+        msg = EmailMessage()
+        msg["Subject"] = f"Seu cliente respondeu: {document[:80]}"
+        msg["From"] = self.sender
+        msg["To"] = to_email
+        msg.set_content(
+            f"Os dados para o documento “{document}” chegaram pelo link que você enviou.\n\n"
+            f"Abra para conferir e gerar:\n{link}\n\nOs dados ficam no DocFeito, não neste e-mail."
+        )
+        self._send(msg)
+
+    def _send(self, msg: EmailMessage) -> None:
         with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
             smtp.starttls()
             if self.user and self.password:

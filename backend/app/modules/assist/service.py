@@ -153,12 +153,14 @@ def _grounded(source: str, value: str, evidence: str) -> bool:
 
 
 def _call(ctx: Ctx, purpose: str, **kw: Any):  # type: ignore[no-untyped-def]
+    return _guarded(ctx.db, ctx.workspace_id, ctx.limit("max_ai_actions_per_month"), purpose, **kw)
+
+
+def _guarded(db: Any, workspace_id: uuid.UUID, quota: int, purpose: str, **kw: Any):  # type: ignore[no-untyped-def]
     # a reserva de custo usa uma transação própria (vale mesmo se esta requisição cair): libera a da requisição antes
-    ctx.db.commit()
+    db.commit()
     try:
-        return ai.guarded_chat(
-            purpose=purpose, workspace_id=ctx.workspace_id, quota=ctx.limit("max_ai_actions_per_month"), **kw
-        )
+        return ai.guarded_chat(purpose=purpose, workspace_id=workspace_id, quota=quota, **kw)
     except ai.AIDisabled as exc:
         raise Conflict("A IA não está ativada neste ambiente.", code="AI_DISABLED") from exc
     except ai_budget.BudgetExceeded as exc:
@@ -252,7 +254,12 @@ def fill_kit(ctx: Ctx, kit_id: uuid.UUID, text: str) -> dict[str, Any]:
 MAX_FILES = 4
 MAX_FILE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_SIDE = 2000  # suficiente para ler RG/CNH/conta de luz; menos tokens (e custo) que a foto original
+# JPEG é decodificado já reduzido (draft), então aceita foto grande de celular com pouca memória; PNG/WEBP não têm
+# esse atalho: um PNG de 49 Mpx consumia ~508 MB de RAM (medição da segurança), por isso o teto menor.
 MAX_IMAGE_PIXELS = 50_000_000
+MAX_LOSSLESS_PIXELS = 16_000_000
+MAX_PDF_PAGES = 10  # leitura de documentos (RG, CNH, comprovante): mais que isso não é o caso de uso
+PDF_TOKENS_PER_PAGE = 1500  # reserva de custo folgada por página (imagem da página + texto)
 
 FILES_SYSTEM = """Você lê fotos e PDFs de documentos brasileiros que o cliente enviou — RG, CNH, CPF, certidões,
 comprovante de residência (conta de luz, água, telefone, internet), cartão CNPJ, contrato social — e preenche um
@@ -284,26 +291,29 @@ def _attachment(data: bytes, index: int) -> tuple[dict[str, Any], int, str]:
     """Arquivo enviado → (parte da mensagem para a IA, tokens estimados com folga, tipo).
 
     Foto: aberta, girada conforme a câmera, reduzida e REGRAVADA em JPEG — sai sem metadados (GPS, aparelho).
-    PDF: vai como está para a IA ler (não é aberto aqui: o leitor de PDF só roda isolado, ver D35)."""
+    JPEG é decodificado já reduzido (`draft`); PNG/WEBP até 16 Mpx. Um arquivo por vez: a memória da imagem decodificada
+    é liberada antes do próximo.
+    PDF: vai como está para a IA ler. Não é aberto aqui: as páginas são contadas no conversor isolado (D35) e mais de
+    10 páginas é recusado — a reserva de custo usa a contagem real, não uma estimativa pelo tamanho."""
     import base64
 
-    if (
-        data[:3] == b"\xff\xd8\xff"
-        or data[:8] == b"\x89PNG\r\n\x1a\n"
-        or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")
-    ):
+    is_jpeg = data[:3] == b"\xff\xd8\xff"
+    if is_jpeg or data[:8] == b"\x89PNG\r\n\x1a\n" or (data[:4] == b"RIFF" and data[8:12] == b"WEBP"):
         from PIL import Image, ImageOps, UnidentifiedImageError
 
+        too_big = ValidationFailed("Imagem grande demais. Envie uma foto comum do documento.", code="AI_FILE_INVALID")
         try:
             with Image.open(io.BytesIO(data)) as im:
-                if im.width * im.height > MAX_IMAGE_PIXELS:
-                    raise ValidationFailed(
-                        "Imagem grande demais. Envie uma foto comum do documento.", code="AI_FILE_INVALID"
-                    )
+                if im.width * im.height > (MAX_IMAGE_PIXELS if is_jpeg else MAX_LOSSLESS_PIXELS):
+                    raise too_big
+                if is_jpeg:  # decodifica direto em escala menor (1/2, 1/4, 1/8): bem menos memória
+                    im.draft("RGB", (MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
                 img = ImageOps.exif_transpose(im).convert("RGB")
                 img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
                 buf = io.BytesIO()
                 img.save(buf, "JPEG", quality=85)
+                img.close()
+                del img
         except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
             raise ValidationFailed(
                 f"Não foi possível abrir a imagem {index + 1}.", code="AI_FILE_INVALID"
@@ -311,8 +321,8 @@ def _attachment(data: bytes, index: int) -> tuple[dict[str, Any], int, str]:
         b64 = base64.b64encode(buf.getvalue()).decode()
         return {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}, 2000, "foto"
     if b"%PDF-" in data[:1024]:
+        pages = _pdf_pages(data, index)
         b64 = base64.b64encode(data).decode()
-        pages = min(60, len(data) // 30_000 + 2)  # estimativa folgada (não abrimos o PDF aqui)
         part = {
             "type": "file",
             "file": {
@@ -320,17 +330,64 @@ def _attachment(data: bytes, index: int) -> tuple[dict[str, Any], int, str]:
                 "file_data": f"data:application/pdf;base64,{b64}",
             },
         }
-        return part, pages * 800, "pdf"
+        return part, pages * PDF_TOKENS_PER_PAGE, "pdf"
     raise ValidationFailed("Envie fotos (JPG, PNG ou WEBP) ou PDF do documento.", code="AI_FILE_TYPE")
+
+
+def _pdf_pages(data: bytes, index: int) -> int:
+    """Páginas do PDF contadas fora da API: no serviço pdfconv (produção) ou num processo filho (desenvolvimento)."""
+    from app.core.config import get_settings
+    from app.docx_engine.pdf_import import pdf_info_isolated, pdf_info_remote
+    from app.docx_engine.safety import DocxRejected
+
+    s = get_settings()
+    mode = s.pdf_import_mode
+    if mode == "off":
+        raise ValidationFailed(
+            "Por enquanto a leitura aceita só fotos (JPG, PNG ou WEBP) do documento.", code="AI_PDF_DISABLED"
+        )
+    try:
+        info = pdf_info_remote(data, url=s.pdf_converter_url or "") if mode == "service" else pdf_info_isolated(data)
+    except DocxRejected as exc:
+        code = exc.code if exc.code in ("ENCRYPTED", "PDF_CONVERTER_UNAVAILABLE") else "AI_FILE_INVALID"
+        raise ValidationFailed(f"Não foi possível ler o PDF {index + 1}. {exc.message}", code=code) from exc
+    pages = int(info["pages"])
+    if pages < 1:
+        raise ValidationFailed(f"O PDF {index + 1} não tem páginas.", code="AI_FILE_INVALID")
+    if pages > MAX_PDF_PAGES:
+        raise ValidationFailed(
+            f"O PDF {index + 1} tem {pages} páginas. Envie só as páginas do documento (até {MAX_PDF_PAGES}) ou uma foto.",
+            code="AI_PDF_TOO_MANY_PAGES",
+        )
+    return pages
 
 
 def fill_values_from_files(
     ctx: Ctx, defs: list[FieldDef], files: list[bytes], *, entity: tuple[str, uuid.UUID]
 ) -> dict[str, Any]:
+    result, meta = read_files(
+        ctx.db, defs, files, workspace_id=ctx.workspace_id, quota=ctx.limit("max_ai_actions_per_month")
+    )
+    audit.record(ctx.db, "assist.fill_files", ctx=ctx, entity_type=entity[0], entity_id=entity[1], meta=meta)
+    ctx.db.commit()
+    return result
+
+
+def read_files(
+    db: Any,
+    defs: list[FieldDef],
+    files: list[bytes],
+    *,
+    workspace_id: uuid.UUID,
+    quota: int,
+    max_files: int = MAX_FILES,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Núcleo da leitura de fotos/PDF (D37), também usado pelo link do cliente (D39): valida os arquivos, chama a IA
+    na cota do espaço e devolve (resultado, metadados para a auditoria — só contagens e tipos)."""
     if not files:
         raise ValidationFailed("Envie a foto ou o PDF do documento.", code="AI_FILE_EMPTY")
-    if len(files) > MAX_FILES:
-        raise ValidationFailed(f"Envie no máximo {MAX_FILES} arquivos por vez.", code="AI_TOO_MANY_FILES")
+    if len(files) > max_files:
+        raise ValidationFailed(f"Envie no máximo {max_files} arquivos por vez.", code="AI_TOO_MANY_FILES")
     for i, data in enumerate(files):
         if not data:
             raise ValidationFailed(f"O arquivo {i + 1} está vazio.", code="AI_FILE_EMPTY")
@@ -347,8 +404,10 @@ def fill_values_from_files(
         + "\n".join(_describe(d) for d in defs)
         + f"\n\nDOCUMENTOS ANEXADOS: {len(prepared)} ({', '.join(k for _, _, k in prepared)})."
     )
-    res = _call(
-        ctx,
+    res = _guarded(
+        db,
+        workspace_id,
+        quota,
         "fill",
         system=FILES_SYSTEM,
         user=user,
@@ -378,22 +437,14 @@ def fill_values_from_files(
         values[name] = raw
         evidence[name] = ev[:160]
     documents = [str(d)[:60] for d in (res.data.get("documents") or [])][: MAX_FILES * 2]
-    audit.record(
-        ctx.db,
-        "assist.fill_files",
-        ctx=ctx,
-        entity_type=entity[0],
-        entity_id=entity[1],
-        meta={
-            "files": len(files),
-            "kinds": [k for _, _, k in prepared],
-            "found": len(values),
-            "invalid": len(invalid),
-            "dropped": dropped,
-        },
-    )
-    ctx.db.commit()
-    return {
+    meta = {
+        "files": len(files),
+        "kinds": [k for _, _, k in prepared],
+        "found": len(values),
+        "invalid": len(invalid),
+        "dropped": dropped,
+    }
+    result = {
         "values": values,
         "invalid": invalid,
         "evidence": evidence,
@@ -401,6 +452,7 @@ def fill_values_from_files(
         "documents": documents,
         "truncated": False,
     }
+    return result, meta
 
 
 def fill_generator_files(ctx: Ctx, generator_id: uuid.UUID, files: list[bytes]) -> dict[str, Any]:

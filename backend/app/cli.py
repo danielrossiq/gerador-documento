@@ -26,11 +26,14 @@ def cmd_cleanup(_: argparse.Namespace) -> int:
     from app.db.session import get_factory
     from app.modules.generation.runner import cleanup_expired_report
     from app.modules.metrics.activation import purge_expired
+    from app.modules.requests.service import purge_requests
     from app.modules.trials.service import purge_expired_trials
 
     r = cleanup_expired_report()
     trials = purge_expired_trials()  # testes grátis da landing vencidos (D38)
     print(f"testes grátis vencidos removidos: {trials['removidos']} · falhas: {trials['falhas']}")
+    answers = purge_requests()  # respostas do link do cliente além da retenção (D39)
+    print(f"respostas de clientes apagadas: {answers['respostas']} · pedidos limpos: {answers['pedidos']}")
     with get_factory()() as db:  # agregados de ativação com mais de 30 dias (D32)
         expired_metrics = purge_expired(db)
         db.commit()

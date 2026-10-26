@@ -27,13 +27,14 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from app.core.logging import configure_logging, get_logger
-from app.docx_engine.pdf_import import PDF_MAX_PAGES, convert_pdf
+from app.docx_engine.pdf_import import PDF_MAX_PAGES, convert_pdf, looks_like_pdf, pdf_info_isolated
 from app.docx_engine.safety import DocxRejected
 
 log = get_logger("app.pdfconv")
 
 MAX_BYTES = int(os.environ.get("PDFCONV_MAX_MB", "16")) * 1024 * 1024
 MAX_PAGES = int(os.environ.get("PDFCONV_MAX_PAGES", str(PDF_MAX_PAGES)))
+DRAIN_MAX = 64 * 1024 * 1024  # só a API fala com o serviço; ela nunca manda mais que isso
 _INFLIGHT = threading.BoundedSemaphore(int(os.environ.get("PDFCONV_MAX_INFLIGHT", "4")))
 
 
@@ -53,6 +54,17 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _drain(self, length: int) -> None:
+        """Descarta o corpo de uma recusa (até DRAIN_MAX) para a resposta chegar inteira; acima disso, só fecha."""
+        if length > DRAIN_MAX:
+            return
+        left = length
+        while left > 0:
+            chunk = self.rfile.read(min(65536, left))
+            if not chunk:
+                break
+            left -= len(chunk)
+
     def do_GET(self) -> None:
         if self.path == "/health":
             body = b"ok"
@@ -65,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"code": "NOT_FOUND", "message": "Rota inexistente."})
 
     def do_POST(self) -> None:
-        if self.path != "/convert":
+        if self.path not in ("/convert", "/info"):
             self._json(404, {"code": "NOT_FOUND", "message": "Rota inexistente."})
             return
         try:
@@ -76,7 +88,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(411, {"code": "LENGTH_REQUIRED", "message": "Tamanho do arquivo não informado."})
             return
         if length > MAX_BYTES:
-            self.close_connection = True  # não lê o corpo
+            self.close_connection = True
+            self._drain(length)  # sem ler, o cliente às vezes via a conexão cair antes do 413 (teste intermitente)
             self._json(
                 413,
                 {
@@ -91,6 +104,7 @@ class Handler(BaseHTTPRequestHandler):
             max_pages = MAX_PAGES
         if not _INFLIGHT.acquire(blocking=False):
             self.close_connection = True
+            self._drain(length)
             self._json(
                 503,
                 {
@@ -98,6 +112,9 @@ class Handler(BaseHTTPRequestHandler):
                     "message": "Muitas conversões ao mesmo tempo. Tente de novo em instantes.",
                 },
             )
+            return
+        if self.path == "/info":
+            self._info(length)
             return
         try:
             data = self.rfile.read(length)
@@ -122,6 +139,26 @@ class Handler(BaseHTTPRequestHandler):
             200,
             {"docx": base64.b64encode(conv.docx).decode(), "stats": conv.stats, "warnings": conv.warnings},
         )
+
+    def _info(self, length: int) -> None:
+        """`POST /info`: só conta as páginas (processo filho com tempo e memória limitados). Serve para a API estimar o
+        custo da leitura de um PDF pela IA sem abrir o PDF dela mesma (D37/D39)."""
+        try:
+            data = self.rfile.read(length)
+            if not looks_like_pdf(data):
+                raise DocxRejected("NOT_A_PDF", "O arquivo não é um PDF válido.")
+            info = pdf_info_isolated(data)
+        except DocxRejected as exc:
+            log.info("pdfconv_info_recusado", extra={"code": exc.code})
+            self._json(422, {"code": exc.code, "message": exc.message})
+            return
+        except Exception as exc:
+            log.error("pdfconv_info_falhou", extra={"error_type": type(exc).__name__})
+            self._json(500, {"code": "PDF_INFO_FAILED", "message": "Não foi possível ler este PDF."})
+            return
+        finally:
+            _INFLIGHT.release()
+        self._json(200, {"pages": info["pages"]})
 
 
 def make_server(host: str = "0.0.0.0", port: int = 8090) -> ThreadingHTTPServer:  # noqa: S104 - só na rede interna

@@ -535,3 +535,57 @@ def test_turnstile_approved_gets_a_higher_hourly_limit(app, monkeypatch, demo_do
             for _ in range(7)
         ]
     assert codes == [202] * 6 + [429]
+
+
+def test_honeypot_with_a_bad_file_gets_the_usual_refusal(api):
+    r = send(api, b"isto nao e documento", "x.txt", website="http://spam.example")
+    assert r.status_code == 422 and r.json()["error"]["code"] == "TRIAL_FILE_TYPE"  # igual a quem não é robô
+
+
+def test_busy_without_free_waiting_slots_refuses_at_once(api, monkeypatch, demo_docx):
+    import threading
+    import time
+
+    _env(monkeypatch, TRIAL_MAX_CONCURRENT="1", TRIAL_BUSY_WAIT_SECONDS="5")
+    monkeypatch.setattr("app.modules.trials.service.enqueue", lambda *a, **k: None)
+    monkeypatch.setattr("app.modules.trials.service._WAITING", threading.BoundedSemaphore(1))
+    from app.modules.trials import service
+
+    assert send(api, demo_docx).status_code == 202
+    service._WAITING.acquire()  # a única vaga de espera já está ocupada
+    started = time.monotonic()
+    r = send(api, demo_docx)
+    assert r.status_code == 429 and r.json()["error"]["code"] == "TRIAL_BUSY"
+    assert time.monotonic() - started < 2  # não esperou: não prende thread do pool
+
+
+def test_orphaned_trials_do_not_hold_slots_and_busy_does_not_spend_the_hourly_limit(api, monkeypatch, demo_docx):
+    """QA-6: teste preso em "processing" sem heartbeat (API/worker reiniciado) não ocupa vaga e é encerrado; e
+    TRIAL_BUSY não desconta do limite por hora."""
+    from app.db.base import utcnow
+    from app.db.models import Trial
+    from app.db.session import get_factory
+    from app.modules.trials.service import fail_orphaned_trials
+
+    _env(monkeypatch, TRIAL_MAX_CONCURRENT="1", TRIAL_BUSY_WAIT_SECONDS="0")
+    monkeypatch.setattr("app.modules.trials.service.enqueue", lambda *a, **k: None)
+    first = send(api, demo_docx).json()["token"]  # 1ª tentativa (fica na fila e ocupa a vaga)
+    for _ in range(3):  # vaga ocupada: recusa sem gastar a vez
+        assert send(api, demo_docx).json()["error"]["code"] == "TRIAL_BUSY"
+    with get_factory()() as db:  # o processo que segurava o teste morreu: heartbeat velho
+        t = db.query(Trial).one()
+        t.status, t.heartbeat_at = "processing", utcnow() - timedelta(minutes=1)
+        db.commit()
+    assert fail_orphaned_trials() == 1
+    assert status(api, first).json()["status"] == "failed"
+    assert send(api, demo_docx).status_code == 202  # 2ª tentativa
+    with get_factory()() as db:
+        for t in db.query(Trial).filter(Trial.status == "queued"):
+            t.status = "failed"
+        db.commit()
+    assert send(api, demo_docx).status_code == 202  # 3ª
+    with get_factory()() as db:
+        for t in db.query(Trial).filter(Trial.status == "queued"):
+            t.status = "failed"
+        db.commit()
+    assert send(api, demo_docx).json()["error"]["code"] == "TRIAL_RATE_LIMITED"  # 4ª: aí sim o limite de 3/h

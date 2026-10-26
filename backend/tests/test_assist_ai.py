@@ -273,3 +273,52 @@ def test_fill_files_is_off_without_the_ai_gate(api, no_network):
     gid = api.post("/generators", json={"name": "G"}).json()["id"]
     r = api.post(f"/generators/{gid}/assist/fill-files", files=[("files", ("a.jpg", _photo(40, 30), "image/jpeg"))])
     assert r.status_code == 409 and r.json()["error"]["code"] == "AI_DISABLED"
+
+
+def _blank_pdf(pages: int) -> bytes:
+    import io as _io
+
+    import pypdfium2 as pdfium
+
+    pdf = pdfium.PdfDocument.new()
+    for _ in range(pages):
+        pdf.new_page(200, 200)
+    buf = _io.BytesIO()
+    pdf.save(buf)
+    pdf.close()
+    return buf.getvalue()
+
+
+def test_heavy_images_and_long_pdfs_are_refused_before_the_ai(api, demo_docx, ai_on, fake_chat):
+    """Requisitos da segurança (D39): PNG/WEBP até 16 Mpx (sem o atalho do JPEG, um PNG de 49 Mpx usava ~500 MB);
+    PDF com as páginas contadas fora da API, até 10."""
+    import io as _io
+
+    from PIL import Image
+
+    api.register()
+    gid = build_generator(api, demo_docx)["id"]
+    buf = _io.BytesIO()
+    Image.new("RGB", (4100, 4000), (255, 255, 255)).save(buf, "PNG")  # 16,4 Mpx
+    r = api.post(f"/generators/{gid}/assist/fill-files", files=[("files", ("grande.png", buf.getvalue(), "image/png"))])
+    assert r.status_code == 422 and r.json()["error"]["code"] == "AI_FILE_INVALID"
+    r = api.post(f"/generators/{gid}/assist/fill-files", files=[("files", ("longo.pdf", _blank_pdf(11), "application/pdf"))])
+    assert r.status_code == 422 and r.json()["error"]["code"] == "AI_PDF_TOO_MANY_PAGES"
+    assert fake_chat.calls == []
+    # foto grande de câmera em JPEG continua aceita (decodificada já reduzida) e a reserva usa as páginas reais
+    fake_chat.responses.append({"values": [], "documents": ["RG", "Conta"]})
+    files = [
+        ("files", ("rg.jpg", _photo(6000, 4000), "image/jpeg")),
+        ("files", ("conta.pdf", _blank_pdf(2), "application/pdf")),
+    ]
+    assert api.post(f"/generators/{gid}/assist/fill-files", files=files).status_code == 200
+
+
+def test_pdf_reading_needs_the_isolated_reader(api, demo_docx, ai_on, fake_chat, monkeypatch):
+    monkeypatch.setenv("PDF_IMPORT_ENABLED", "false")
+    reset_settings_cache()
+    api.register()
+    gid = build_generator(api, demo_docx)["id"]
+    r = api.post(f"/generators/{gid}/assist/fill-files", files=[("files", ("a.pdf", _blank_pdf(1), "application/pdf"))])
+    assert r.status_code == 422 and r.json()["error"]["code"] == "AI_PDF_DISABLED"  # nunca abre o PDF na API
+    assert fake_chat.calls == []

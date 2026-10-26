@@ -23,6 +23,7 @@ from app.modules.generation import filenames, identify, imports
 from app.modules.generation import service as gen_service
 from app.modules.generators import service as generators_service
 from app.modules.kits import service as kits_service
+from app.modules.requests import router as requests_router
 from app.modules.samples import service as samples_service
 from app.modules.suggestions import service as suggestions_service
 from app.modules.templates import core
@@ -34,6 +35,8 @@ api.include_router(auth_router)
 api.include_router(billing_router)
 api.include_router(trials_router.public)
 api.include_router(trials_router.private)
+api.include_router(requests_router.public)
+api.include_router(requests_router.private)
 
 IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", max_length=120)]
 

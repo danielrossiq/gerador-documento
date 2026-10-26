@@ -108,10 +108,31 @@ def test_budget_do_teste_nao_derruba_ia_dos_clientes(api) -> None:  # type: igno
 # ---------------------------------------------------------------- B: link do cliente (D39) — páginas públicas
 
 
-@pytest.mark.xfail(
-    strict=False, reason="OBR-8: página pública /r/{token} ainda não existe; XSS a cobrir no front."
-)
-def test_pagina_do_cliente_escapa_conteudo_do_profissional() -> None:
-    raise AssertionError(
-        "pendente: /r/{token} deve escapar nome do espaço, mensagem e rótulos (sem HTML cru)"
-    )
+def test_pagina_do_cliente_escapa_conteudo_do_profissional(api, api2, demo_docx) -> None:  # type: ignore[no-untyped-def]
+    """OBR-8: o que o profissional (ou o visitante) escreve chega como TEXTO na API e é exibido pelo React sem HTML
+    cru; as páginas públicas têm CSP com nonce. (O E2E `client-request.spec.ts` confere a mensagem escapada.)"""
+    from pathlib import Path
+
+    from tests.flows import build_generator
+
+    api.register()
+    gid = build_generator(api, demo_docx)["id"]
+    evil = '<img src=x onerror="alert(1)"><script>alert(2)</script>'
+    url = api.post(f"/generators/{gid}/client-requests", json={"message": evil}).json()["url"]
+    page = api2.get("/public/requests/" + url.rsplit("/r/", 1)[1]).json()
+    assert page["message"] == evil  # JSON puro: quem escapa é o React, nunca innerHTML
+
+    front = Path(__file__).resolve().parents[2] / "frontend" / "src"
+    public_files = [
+        front / "app" / "r" / "[token]" / "page.tsx",
+        front / "components" / "requests" / "client-form.tsx",
+        front / "components" / "site" / "trial-upload.tsx",
+        front / "components" / "form" / "doc-preview.tsx",
+    ]
+    for f in public_files:
+        assert "dangerouslySetInnerHTML" not in f.read_text(encoding="utf-8"), f.name
+    proxy = (front / "proxy.ts").read_text(encoding="utf-8")
+    csp = (front / "lib" / "csp.ts").read_text(encoding="utf-8")
+    assert '"/r/:path*"' in proxy and 'source: "/"' in proxy
+    script_src = next(line for line in csp.splitlines() if "script-src" in line)
+    assert "unsafe-inline" not in script_src and "nonce-" in script_src
