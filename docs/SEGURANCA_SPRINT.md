@@ -268,3 +268,26 @@ Revisado linha a linha e testado no stack local (API 8160 com `--no-proxy-header
 | F2-3 | Baixa (disponibilidade) | Muitos celulares no Brasil saem por CGNAT (um IPv4 para muita gente): 3/h por IP pode barrar visitantes legítimos. `TRIAL_MAX_CONCURRENT=3` é fácil de ocupar para negar o teste aos outros (sem custo). | Com o Turnstile validado, permitir limite maior por IP; fila curta em vez de `TRIAL_BUSY` imediato; Turnstile ligado em produção. |
 | F2-4 | Baixa | A trava da reserva só existe no PostgreSQL; no SQLite (modo sem Docker) reservas simultâneas podem passar do teto diário. | Produção é PostgreSQL: só documentar. |
 | F2-5 | Info | A resposta da armadilha (`website`) não tem `expires_at` e o token dela dá 404: um robô consegue perceber a armadilha. | Opcional: mesma forma da resposta real. |
+
+### 4.1 Verificação das correções (0091fbc)
+
+Conferido no stack local, pelo Next, sem IA real. Os testes `test_security_phase2.py`, `test_trial_security.py`,
+`test_trials.py`, `test_client_ip.py` e `test_apply_fields.py` passam; o único `xfail` restante é o placeholder de `/r/{token}` (D39).
+
+- **F2-1 resolvido**: depois de consultas e de um claim pelo Next, 0 tokens em claro no log da API e os caminhos
+  aparecem como `/public/trials/[token]` e `/trials/[token]/claim`. A máscara cobre também `/public/requests/` e
+  `/signatures/webhook/{provedor}/`.
+- **F2-5 resolvido**: a armadilha devolve as mesmas chaves (`token`, `status`, `expires_at`), passa por `processing` e
+  termina em `failed`/`TRIAL_FAILED`, conta no limite por IP (o 4º envio da hora deu 429) e não ocupa vaga. As linhas
+  ficam sem arquivo, limitadas pelos mesmos tetos (10/dia por IP, 30/dia por /24) e somem com a limpeza. Resta uma
+  diferença menor (informativo): a armadilha decide antes de validar o arquivo e grava `documento.docx`/`docx`. Um robô
+  que mande lixo com o campo preenchido recebe 202 em vez de 400. Opcional: chamar `_check_file` antes e guardar o nome e
+  o formato reais.
+- **F2-3, regras novas**: com o Turnstile aprovado sobe só o limite por hora por IP (6); o diário por IP, o de /24 e o
+  orçamento diário da IA não mudam, então o caminho verificado não fura nenhum dos dois. A espera de até 5 s ocupa uma
+  thread do pool síncrono da API (compartilhado com as demais rotas, ~40 por processo), mas só depois da tentativa contada
+  e do arquivo validado: no máximo 3 (6 verificadas) por IP por hora. Para prender o pool seria preciso manter ~8 esperas
+  por segundo, ou seja, milhares de IPs por hora. Risco baixo. Melhoria opcional: esperar com `asyncio.sleep` na rota ou
+  limitar as esperas simultâneas (ex.: 10) e responder `TRIAL_BUSY` acima disso.
+- **QA-4**: teto de 300 achados e a prévia montada por `apply_fields`, que gera os mesmos nós JSON com `sample` como
+  texto. O front não mudou, então a prévia continua sem HTML.
