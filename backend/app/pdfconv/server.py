@@ -15,6 +15,7 @@ Protocolo (só a API usa):
   POST /convert  (corpo = o PDF)     → 200 {"docx": base64, "stats": {...}, "warnings": [...]}
                  X-Max-Pages: n      → 422 {"code", "message"}  (PDF recusado: digitalizado, com senha…)
                                      → 413 arquivo grande demais · 503 ocupado · 500 falha
+  POST /verify   (corpo = o PDF)     → 200 {"signatures": [...], "trust_roots": n}  (assinaturas PAdES, D40)
 Nada do conteúdo vai para o log: só códigos e tipos de erro.
 """
 
@@ -77,7 +78,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"code": "NOT_FOUND", "message": "Rota inexistente."})
 
     def do_POST(self) -> None:
-        if self.path not in ("/convert", "/info"):
+        if self.path not in ("/convert", "/info", "/verify"):
             self._json(404, {"code": "NOT_FOUND", "message": "Rota inexistente."})
             return
         try:
@@ -115,6 +116,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/info":
             self._info(length)
+            return
+        if self.path == "/verify":
+            self._verify(length)
             return
         try:
             data = self.rfile.read(length)
@@ -159,6 +163,29 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             _INFLIGHT.release()
         self._json(200, {"pages": info["pages"]})
+
+
+    def _verify(self, length: int) -> None:
+        """`POST /verify`: assinaturas PAdES do PDF (quem, quando, íntegra), em processo filho com tempo e memória
+        limitados. A API manda aqui o PDF assinado que voltou do gov.br/ICP-Brasil, sem abri-lo ela mesma (D40)."""
+        from app.pdfconv.signatures import verify_isolated
+
+        try:
+            data = self.rfile.read(length)
+            if not looks_like_pdf(data):
+                raise DocxRejected("NOT_A_PDF", "O arquivo não é um PDF válido.")
+            result = verify_isolated(data)
+        except DocxRejected as exc:
+            log.info("pdfconv_verify_recusado", extra={"code": exc.code})
+            self._json(422, {"code": exc.code, "message": exc.message})
+            return
+        except Exception as exc:
+            log.error("pdfconv_verify_falhou", extra={"error_type": type(exc).__name__})
+            self._json(500, {"code": "SIGNATURE_VERIFY_FAILED", "message": "Não foi possível verificar este PDF."})
+            return
+        finally:
+            _INFLIGHT.release()
+        self._json(200, result)
 
 
 def make_server(host: str = "0.0.0.0", port: int = 8090) -> ThreadingHTTPServer:  # noqa: S104 - só na rede interna

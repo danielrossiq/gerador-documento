@@ -620,3 +620,164 @@ def test_cancelar_avisa_o_provedor(api, demo_docx, fake_pdf, fernet_key, provide
     assert api.post(f"/signatures/{sig['id']}/cancel").json()["status"] == "cancelled"
     assert fake.calls[-1].method == "DELETE"
     assert api.post(f"/signatures/{sig['id']}/cancel").status_code == 409
+
+
+# ---------------------------------------------------------------- gov.br / ICP-Brasil: verificação PAdES no pdfconv
+
+
+def _blank_pdf() -> bytes:
+    import io
+
+    from pypdf import PdfWriter
+
+    w = PdfWriter()
+    w.add_blank_page(200, 200)
+    buf = io.BytesIO()
+    w.write(buf)
+    return buf.getvalue()
+
+
+def _sign(pdf: bytes, cn: str = "MARIA DA SILVA:52998224725") -> bytes:
+    """Assina como o Assinador faria (atualização incremental), com um certificado de teste autoassinado."""
+    import datetime as dt
+    import io
+
+    from asn1crypto import keys as akeys
+    from asn1crypto import x509 as ax509
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+    from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
+    from pyhanko.sign import signers
+    from pyhanko_certvalidator.registry import SimpleCertificateStore
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn), x509.NameAttribute(NameOID.COUNTRY_NAME, "BR")])
+    now = dt.datetime.now(dt.UTC)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(1)
+        .not_valid_before(now - dt.timedelta(days=1))
+        .not_valid_after(now + dt.timedelta(days=30))
+        .sign(key, hashes.SHA256())
+    )
+    acert = ax509.Certificate.load(cert.public_bytes(serialization.Encoding.DER))
+    akey = akeys.PrivateKeyInfo.load(
+        key.private_bytes(serialization.Encoding.DER, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+    )
+    signer = signers.SimpleSigner(
+        signing_cert=acert, signing_key=akey, cert_registry=SimpleCertificateStore.from_certs([acert])
+    )
+    out = io.BytesIO()
+    signers.sign_pdf(
+        IncrementalPdfFileWriter(io.BytesIO(pdf)),
+        signers.PdfSignatureMetadata(field_name="AssinaturaGovBr"),
+        signer=signer,
+        output=out,
+    )
+    return out.getvalue()
+
+
+def _tamper(signed: bytes) -> bytes:
+    t = bytearray(signed)
+    i = t.find(b"/MediaBox")
+    t[i + 12 : i + 13] = b"9"  # muda a página original depois de assinada
+    return bytes(t)
+
+
+@pytest.fixture()
+def pdfconv_url(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
+    import threading
+
+    from app.pdfconv import server
+
+    srv = server.make_server("127.0.0.1", 0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_address[1]}"
+    monkeypatch.setenv("PDF_CONVERTER_URL", url)
+    reset_settings_cache()
+    yield url
+    srv.shutdown()
+    srv.server_close()
+    reset_settings_cache()
+
+
+def test_pdfconv_verifica_pades_isolado(pdfconv_url, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """O PDF vai para o pdfconv, que verifica num processo filho; o processo da API (este) nunca abre o PDF."""
+    import pyhanko.pdf_utils.reader as reader
+
+    from app.docx_engine.safety import DocxRejected
+    from app.modules.signatures.pades import verify_remote
+
+    def never(*a, **k):  # type: ignore[no-untyped-def]
+        raise AssertionError("PDF de fora aberto no processo da API")
+
+    signed = _sign(_blank_pdf())
+    tampered = _tamper(signed)
+    monkeypatch.setattr(reader, "PdfFileReader", never)
+    (sig,) = verify_remote(signed, url=pdfconv_url)["signatures"]
+    assert sig["signer"] == "MARIA DA SILVA" and sig["cpf"] == "***.982.247-**"
+    assert sig["intact"] and sig["valid"] and sig["covers_whole_file"]
+    assert sig["trusted"] is False  # sem as raízes ICP-Brasil configuradas: a conferência oficial é no ITI
+    assert sig["issuer"] == "MARIA DA SILVA"  # autoassinado: o emissor também sai sem o CPF
+    assert verify_remote(tampered, url=pdfconv_url)["signatures"][0]["intact"] is False
+    assert verify_remote(_blank_pdf(), url=pdfconv_url)["signatures"] == []
+    with pytest.raises(DocxRejected) as exc:
+        verify_remote(b"%PDF-1.7 quebrado", url=pdfconv_url)
+    assert exc.value.code == "NOT_A_PDF"
+
+
+def test_verificacao_em_producao_exige_o_servico_isolado(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from app.core.errors import ServiceUnavailable
+    from app.modules.signatures import pades
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("PDF_CONVERTER_URL", raising=False)
+    reset_settings_cache()
+    with pytest.raises(ServiceUnavailable) as exc:
+        pades.verify(_blank_pdf())
+    assert exc.value.code == "SIGNATURE_VERIFY_UNAVAILABLE"
+    reset_settings_cache()
+
+
+def test_govbr_fluxo_assistido(api, demo_docx, fake_pdf, pdfconv_url) -> None:  # type: ignore[no-untyped-def]
+    """Gera → pede assinatura gov.br → o signatário assina no Assinador do ITI → o PDF volta por upload, é verificado
+    no pdfconv e entra no histórico como arquivo assinado."""
+    import uuid
+
+    from app.adapters.storage import get_storage
+    from app.db.models import GeneratedFile
+    from app.db.session import get_factory
+
+    api.register()
+    job, pdf = _pdf_job(api, demo_docx)
+    original = _blank_pdf()
+    with get_factory()() as db:  # o conversor de teste não gera um PDF de verdade: troca pelo original real
+        get_storage().put(db.get(GeneratedFile, uuid.UUID(pdf["id"])).storage_key, original, "application/pdf")
+    r = _send(api, pdf["id"], provider="govbr", signers=[])
+    assert r.status_code == 201, r.text
+    sig = r.json()
+    assert sig["status"] == "awaiting_upload"
+    assert sig["instructions"] == {"signer_url": "https://assinador.iti.br", "verify_url": "https://validar.iti.gov.br"}
+
+    def up(data: bytes):  # type: ignore[no-untyped-def]
+        return api.post(f"/signatures/{sig['id']}/upload", files={"file": ("assinado.pdf", data, "application/pdf")})
+
+    assert up(b"nao e pdf").json()["error"]["code"] == "NOT_A_PDF"
+    assert up(original).json()["error"]["code"] == "SIGNATURE_NOT_FOUND"
+    signed = _sign(original)
+    assert up(_tamper(signed)).json()["error"]["code"] == "SIGNATURE_INVALID"
+    ok = up(signed)
+    assert ok.status_code == 200, ok.text
+    done = ok.json()
+    assert done["status"] == "signed" and done["signed_file"]["kind"] == "signed"
+    v = done["verification"]
+    assert v["matches_original"] is True and v["chain_checked"] is False
+    assert v["signatures"][0]["signer"] == "MARIA DA SILVA" and v["signatures"][0]["cpf"] == "***.982.247-**"
+    assert "52998224725" not in ok.text
+    assert any(f["kind"] == "signed" for f in api.get(f"/jobs/{job['id']}").json()["files"])
+    assert up(signed).status_code == 409  # já concluído

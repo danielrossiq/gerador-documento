@@ -26,6 +26,8 @@ dependencies = [
   "pypdfium2>=4.30",
   # credenciais dos provedores de assinatura cifradas com Fernet (D40)
   "cryptography>=42",
+  # verificação de assinaturas PAdES (gov.br/ICP-Brasil, D40); MIT. Só roda isolado (pdfconv ou processo filho)
+  "pyhanko>=0.25",
 ]
 
 [project.optional-dependencies]
