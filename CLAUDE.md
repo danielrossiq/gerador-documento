@@ -2,7 +2,7 @@
 
 **Antes de tudo, leia `docs/HANDOFF.md`.** Ele traz o estado atual, a sprint em andamento (A teste grátis, B link do
 cliente, C assinatura eletrônica), as pendências e como rodar o projeto. A especificação da sprint está em
-`docs/specs/SPRINT_TESTE_LINK_ASSINATURA.md`, e as decisões de arquitetura em `docs/DECISIONS.md` (D1–D39).
+`docs/specs/SPRINT_TESTE_LINK_ASSINATURA.md`, e as decisões de arquitetura em `docs/DECISIONS.md` (D1–D40).
 
 - Interface, textos, commits e comentários em **pt-BR**, no tom do produto: direto, sem jargão.
 - Backend: FastAPI + SQLAlchemy 2 + Alembic, em `backend/`. Frontend: Next.js 16 + React 19 + TanStack Query +

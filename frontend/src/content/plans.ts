@@ -13,7 +13,14 @@ export type Plan = {
   /** preço por mês no plano anual (cobrado de uma vez: 12 × este valor) */
   annualMonthly: number;
   highlight: boolean;
-  limits: { docs_per_month: number; models: number | null; batch_rows: number; ai_analyses_per_month: number };
+  limits: {
+    docs_per_month: number;
+    models: number | null;
+    batch_rows: number;
+    ai_analyses_per_month: number;
+    /** envios para assinatura eletrônica por mês (D40) */
+    signatures_per_month: number;
+  };
   features: string[];
 };
 

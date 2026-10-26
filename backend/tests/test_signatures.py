@@ -781,3 +781,9 @@ def test_govbr_fluxo_assistido(api, demo_docx, fake_pdf, pdfconv_url) -> None:  
     assert "52998224725" not in ok.text
     assert any(f["kind"] == "signed" for f in api.get(f"/jobs/{job['id']}").json()["files"])
     assert up(signed).status_code == 409  # já concluído
+
+
+def test_planos_tem_cota_de_assinaturas() -> None:
+    from app.modules.billing.plans import plan_limits
+
+    assert [plan_limits(p)["max_signatures_per_month"] for p in ("gratis", "profissional", "escritorio")] == [3, 50, 300]

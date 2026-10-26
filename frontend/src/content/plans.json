@@ -8,7 +8,7 @@
       "monthly": 0,
       "annualMonthly": 0,
       "highlight": false,
-      "limits": { "docs_per_month": 20, "models": 3, "batch_rows": 10, "ai_analyses_per_month": 5 },
+      "limits": { "docs_per_month": 20, "models": 3, "batch_rows": 10, "ai_analyses_per_month": 5, "signatures_per_month": 3 },
       "features": [
         "20 documentos por mês",
         "3 modelos",
@@ -24,7 +24,7 @@
       "monthly": 49.9,
       "annualMonthly": 39.9,
       "highlight": true,
-      "limits": { "docs_per_month": 300, "models": null, "batch_rows": 300, "ai_analyses_per_month": 100 },
+      "limits": { "docs_per_month": 300, "models": null, "batch_rows": 300, "ai_analyses_per_month": 100, "signatures_per_month": 50 },
       "features": [
         "300 documentos por mês",
         "Modelos ilimitados",
@@ -41,7 +41,7 @@
       "monthly": 99.9,
       "annualMonthly": 79.9,
       "highlight": false,
-      "limits": { "docs_per_month": 1500, "models": null, "batch_rows": 1000, "ai_analyses_per_month": 500 },
+      "limits": { "docs_per_month": 1500, "models": null, "batch_rows": 1000, "ai_analyses_per_month": 500, "signatures_per_month": 300 },
       "features": [
         "1.500 documentos por mês",
         "Tudo do Profissional",

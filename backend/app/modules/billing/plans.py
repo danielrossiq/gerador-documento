@@ -16,6 +16,7 @@ LIMIT_KEYS = {
     "models": "max_generators",
     "batch_rows": "max_batch_rows",
     "ai_analyses_per_month": "max_ai_actions_per_month",
+    "signatures_per_month": "max_signatures_per_month",
 }
 UNLIMITED_MODELS = 10_000  # "modelos ilimitados" ainda tem um teto técnico de proteção
 
